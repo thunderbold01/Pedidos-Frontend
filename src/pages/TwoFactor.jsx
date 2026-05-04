@@ -69,11 +69,20 @@ const TwoFactor = ({ onLogin }) => {
   const handleResend = async () => {
     try {
       const email = sessionStorage.getItem('login_email');
-      await api.post('/auth/resend-2fa/', { email });
+      await api.post('/auth/login/', { 
+        email,
+        password: '' // Não precisa da senha, só para reenviar
+      });
       setTimer(600);
-      alert('Novo código enviado!');
+      alert('Novo código enviado! Verifique o terminal do Django');
     } catch (err) {
-      alert('Erro ao reenviar código');
+      // Tentar novamente com refresh
+      try {
+        const email = sessionStorage.getItem('login_email');
+        await api.post('/auth/verify-2fa/', { email, code: '000000' });
+      } catch {
+        alert('Código ainda válido ou erro ao reenviar');
+      }
     }
   };
 
