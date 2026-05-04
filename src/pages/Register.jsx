@@ -1,5 +1,5 @@
 // src/pages/Register.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 
@@ -74,6 +74,21 @@ const ArrowLeftIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="19" y1="12" x2="5" y2="12" />
     <polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+
+const AlertCircleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const CheckCircleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
   </svg>
 );
 
@@ -173,7 +188,7 @@ const Register = () => {
         }
         
         @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
+          from { opacity: 0; transform: translateY(30px); }
           to { opacity: 1; transform: translateY(0); }
         }
         
@@ -192,7 +207,23 @@ const Register = () => {
           50% { border-color: rgba(6, 182, 212, 0.5); }
         }
         
-        .register-container {
+        @keyframes shimmer {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        
+        .register-wrapper {
           min-height: 100vh;
           background: linear-gradient(135deg, #fef2f2 0%, #f0f9ff 25%, #faf5ff 50%, #f0f9ff 75%, #fef2f2 100%);
           background-size: 400% 400%;
@@ -205,7 +236,7 @@ const Register = () => {
           overflow: hidden;
         }
         
-        .register-container::before {
+        .register-wrapper::before {
           content: '';
           position: absolute;
           top: -50%;
@@ -216,12 +247,26 @@ const Register = () => {
             radial-gradient(circle at 80% 20%, rgba(239, 68, 68, 0.08) 0%, transparent 50%),
             radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
           animation: float 15s ease-in-out infinite;
+          z-index: 0;
+        }
+
+        .register-wrapper::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: 
+            linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+          background-size: 60px 60px;
+          z-index: 0;
         }
         
         .register-card {
           position: relative;
+          z-index: 1;
           background: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
           border-radius: 24px;
           box-shadow: 
             0 4px 6px -1px rgba(0, 0, 0, 0.1),
@@ -235,31 +280,59 @@ const Register = () => {
           width: 100%;
           max-width: 460px;
           overflow: hidden;
+          transition: transform 0.3s ease;
+        }
+
+        .register-card:hover {
+          transform: translateY(-2px);
         }
         
         .register-card-inner {
-          padding: 32px 28px;
+          padding: 36px 32px;
         }
         
         .register-header {
           text-align: center;
-          margin-bottom: 32px;
+          margin-bottom: 28px;
         }
         
         .register-logo {
-          width: 70px;
-          height: 70px;
-          margin: 0 auto 16px;
-          background: linear-gradient(135deg, #1a1a2e, #0f3460);
+          width: 80px;
+          height: 80px;
+          margin: 0 auto 20px;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
           box-shadow: 
             0 10px 30px -10px rgba(15, 52, 96, 0.4),
-            inset 0 2px 4px rgba(255, 255, 255, 0.1);
-          animation: float 6s ease-in-out infinite;
+            inset 0 2px 4px rgba(255, 255, 255, 0.1),
+            0 0 0 4px rgba(255, 255, 255, 0.8),
+            0 0 0 8px rgba(239, 68, 68, 0.1);
+          animation: float 6s ease-in-out infinite, pulse 3s ease-in-out infinite;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .register-logo::before {
+          content: '';
+          position: absolute;
+          top: -10px;
+          left: -10px;
+          right: -10px;
+          bottom: -10px;
+          background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+          transform: rotate(45deg);
+          animation: shimmer 3s infinite;
+        }
+        
+        .register-logo-img {
+          width: 48px;
+          height: 48px;
+          object-fit: contain;
+          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+          z-index: 1;
         }
         
         .register-title {
@@ -269,37 +342,39 @@ const Register = () => {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-          margin-bottom: 8px;
+          margin: 0 0 8px 0;
           letter-spacing: -0.5px;
         }
         
         .register-subtitle {
-          color: #64748b;
+          color: #94a3b8;
           font-size: 14px;
           font-weight: 500;
+          margin: 0;
         }
         
         .steps-indicator {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          margin-bottom: 28px;
+          gap: 0;
+          margin-bottom: 32px;
         }
         
         .step-dot {
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 700;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           background: #f1f5f9;
           color: #94a3b8;
           border: 2px solid #e2e8f0;
+          position: relative;
         }
         
         .step-dot.active {
@@ -308,35 +383,47 @@ const Register = () => {
           border-color: #dc2626;
           box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
           animation: pulse 2s infinite;
+          transform: scale(1.1);
         }
         
         .step-dot.completed {
-          background: #06b6d4;
+          background: linear-gradient(135deg, #06b6d4, #3b82f6);
           color: white;
           border-color: #06b6d4;
+          box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+
+        .step-dot.completed::after {
+          content: '✓';
+          font-size: 16px;
+        }
+
+        .step-dot.completed span {
+          display: none;
         }
         
-        .step-line {
-          width: 30px;
+        .step-connector {
+          width: 40px;
           height: 2px;
           background: #e2e8f0;
-          border-radius: 1px;
-          transition: background 0.3s;
+          transition: all 0.4s ease;
+          margin: 0 4px;
         }
         
-        .step-line.active {
+        .step-connector.active {
           background: linear-gradient(90deg, #dc2626, #06b6d4);
+          box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
         }
         
         .alert {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 12px 16px;
+          padding: 13px 16px;
           border-radius: 12px;
           margin-bottom: 20px;
           font-size: 13px;
-          animation: slideIn 0.3s ease-out;
+          animation: slideIn 0.3s ease-out, fadeIn 0.3s ease-out;
         }
         
         .alert-error {
@@ -346,7 +433,7 @@ const Register = () => {
         }
         
         .alert-success {
-          background: linear-gradient(135deg, #f0fdf4, #f7fee7);
+          background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
           border: 1px solid #bbf7d0;
           color: #166534;
         }
@@ -361,9 +448,14 @@ const Register = () => {
           border: none;
           cursor: pointer;
           color: inherit;
-          opacity: 0.7;
+          opacity: 0.6;
           font-size: 16px;
           padding: 0 4px;
+          transition: opacity 0.2s;
+        }
+
+        .alert-close:hover {
+          opacity: 1;
         }
         
         .form-group {
@@ -385,17 +477,18 @@ const Register = () => {
         
         .form-input-icon {
           position: absolute;
-          left: 14px;
+          left: 16px;
           top: 50%;
           transform: translateY(-50%);
           color: #94a3b8;
-          transition: color 0.3s;
+          transition: color 0.3s ease;
           pointer-events: none;
+          z-index: 1;
         }
         
         .form-input {
           width: 100%;
-          padding: 14px 14px 14px 44px;
+          padding: 14px 16px 14px 48px;
           background: #f8fafc;
           border: 2px solid #e2e8f0;
           border-radius: 12px;
@@ -404,6 +497,15 @@ const Register = () => {
           outline: none;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           box-sizing: border-box;
+          font-family: inherit;
+        }
+
+        .form-input-no-icon {
+          padding-left: 16px;
+        }
+
+        .input-with-toggle {
+          padding-right: 48px;
         }
         
         .form-input:focus {
@@ -414,26 +516,37 @@ const Register = () => {
             0 4px 12px rgba(6, 182, 212, 0.15);
           transform: translateY(-1px);
         }
+
+        .form-input-wrapper:focus-within .form-input-icon {
+          color: #06b6d4;
+        }
         
         .form-input:hover {
           border-color: #cbd5e1;
         }
         
+        .form-input::placeholder {
+          color: #cbd5e1;
+        }
+        
         .password-toggle-btn {
           position: absolute;
-          right: 12px;
+          right: 14px;
           top: 50%;
           transform: translateY(-50%);
           background: none;
           border: none;
           color: #94a3b8;
           cursor: pointer;
-          padding: 4px;
-          transition: color 0.3s;
+          padding: 6px;
+          transition: all 0.3s ease;
+          z-index: 1;
+          border-radius: 8px;
         }
         
         .password-toggle-btn:hover {
           color: #06b6d4;
+          background: rgba(6, 182, 212, 0.1);
         }
         
         .form-row {
@@ -457,6 +570,10 @@ const Register = () => {
           letter-spacing: 0.5px;
           position: relative;
           overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
         
         .btn-primary {
@@ -473,8 +590,12 @@ const Register = () => {
           left: -100%;
           width: 100%;
           height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-          transition: left 0.5s;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+          transition: left 0.6s ease;
+        }
+        
+        .btn-primary:hover:not(:disabled)::before {
+          left: 100%;
         }
         
         .btn-primary:hover:not(:disabled) {
@@ -482,10 +603,6 @@ const Register = () => {
           box-shadow: 
             0 10px 25px -5px rgba(239, 68, 68, 0.4),
             0 8px 10px -6px rgba(239, 68, 68, 0.2);
-        }
-        
-        .btn-primary:hover:not(:disabled)::before {
-          left: 100%;
         }
         
         .btn-primary:active:not(:disabled) {
@@ -503,6 +620,10 @@ const Register = () => {
           border-color: #cbd5e1;
           transform: translateY(-2px);
           box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-secondary:active {
+          transform: translateY(0);
         }
         
         .btn-group {
@@ -524,12 +645,6 @@ const Register = () => {
           cursor: not-allowed;
         }
         
-        .btn-icon {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
         .login-link-row {
           text-align: center;
           margin-top: 20px;
@@ -544,21 +659,43 @@ const Register = () => {
           text-decoration: none;
           font-weight: 700;
           margin-left: 4px;
-          transition: color 0.3s;
+          transition: all 0.3s ease;
+          position: relative;
+        }
+
+        .login-link::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          width: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #06b6d4, #ef4444);
+          transition: width 0.3s ease;
         }
         
         .login-link:hover {
           color: #ef4444;
         }
+
+        .login-link:hover::after {
+          width: 100%;
+        }
         
         @media (max-width: 768px) {
+          .register-wrapper {
+            padding: 16px;
+            align-items: flex-start;
+            padding-top: 40px;
+          }
+          
           .register-card {
             max-width: 100%;
             border-radius: 20px;
           }
           
           .register-card-inner {
-            padding: 24px 20px;
+            padding: 28px 20px;
           }
           
           .register-title {
@@ -567,22 +704,42 @@ const Register = () => {
           
           .form-input {
             font-size: 16px;
+            padding: 16px 16px 16px 48px;
+          }
+
+          .form-input-no-icon {
+            padding-left: 16px;
           }
           
           .form-row {
             flex-direction: column;
             gap: 0;
           }
+          
+          .register-logo {
+            width: 70px;
+            height: 70px;
+          }
+          
+          .register-logo-img {
+            width: 42px;
+            height: 42px;
+          }
         }
         
         @media (prefers-color-scheme: dark) {
-          .register-container {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+          .register-wrapper {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #0f172a 50%, #1e293b 75%, #0f172a 100%);
           }
           
           .register-card {
             background: rgba(30, 41, 59, 0.95);
             border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 
+              0 4px 6px -1px rgba(0, 0, 0, 0.3),
+              0 10px 15px -3px rgba(0, 0, 0, 0.2),
+              0 20px 25px -5px rgba(0, 0, 0, 0.3),
+              0 0 50px -12px rgba(239, 68, 68, 0.15);
           }
           
           .register-title {
@@ -607,13 +764,17 @@ const Register = () => {
             background: #0f172a;
           }
           
+          .form-input::placeholder {
+            color: #64748b;
+          }
+          
           .step-dot {
             background: #1e293b;
             border-color: #334155;
             color: #94a3b8;
           }
           
-          .step-line {
+          .step-connector {
             background: #334155;
           }
           
@@ -630,21 +791,46 @@ const Register = () => {
           .login-link-row {
             border-top-color: #334155;
           }
+
+          .alert-error {
+            background: rgba(153, 27, 27, 0.2);
+          }
+
+          .alert-success {
+            background: rgba(22, 101, 52, 0.2);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
         }
       `}</style>
 
-      <div className="register-container">
+      <div className="register-wrapper">
         <div className="register-card">
           <div className="register-card-inner">
-            {/* Header */}
+            {/* Header com Logo */}
             <div className="register-header">
               <div className="register-logo">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <line x1="19" y1="8" x2="19" y2="14" />
-                  <line x1="22" y1="11" x2="16" y2="11" />
-                </svg>
+                <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  className="register-logo-img"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = `
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="z-index:1">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <line x1="19" y1="8" x2="19" y2="14"/>
+                        <line x1="22" y1="11" x2="16" y2="11"/>
+                      </svg>`;
+                  }}
+                />
               </div>
               <h1 className="register-title">Criar Conta</h1>
               <p className="register-subtitle">
@@ -652,38 +838,35 @@ const Register = () => {
               </p>
             </div>
 
-            {/* Steps */}
+            {/* Steps Indicator */}
             <div className="steps-indicator">
-              <div className={`step-dot ${step === 1 ? 'active' : 'completed'}`}>1</div>
-              <div className={`step-line ${step === 2 ? 'active' : ''}`} />
-              <div className={`step-dot ${step === 2 ? 'active' : ''}`}>2</div>
+              <div className={`step-dot ${step === 1 ? 'active' : step === 2 ? 'completed' : ''}`}>
+                <span>1</span>
+              </div>
+              <div className={`step-connector ${step === 2 ? 'active' : ''}`} />
+              <div className={`step-dot ${step === 2 ? 'active' : ''}`}>
+                <span>2</span>
+              </div>
             </div>
 
-            {/* Error */}
+            {/* Alertas */}
             {error && (
               <div className="alert alert-error">
-                <svg className="alert-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+                <span className="alert-icon"><AlertCircleIcon /></span>
                 <span>{error}</span>
                 <button onClick={() => setError('')} className="alert-close">✕</button>
               </div>
             )}
 
-            {/* Success */}
             {success && (
               <div className="alert alert-success">
-                <svg className="alert-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
+                <span className="alert-icon"><CheckCircleIcon /></span>
                 <span>{success}</span>
+                <button onClick={() => setSuccess('')} className="alert-close">✕</button>
               </div>
             )}
 
-            {/* Form */}
+            {/* Formulário */}
             <form onSubmit={handleSubmit}>
               {step === 1 ? (
                 <>
@@ -729,14 +912,14 @@ const Register = () => {
                         value={form.password}
                         onChange={handleChange}
                         required
-                        className="form-input"
+                        className="form-input input-with-toggle"
                         placeholder="Mínimo 8 caracteres"
-                        style={{ paddingRight: '44px' }}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="password-toggle-btn"
+                        aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                       >
                         {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
@@ -753,21 +936,21 @@ const Register = () => {
                         value={form.password2}
                         onChange={handleChange}
                         required
-                        className="form-input"
+                        className="form-input input-with-toggle"
                         placeholder="Repita a senha"
-                        style={{ paddingRight: '44px' }}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword2(!showPassword2)}
                         className="password-toggle-btn"
+                        aria-label={showPassword2 ? 'Ocultar senha' : 'Mostrar senha'}
                       >
                         {showPassword2 ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
                   </div>
 
-                  <button type="button" onClick={nextStep} className="btn btn-primary btn-icon">
+                  <button type="button" onClick={nextStep} className="btn btn-primary">
                     Próximo
                     <ArrowRightIcon />
                   </button>
@@ -783,9 +966,8 @@ const Register = () => {
                         value={form.first_name}
                         onChange={handleChange}
                         required
-                        className="form-input"
+                        className="form-input form-input-no-icon"
                         placeholder="Seu nome"
-                        style={{ paddingLeft: '14px' }}
                       />
                     </div>
                     <div className="form-group">
@@ -796,9 +978,8 @@ const Register = () => {
                         value={form.last_name}
                         onChange={handleChange}
                         required
-                        className="form-input"
+                        className="form-input form-input-no-icon"
                         placeholder="Sobrenome"
-                        style={{ paddingLeft: '14px' }}
                       />
                     </div>
                   </div>
@@ -852,7 +1033,7 @@ const Register = () => {
                   </div>
 
                   <div className="btn-group">
-                    <button type="button" onClick={prevStep} className="btn btn-secondary btn-icon">
+                    <button type="button" onClick={prevStep} className="btn btn-secondary">
                       <ArrowLeftIcon />
                       Voltar
                     </button>
