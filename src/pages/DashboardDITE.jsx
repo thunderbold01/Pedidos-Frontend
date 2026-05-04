@@ -1436,7 +1436,7 @@ const getStatusStyle = (estado) => {
     'PENDENTE_ADMIN': { background: '#dbeafe', color: '#2563eb', border: '1px solid #93c5fd' },
     'APROVADO': { background: '#d1fae5', color: '#059669', border: '1px solid #6ee7b7' },
     'REJEITADO': { background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' },
-    'EM_ANDAMENTO': { background: '#e0f2fe', color: '#0284c7', border: '1px solid '#7dd3fc' },
+    'EM_ANDAMENTO': { background: '#e0f2fe', color: '#0284c7', border: '1px solid #7dd3fc' },
     'FINALIZADO': { background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' },
   };
   return styles[estado] || { background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' };
