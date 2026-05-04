@@ -53,7 +53,6 @@ api.interceptors.response.use(
                     
                     return api(originalRequest);
                 } catch (refreshError) {
-                    // Refresh falhou - limpar e redirecionar
                     localStorage.clear();
                     sessionStorage.clear();
                     if (window.location.pathname !== '/login') {
@@ -69,5 +68,17 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// ==================== FUNÇÕES AUXILIARES ====================
+
+export const isAuthenticated = () => {
+    return !!localStorage.getItem('access_token');
+};
+
+export const clearTokens = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    sessionStorage.clear();
+};
 
 export default api;
