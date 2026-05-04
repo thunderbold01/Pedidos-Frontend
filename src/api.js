@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // URL da API - Prioridade: .env > produção Render > localhost
-const API_URL = import.meta.env.VITE_API_URL || 'https://pedidos-backend-y2wn.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://pedidos-backend-eljk.onrender.com/api';
 
 const api = axios.create({
     baseURL: API_URL,
