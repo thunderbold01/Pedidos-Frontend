@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 
@@ -8,7 +8,17 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,38 +62,60 @@ const Login = ({ onLogin }) => {
         </svg>
       </div>
       
-      <div style={styles.card}>
-        {/* Lado Esquerdo - Marca */}
-        <div style={styles.brandSide}>
-          <div style={styles.brandOverlay} />
-          <div style={styles.brandContent}>
-            {/* Logo - Substitua pelo caminho da sua imagem */}
-            <img 
-              src="/logo.png" 
-              alt="Logo" 
-              style={styles.logoImage}
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-            {/* Fallback caso a imagem não carregue */}
-            <div style={{ ...styles.logoFallback, display: 'none' }}>
-              <span style={styles.logoEmoji}>🎓</span>
+      <div style={isMobile ? styles.cardMobile : styles.cardDesktop}>
+        {/* Lado Esquerdo - Marca (mostra apenas em desktop) */}
+        {!isMobile && (
+          <div style={styles.brandSide}>
+            <div style={styles.brandOverlay} />
+            <div style={styles.brandContent}>
+              <img 
+                src="/logo.png" 
+                alt="Logo" 
+                style={styles.logoImage}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div style={{ ...styles.logoFallback, display: 'none' }}>
+                <span style={styles.logoEmoji}>🎓</span>
+              </div>
+              <h1 style={styles.brandTitle}>Sistema de Pedidos</h1>
+              <div style={styles.brandDivider} />
+              <p style={styles.brandDescription}>
+                Gerencie suas saídas escolares de forma rápida e eficiente
+              </p>
             </div>
-            <h1 style={styles.brandTitle}>Sistema de Pedidos</h1>
-            <div style={styles.brandDivider} />
-            <p style={styles.brandDescription}>
-              Gerencie suas saídas escolares de forma rápida e eficiente
-            </p>
           </div>
-        </div>
+        )}
 
         {/* Lado Direito - Formulário */}
-        <div style={styles.formSide}>
-          <div style={styles.formContent}>
-            <h2 style={styles.greeting}>Bem-vindo</h2>
-            <p style={styles.instruction}>Entre com seus dados</p>
+        <div style={isMobile ? styles.formSideMobile : styles.formSideDesktop}>
+          <div style={isMobile ? styles.formContentMobile : styles.formContentDesktop}>
+            {/* Logo para mobile */}
+            {isMobile && (
+              <div style={styles.mobileLogoContainer}>
+                <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  style={styles.mobileLogo}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.querySelector('.mobile-logo-fallback').style.display = 'flex';
+                  }}
+                />
+                <div className="mobile-logo-fallback" style={{ ...styles.mobileLogoFallback, display: 'none' }}>
+                  <span style={styles.mobileLogoEmoji}>🎓</span>
+                </div>
+              </div>
+            )}
+            
+            <h2 style={isMobile ? styles.greetingMobile : styles.greetingDesktop}>
+              Bem-vindo
+            </h2>
+            <p style={isMobile ? styles.instructionMobile : styles.instructionDesktop}>
+              Entre com seus dados
+            </p>
 
             {error && (
               <div style={styles.errorBox}>
@@ -163,9 +195,9 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#ffffff',
-    padding: '20px',
+    padding: '0px',
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'auto',
   },
   backgroundTexture: {
     position: 'absolute',
@@ -176,7 +208,9 @@ const styles = {
     zIndex: 0,
     opacity: 0.6,
   },
-  card: {
+  
+  // Desktop styles
+  cardDesktop: {
     position: 'relative',
     zIndex: 1,
     display: 'flex',
@@ -194,6 +228,17 @@ const styles = {
     `,
     borderBottom: '4px solid #dc2626',
   },
+  
+  // Mobile styles
+  cardMobile: {
+    position: 'relative',
+    zIndex: 1,
+    width: '100%',
+    minHeight: '100vh',
+    backgroundColor: 'white',
+    overflow: 'auto',
+  },
+  
   brandSide: {
     flex: '1',
     background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #1a1a2e 100%)',
@@ -266,7 +311,9 @@ const styles = {
     margin: '0',
     maxWidth: '280px',
   },
-  formSide: {
+  
+  // Form desktop
+  formSideDesktop: {
     flex: '1',
     display: 'flex',
     alignItems: 'center',
@@ -274,21 +321,77 @@ const styles = {
     padding: '50px 45px',
     backgroundColor: 'white',
   },
-  formContent: {
+  formContentDesktop: {
     width: '100%',
     maxWidth: '380px',
   },
-  greeting: {
+  
+  // Form mobile
+  formSideMobile: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '40px 24px',
+    backgroundColor: 'white',
+    minHeight: '100vh',
+  },
+  formContentMobile: {
+    width: '100%',
+    maxWidth: '100%',
+  },
+  
+  // Mobile logo
+  mobileLogoContainer: {
+    textAlign: 'center',
+    marginBottom: '32px',
+  },
+  mobileLogo: {
+    width: '80px',
+    height: '80px',
+    objectFit: 'contain',
+    margin: '0 auto',
+  },
+  mobileLogoFallback: {
+    width: '80px',
+    height: '80px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto',
+    border: '2px solid rgba(239, 68, 68, 0.2)',
+  },
+  mobileLogoEmoji: {
+    fontSize: '40px',
+  },
+  
+  // Greetings desktop
+  greetingDesktop: {
     fontSize: '30px',
     fontWeight: '700',
     color: '#1a1a2e',
     margin: '0 0 5px 0',
   },
-  instruction: {
+  instructionDesktop: {
     fontSize: '15px',
     color: '#94a3b8',
     margin: '0 0 30px 0',
   },
+  
+  // Greetings mobile
+  greetingMobile: {
+    fontSize: '26px',
+    fontWeight: '700',
+    color: '#1a1a2e',
+    margin: '0 0 4px 0',
+  },
+  instructionMobile: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    margin: '0 0 28px 0',
+  },
+  
   errorBox: {
     display: 'flex',
     alignItems: 'center',
@@ -307,6 +410,7 @@ const styles = {
     color: '#991b1b',
     fontSize: '14px',
     lineHeight: '1.4',
+    flex: '1',
   },
   fieldGroup: {
     marginBottom: '22px',
@@ -335,12 +439,13 @@ const styles = {
     padding: '15px 45px 15px 45px',
     border: '2px solid #e2e8f0',
     borderRadius: '12px',
-    fontSize: '15px',
+    fontSize: '16px', // Melhor para mobile (evita zoom)
     color: '#1a1a2e',
     outline: 'none',
     backgroundColor: '#fafbfc',
     transition: 'all 0.3s ease',
     boxSizing: 'border-box',
+    WebkitAppearance: 'none', // Remove estilos padrão do iOS
   },
   eyeButton: {
     position: 'absolute',
@@ -348,7 +453,7 @@ const styles = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: '18px',
+    fontSize: '20px',
     padding: '8px',
     color: '#94a3b8',
   },
@@ -374,6 +479,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
+    flexWrap: 'wrap',
   },
   registerText: {
     color: '#64748b',
@@ -387,5 +493,16 @@ const styles = {
     transition: 'color 0.3s',
   },
 };
+
+// Adiciona estilos responsivos via media query (para dispositivos muito pequenos)
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @media (max-width: 480px) {
+    input, button {
+      font-size: 16px !important;
+    }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default Login;
