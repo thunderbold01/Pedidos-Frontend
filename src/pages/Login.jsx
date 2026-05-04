@@ -29,7 +29,6 @@ const Login = ({ onLogin }) => {
     try {
       const response = await api.post('/auth/login/', { email, password });
       
-      // Se requer 2FA
       if (response.data.require_2fa) {
         sessionStorage.setItem('login_email', email);
         navigate('/2fa');
@@ -37,7 +36,6 @@ const Login = ({ onLogin }) => {
         return;
       }
       
-      // Login direto
       const { access, refresh, user } = response.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
@@ -55,44 +53,54 @@ const Login = ({ onLogin }) => {
 
   return (
     <div style={styles.container}>
-      {/* Fundo com textura e gradiente */}
-      <div style={styles.backgroundGradient}>
-        <div style={styles.backgroundTexture}>
-          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="diagonalTexture" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                <line x1="0" y1="0" x2="0" y2="60" stroke="#ffffff" strokeWidth="0.5" opacity="0.1" />
-                <line x1="15" y1="0" x2="15" y2="60" stroke="#ffffff" strokeWidth="0.3" opacity="0.05" />
-                <line x1="30" y1="0" x2="30" y2="60" stroke="#ffffff" strokeWidth="0.5" opacity="0.1" />
-                <line x1="45" y1="0" x2="45" y2="60" stroke="#ffffff" strokeWidth="0.3" opacity="0.05" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#diagonalTexture)" />
-          </svg>
-        </div>
+      {/* Background com padrão sutil */}
+      <div style={styles.backgroundPattern}>
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="diagonalPattern" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="60" stroke="#e5e7eb" strokeWidth="0.5" opacity="0.4" />
+              <line x1="15" y1="0" x2="15" y2="60" stroke="#e5e7eb" strokeWidth="0.3" opacity="0.2" />
+              <line x1="30" y1="0" x2="30" y2="60" stroke="#e5e7eb" strokeWidth="0.5" opacity="0.4" />
+              <line x1="45" y1="0" x2="45" y2="60" stroke="#e5e7eb" strokeWidth="0.3" opacity="0.2" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#diagonalPattern)" />
+        </svg>
       </div>
       
-      {/* Card principal */}
+      {/* Card Principal */}
       <div style={isMobile ? styles.cardMobile : styles.cardDesktop}>
-        {/* Lado esquerdo - Branding (apenas desktop) */}
+        {/* Lado Esquerdo - Branding (Desktop) */}
         {!isMobile && (
           <div style={styles.brandSide}>
             <div style={styles.brandOverlay} />
             <div style={styles.brandContent}>
+              {/* Logo */}
               <div style={styles.logoWrapper}>
-                <div style={styles.logoCircle}>
-                  <span style={styles.logoIcon}>🎓</span>
+                <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  style={styles.logoImage}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div style={{ ...styles.logoFallback, display: 'none' }}>
+                  <span style={styles.logoEmoji}>🎓</span>
                 </div>
               </div>
+              
               <h1 style={styles.brandTitle}>Sistema de Pedidos</h1>
               <div style={styles.brandDivider} />
               <p style={styles.brandDescription}>
                 Gerencie suas saídas escolares de forma rápida, eficiente e segura
               </p>
+              
               <div style={styles.brandFeatures}>
                 <div style={styles.featureItem}>
                   <span style={styles.featureIcon}>✓</span>
-                  <span>Gestão completa</span>
+                  <span>Gestão completa de pedidos</span>
                 </div>
                 <div style={styles.featureItem}>
                   <span style={styles.featureIcon}>✓</span>
@@ -100,21 +108,32 @@ const Login = ({ onLogin }) => {
                 </div>
                 <div style={styles.featureItem}>
                   <span style={styles.featureIcon}>✓</span>
-                  <span>Segurança de dados</span>
+                  <span>Segurança e privacidade</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Lado direito - Formulário */}
+        {/* Lado Direito - Formulário */}
         <div style={isMobile ? styles.formSideMobile : styles.formSideDesktop}>
           <div style={isMobile ? styles.formContentMobile : styles.formContentDesktop}>
-            {/* Logo para mobile */}
+            {/* Logo Mobile */}
             {isMobile && (
               <div style={styles.mobileLogoContainer}>
-                <div style={styles.mobileLogoCircle}>
-                  <span style={styles.mobileLogoIcon}>🎓</span>
+                <div style={styles.mobileLogoWrapper}>
+                  <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    style={styles.mobileLogoImage}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div style={{ ...styles.mobileLogoFallback, display: 'none' }}>
+                    <span>🎓</span>
+                  </div>
                 </div>
                 <h2 style={styles.mobileBrandTitle}>Sistema de Pedidos</h2>
               </div>
@@ -144,27 +163,25 @@ const Login = ({ onLogin }) => {
 
             <form onSubmit={handleSubmit}>
               <div style={styles.fieldGroup}>
-                <label style={styles.fieldLabel}>
-                  <span style={styles.labelIcon}>📧</span>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
-                  required
-                  autoFocus
-                  style={styles.fieldInput}
-                />
+                <label style={styles.fieldLabel}>Email</label>
+                <div style={styles.inputWrapper}>
+                  <span style={styles.inputIcon}>📧</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    required
+                    autoFocus
+                    style={styles.fieldInput}
+                  />
+                </div>
               </div>
 
               <div style={styles.fieldGroup}>
-                <label style={styles.fieldLabel}>
-                  <span style={styles.labelIcon}>🔒</span>
-                  Senha
-                </label>
-                <div style={styles.passwordContainer}>
+                <label style={styles.fieldLabel}>Senha</label>
+                <div style={styles.inputWrapper}>
+                  <span style={styles.inputIcon}>🔒</span>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
@@ -204,7 +221,7 @@ const Login = ({ onLogin }) => {
                 }}
               >
                 {loading ? (
-                  <span style={styles.loadingSpinner}>
+                  <span style={styles.loadingContent}>
                     <span style={styles.spinner}></span>
                     Entrando...
                   </span>
@@ -222,13 +239,16 @@ const Login = ({ onLogin }) => {
             </div>
 
             <div style={styles.divider}>
-              <span style={styles.dividerText}>Ou</span>
+              <span style={styles.dividerText}>ou continue com</span>
             </div>
 
-            <button style={styles.demoButton} onClick={() => {
-              setEmail('demo@escola.com');
-              setPassword('demo123');
-            }}>
+            <button 
+              style={styles.demoButton} 
+              onClick={() => {
+                setEmail('demo@escola.com');
+                setPassword('demo123');
+              }}
+            >
               <span style={styles.demoIcon}>🎮</span>
               Modo Demonstração
             </button>
@@ -245,28 +265,22 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    padding: '20px',
     position: 'relative',
-    overflow: 'auto',
+    overflow: 'hidden',
   },
-  backgroundGradient: {
+  backgroundPattern: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     zIndex: 0,
-  },
-  backgroundTexture: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.3,
+    opacity: 0.6,
   },
   
-  // Desktop styles
+  // Desktop Card
   cardDesktop: {
     position: 'relative',
     zIndex: 1,
@@ -275,12 +289,18 @@ const styles = {
     maxWidth: '1000px',
     minHeight: '600px',
     backgroundColor: 'white',
-    borderRadius: '20px',
+    borderRadius: '24px',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: `
+      0 4px 6px rgba(0, 0, 0, 0.04),
+      0 10px 20px rgba(0, 0, 0, 0.06),
+      0 20px 40px rgba(0, 0, 0, 0.08),
+      0 0 0 1px rgba(0, 0, 0, 0.04)
+    `,
+    borderBottom: '4px solid #dc2626',
   },
   
-  // Mobile styles
+  // Mobile Card
   cardMobile: {
     position: 'relative',
     zIndex: 1,
@@ -290,15 +310,15 @@ const styles = {
     overflow: 'auto',
   },
   
-  // Brand side (desktop)
+  // Brand Side
   brandSide: {
-    flex: '1.2',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    flex: '1',
+    background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #1a1a2e 100%)',
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px',
+    overflow: 'hidden',
   },
   brandOverlay: {
     position: 'absolute',
@@ -306,53 +326,65 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: 'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
+    background: `
+      radial-gradient(circle at 20% 30%, rgba(220, 38, 38, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(6, 182, 212, 0.05) 0%, transparent 40%)
+    `,
   },
   brandContent: {
     position: 'relative',
     zIndex: 1,
     textAlign: 'center',
-    color: 'white',
+    padding: '40px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
   },
   logoWrapper: {
-    marginBottom: '30px',
+    marginBottom: '25px',
   },
-  logoCircle: {
+  logoImage: {
+    width: '100px',
+    height: '100px',
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))',
+  },
+  logoFallback: {
     width: '100px',
     height: '100px',
     borderRadius: '50%',
-    background: 'rgba(255, 255, 255, 0.2)',
+    background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(6, 182, 212, 0.1) 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto',
-    backdropFilter: 'blur(10px)',
-    border: '2px solid rgba(255, 255, 255, 0.3)',
+    border: '2px solid rgba(220, 38, 38, 0.3)',
   },
-  logoIcon: {
+  logoEmoji: {
     fontSize: '50px',
   },
   brandTitle: {
+    color: 'white',
     fontSize: '28px',
-    fontWeight: 'bold',
-    marginBottom: '15px',
+    fontWeight: '700',
+    margin: '0 0 15px 0',
+    letterSpacing: '-0.5px',
   },
   brandDivider: {
-    width: '50px',
+    width: '60px',
     height: '3px',
-    background: 'rgba(255, 255, 255, 0.5)',
-    margin: '20px auto',
+    background: 'linear-gradient(90deg, transparent, #06b6d4, #ef4444, transparent)',
+    margin: '0 auto 20px',
     borderRadius: '2px',
   },
   brandDescription: {
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: '14px',
     lineHeight: '1.6',
-    marginBottom: '30px',
-    opacity: 0.9,
+    margin: '0 0 30px 0',
   },
   brandFeatures: {
     textAlign: 'left',
-    marginTop: '30px',
+    marginTop: '20px',
   },
   featureItem: {
     display: 'flex',
@@ -360,19 +392,21 @@ const styles = {
     gap: '10px',
     marginBottom: '12px',
     fontSize: '13px',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   featureIcon: {
-    width: '20px',
-    height: '20px',
+    width: '22px',
+    height: '22px',
     borderRadius: '50%',
-    background: 'rgba(255, 255, 255, 0.3)',
+    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(239, 68, 68, 0.3))',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '12px',
+    fontSize: '11px',
+    fontWeight: 'bold',
   },
   
-  // Form desktop
+  // Form Side Desktop
   formSideDesktop: {
     flex: '1',
     display: 'flex',
@@ -386,7 +420,7 @@ const styles = {
     maxWidth: '380px',
   },
   
-  // Form mobile
+  // Form Side Mobile
   formSideMobile: {
     display: 'flex',
     alignItems: 'center',
@@ -400,78 +434,87 @@ const styles = {
     maxWidth: '100%',
   },
   
-  // Mobile logo
+  // Mobile Logo
   mobileLogoContainer: {
     textAlign: 'center',
     marginBottom: '40px',
   },
-  mobileLogoCircle: {
+  mobileLogoWrapper: {
+    width: '70px',
+    height: '70px',
+    margin: '0 auto 15px',
+  },
+  mobileLogoImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+  },
+  mobileLogoFallback: {
     width: '70px',
     height: '70px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #1a1a2e, #0f3460)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto 15px',
-  },
-  mobileLogoIcon: {
     fontSize: '35px',
+    border: '2px solid rgba(220, 38, 38, 0.3)',
   },
   mobileBrandTitle: {
     fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: '#1a1a2e',
     margin: 0,
   },
   
-  // Header text
+  // Header Text
   headerText: {
     textAlign: 'center',
     marginBottom: '30px',
   },
   greetingDesktop: {
     fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: '#1a1a2e',
     margin: '0 0 8px 0',
+    letterSpacing: '-0.5px',
   },
   instructionDesktop: {
     fontSize: '14px',
-    color: '#666',
+    color: '#94a3b8',
     margin: 0,
   },
   greetingMobile: {
     fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: '#1a1a2e',
     margin: '0 0 8px 0',
   },
   instructionMobile: {
     fontSize: '13px',
-    color: '#666',
+    color: '#94a3b8',
     margin: 0,
   },
   
-  // Error box
+  // Error Box
   errorBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    padding: '12px 16px',
-    backgroundColor: '#fee',
-    border: '1px solid #fcc',
-    borderRadius: '8px',
+    padding: '12px 14px',
+    backgroundColor: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
     marginBottom: '20px',
-    position: 'relative',
   },
   errorIcon: {
     fontSize: '16px',
     flexShrink: 0,
   },
   errorText: {
-    color: '#c33',
+    color: '#991b1b',
     fontSize: '13px',
+    lineHeight: '1.4',
     flex: 1,
   },
   errorClose: {
@@ -479,56 +522,56 @@ const styles = {
     border: 'none',
     cursor: 'pointer',
     fontSize: '14px',
-    color: '#c33',
+    color: '#991b1b',
     padding: '0 5px',
   },
   
-  // Form fields
+  // Form Fields
   fieldGroup: {
     marginBottom: '20px',
   },
   fieldLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
+    display: 'block',
     fontSize: '13px',
-    fontWeight: '500',
-    color: '#555',
+    fontWeight: '600',
+    color: '#374151',
     marginBottom: '8px',
   },
-  labelIcon: {
-    fontSize: '14px',
+  inputWrapper: {
+    position: 'relative',
+  },
+  inputIcon: {
+    position: 'absolute',
+    left: '14px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    fontSize: '16px',
+    zIndex: 1,
   },
   fieldInput: {
     width: '100%',
-    padding: '12px 14px',
-    border: '2px solid #e1e5e9',
+    padding: '13px 14px 13px 40px',
+    border: '2px solid #e2e8f0',
     borderRadius: '10px',
     fontSize: '14px',
-    color: '#333',
+    color: '#1a1a2e',
     outline: 'none',
-    transition: 'all 0.3s',
+    backgroundColor: '#fafbfc',
     boxSizing: 'border-box',
+    transition: 'all 0.3s ease',
     fontFamily: 'inherit',
-  },
-  fieldInputFocus: {
-    borderColor: '#667eea',
-  },
-  
-  // Password field
-  passwordContainer: {
-    position: 'relative',
   },
   passwordInput: {
     width: '100%',
-    padding: '12px 45px 12px 14px',
-    border: '2px solid #e1e5e9',
+    padding: '13px 85px 13px 40px',
+    border: '2px solid #e2e8f0',
     borderRadius: '10px',
     fontSize: '14px',
-    color: '#333',
+    color: '#1a1a2e',
     outline: 'none',
-    transition: 'all 0.3s',
+    backgroundColor: '#fafbfc',
     boxSizing: 'border-box',
+    transition: 'all 0.3s ease',
     fontFamily: 'inherit',
   },
   eyeButton: {
@@ -541,6 +584,7 @@ const styles = {
     cursor: 'pointer',
     fontSize: '18px',
     padding: '5px',
+    color: '#94a3b8',
   },
   
   // Options
@@ -558,31 +602,35 @@ const styles = {
   checkbox: {
     marginRight: '8px',
     cursor: 'pointer',
+    accentColor: '#dc2626',
   },
   checkboxText: {
     fontSize: '13px',
-    color: '#666',
+    color: '#64748b',
   },
   forgotLink: {
     fontSize: '13px',
-    color: '#667eea',
+    color: '#06b6d4',
     textDecoration: 'none',
+    fontWeight: '500',
   },
   
-  // Login button
+  // Login Button
   loginButton: {
     width: '100%',
     padding: '14px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #dc2626 100%)',
     color: 'white',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '15px',
-    fontWeight: '600',
-    transition: 'all 0.3s',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
     marginBottom: '20px',
+    boxShadow: '0 8px 25px rgba(239, 68, 68, 0.3)',
   },
-  loadingSpinner: {
+  loadingContent: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -595,6 +643,7 @@ const styles = {
     borderTopColor: 'transparent',
     borderRadius: '50%',
     animation: 'spin 0.6s linear infinite',
+    display: 'inline-block',
   },
   
   // Register
@@ -604,14 +653,14 @@ const styles = {
   },
   registerText: {
     fontSize: '13px',
-    color: '#666',
+    color: '#64748b',
     marginRight: '8px',
   },
   registerLink: {
     fontSize: '13px',
-    color: '#667eea',
+    color: '#ef4444',
     textDecoration: 'none',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   
   // Divider
@@ -624,33 +673,34 @@ const styles = {
     background: 'white',
     padding: '0 10px',
     fontSize: '12px',
-    color: '#999',
+    color: '#94a3b8',
     position: 'relative',
     zIndex: 1,
   },
   
-  // Demo button
+  // Demo Button
   demoButton: {
     width: '100%',
     padding: '12px',
-    background: '#f5f5f5',
-    color: '#666',
-    border: '1px solid #e1e5e9',
-    borderRadius: '10px',
+    background: '#f8fafc',
+    color: '#64748b',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
     fontSize: '14px',
     cursor: 'pointer',
-    transition: 'all 0.3s',
+    transition: 'all 0.3s ease',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
+    fontWeight: '500',
   },
   demoIcon: {
     fontSize: '16px',
   },
 };
 
-// Adiciona animação do spinner
+// Adiciona estilos globais
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
@@ -658,21 +708,25 @@ styleSheet.textContent = `
   }
   
   input:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #06b6d4 !important;
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    background-color: white !important;
   }
   
   button:hover {
-    transform: translateY(-1px);
-  }
-  
-  .demo-button:hover {
-    background: #ececec;
+    transform: translateY(-2px);
   }
   
   @media (max-width: 768px) {
     input, button {
       font-size: 16px !important;
+    }
+  }
+  
+  /* Modo escuro */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background-color: #0f172a;
     }
   }
 `;
