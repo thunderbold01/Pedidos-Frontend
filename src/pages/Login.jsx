@@ -1,3 +1,4 @@
+// src/pages/Login.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
@@ -28,18 +29,25 @@ const Login = ({ onLogin }) => {
     try {
       const response = await api.post('/auth/login/', { email, password });
       
+      // Se requer 2FA
       if (response.data.require_2fa) {
         sessionStorage.setItem('login_email', email);
         navigate('/2fa');
-      } else {
-        const { access, refresh, user } = response.data;
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
-        onLogin(user);
-        navigate('/dashboard');
+        setLoading(false);
+        return;
       }
+      
+      // Login direto
+      const { access, refresh, user } = response.data;
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      onLogin(user);
+      navigate('/dashboard');
+      
     } catch (err) {
-      setError(err.response?.data?.error || 'Email ou senha inválidos');
+      console.error('Erro no login:', err);
+      const msg = err.response?.data?.error || err.response?.data?.detail || 'Email ou senha inválidos';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -47,120 +55,143 @@ const Login = ({ onLogin }) => {
 
   return (
     <div style={styles.container}>
-      {/* Fundo com textura diagonal cinza */}
-      <div style={styles.backgroundTexture}>
-        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="diagonalTexture" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="60" stroke="#e5e7eb" strokeWidth="0.5" opacity="0.4" />
-              <line x1="15" y1="0" x2="15" y2="60" stroke="#e5e7eb" strokeWidth="0.3" opacity="0.2" />
-              <line x1="30" y1="0" x2="30" y2="60" stroke="#e5e7eb" strokeWidth="0.5" opacity="0.4" />
-              <line x1="45" y1="0" x2="45" y2="60" stroke="#e5e7eb" strokeWidth="0.3" opacity="0.2" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#diagonalTexture)" />
-        </svg>
+      {/* Fundo com textura e gradiente */}
+      <div style={styles.backgroundGradient}>
+        <div style={styles.backgroundTexture}>
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="diagonalTexture" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="60" stroke="#ffffff" strokeWidth="0.5" opacity="0.1" />
+                <line x1="15" y1="0" x2="15" y2="60" stroke="#ffffff" strokeWidth="0.3" opacity="0.05" />
+                <line x1="30" y1="0" x2="30" y2="60" stroke="#ffffff" strokeWidth="0.5" opacity="0.1" />
+                <line x1="45" y1="0" x2="45" y2="60" stroke="#ffffff" strokeWidth="0.3" opacity="0.05" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#diagonalTexture)" />
+          </svg>
+        </div>
       </div>
       
+      {/* Card principal */}
       <div style={isMobile ? styles.cardMobile : styles.cardDesktop}>
-        {/* Lado Esquerdo - Marca (mostra apenas em desktop) */}
+        {/* Lado esquerdo - Branding (apenas desktop) */}
         {!isMobile && (
           <div style={styles.brandSide}>
             <div style={styles.brandOverlay} />
             <div style={styles.brandContent}>
-              <img 
-                src="/logo.png" 
-                alt="Logo" 
-                style={styles.logoImage}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div style={{ ...styles.logoFallback, display: 'none' }}>
-                <span style={styles.logoEmoji}>🎓</span>
+              <div style={styles.logoWrapper}>
+                <div style={styles.logoCircle}>
+                  <span style={styles.logoIcon}>🎓</span>
+                </div>
               </div>
               <h1 style={styles.brandTitle}>Sistema de Pedidos</h1>
               <div style={styles.brandDivider} />
               <p style={styles.brandDescription}>
-                Gerencie suas saídas escolares de forma rápida e eficiente
+                Gerencie suas saídas escolares de forma rápida, eficiente e segura
               </p>
+              <div style={styles.brandFeatures}>
+                <div style={styles.featureItem}>
+                  <span style={styles.featureIcon}>✓</span>
+                  <span>Gestão completa</span>
+                </div>
+                <div style={styles.featureItem}>
+                  <span style={styles.featureIcon}>✓</span>
+                  <span>Relatórios em tempo real</span>
+                </div>
+                <div style={styles.featureItem}>
+                  <span style={styles.featureIcon}>✓</span>
+                  <span>Segurança de dados</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Lado Direito - Formulário */}
+        {/* Lado direito - Formulário */}
         <div style={isMobile ? styles.formSideMobile : styles.formSideDesktop}>
           <div style={isMobile ? styles.formContentMobile : styles.formContentDesktop}>
             {/* Logo para mobile */}
             {isMobile && (
               <div style={styles.mobileLogoContainer}>
-                <img 
-                  src="/logo.png" 
-                  alt="Logo" 
-                  style={styles.mobileLogo}
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.querySelector('.mobile-logo-fallback').style.display = 'flex';
-                  }}
-                />
-                <div className="mobile-logo-fallback" style={{ ...styles.mobileLogoFallback, display: 'none' }}>
-                  <span style={styles.mobileLogoEmoji}>🎓</span>
+                <div style={styles.mobileLogoCircle}>
+                  <span style={styles.mobileLogoIcon}>🎓</span>
                 </div>
+                <h2 style={styles.mobileBrandTitle}>Sistema de Pedidos</h2>
               </div>
             )}
             
-            <h2 style={isMobile ? styles.greetingMobile : styles.greetingDesktop}>
-              Bem-vindo
-            </h2>
-            <p style={isMobile ? styles.instructionMobile : styles.instructionDesktop}>
-              Entre com seus dados
-            </p>
+            <div style={styles.headerText}>
+              <h2 style={isMobile ? styles.greetingMobile : styles.greetingDesktop}>
+                Bem-vindo de volta
+              </h2>
+              <p style={isMobile ? styles.instructionMobile : styles.instructionDesktop}>
+                Faça login para acessar sua conta
+              </p>
+            </div>
 
             {error && (
               <div style={styles.errorBox}>
                 <span style={styles.errorIcon}>⚠️</span>
                 <span style={styles.errorText}>{error}</span>
+                <button 
+                  onClick={() => setError('')} 
+                  style={styles.errorClose}
+                >
+                  ✕
+                </button>
               </div>
             )}
 
             <form onSubmit={handleSubmit}>
               <div style={styles.fieldGroup}>
-                <label style={styles.fieldLabel}>Email</label>
-                <div style={styles.inputContainer}>
-                  <span style={styles.inputIcon}>📧</span>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    style={styles.fieldInput}
-                    placeholder="seu@email.com"
-                    autoFocus
-                  />
-                </div>
+                <label style={styles.fieldLabel}>
+                  <span style={styles.labelIcon}>📧</span>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                  autoFocus
+                  style={styles.fieldInput}
+                />
               </div>
 
               <div style={styles.fieldGroup}>
-                <label style={styles.fieldLabel}>Senha</label>
-                <div style={styles.inputContainer}>
-                  <span style={styles.inputIcon}>🔒</span>
+                <label style={styles.fieldLabel}>
+                  <span style={styles.labelIcon}>🔒</span>
+                  Senha
+                </label>
+                <div style={styles.passwordContainer}>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite sua senha"
                     required
-                    style={styles.fieldInput}
-                    placeholder="••••••••"
+                    style={styles.passwordInput}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     style={styles.eyeButton}
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
                     {showPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
+              </div>
+
+              <div style={styles.optionsContainer}>
+                <label style={styles.checkboxLabel}>
+                  <input type="checkbox" style={styles.checkbox} />
+                  <span style={styles.checkboxText}>Lembrar-me</span>
+                </label>
+                <Link to="/forgot-password" style={styles.forgotLink}>
+                  Esqueceu a senha?
+                </Link>
               </div>
 
               <button
@@ -169,18 +200,38 @@ const Login = ({ onLogin }) => {
                 style={{
                   ...styles.loginButton,
                   opacity: loading ? 0.7 : 1,
+                  cursor: loading ? 'not-allowed' : 'pointer',
                 }}
               >
-                {loading ? 'Entrando...' : 'Entrar'}
+                {loading ? (
+                  <span style={styles.loadingSpinner}>
+                    <span style={styles.spinner}></span>
+                    Entrando...
+                  </span>
+                ) : (
+                  'Entrar'
+                )}
               </button>
             </form>
 
-            <div style={styles.registerLink}>
-              <span style={styles.registerText}>Não tem conta?</span>
-              <Link to="/register" style={styles.registerAction}>
-                Criar conta
+            <div style={styles.registerContainer}>
+              <span style={styles.registerText}>Não tem uma conta?</span>
+              <Link to="/register" style={styles.registerLink}>
+                Criar conta gratuita
               </Link>
             </div>
+
+            <div style={styles.divider}>
+              <span style={styles.dividerText}>Ou</span>
+            </div>
+
+            <button style={styles.demoButton} onClick={() => {
+              setEmail('demo@escola.com');
+              setPassword('demo123');
+            }}>
+              <span style={styles.demoIcon}>🎮</span>
+              Modo Demonstração
+            </button>
           </div>
         </div>
       </div>
@@ -194,10 +245,17 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    padding: '0px',
     position: 'relative',
     overflow: 'auto',
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    zIndex: 0,
   },
   backgroundTexture: {
     position: 'absolute',
@@ -205,8 +263,7 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 0,
-    opacity: 0.6,
+    opacity: 0.3,
   },
   
   // Desktop styles
@@ -214,19 +271,13 @@ const styles = {
     position: 'relative',
     zIndex: 1,
     display: 'flex',
-    width: '100%',
-    maxWidth: '950px',
-    minHeight: '550px',
+    width: '90%',
+    maxWidth: '1000px',
+    minHeight: '600px',
     backgroundColor: 'white',
-    borderRadius: '24px',
+    borderRadius: '20px',
     overflow: 'hidden',
-    boxShadow: `
-      0 4px 6px rgba(0, 0, 0, 0.04),
-      0 10px 20px rgba(0, 0, 0, 0.06),
-      0 20px 40px rgba(0, 0, 0, 0.08),
-      0 0 0 1px rgba(0, 0, 0, 0.04)
-    `,
-    borderBottom: '4px solid #dc2626',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
   },
   
   // Mobile styles
@@ -239,14 +290,15 @@ const styles = {
     overflow: 'auto',
   },
   
+  // Brand side (desktop)
   brandSide: {
-    flex: '1',
-    background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #1a1a2e 100%)',
+    flex: '1.2',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    padding: '40px',
   },
   brandOverlay: {
     position: 'absolute',
@@ -254,62 +306,70 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: `
-      radial-gradient(circle at 20% 30%, rgba(239, 68, 68, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 80% 70%, rgba(239, 68, 68, 0.05) 0%, transparent 40%)
-    `,
+    background: 'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
   },
   brandContent: {
     position: 'relative',
     zIndex: 1,
     textAlign: 'center',
-    padding: '50px 40px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
+    color: 'white',
   },
-  logoImage: {
-    width: '120px',
-    height: '120px',
-    objectFit: 'contain',
-    marginBottom: '25px',
-    filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))',
+  logoWrapper: {
+    marginBottom: '30px',
   },
-  logoFallback: {
-    width: '120px',
-    height: '120px',
+  logoCircle: {
+    width: '100px',
+    height: '100px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%)',
+    background: 'rgba(255, 255, 255, 0.2)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '25px',
-    border: '2px solid rgba(239, 68, 68, 0.3)',
+    margin: '0 auto',
+    backdropFilter: 'blur(10px)',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
   },
-  logoEmoji: {
-    fontSize: '60px',
+  logoIcon: {
+    fontSize: '50px',
   },
   brandTitle: {
-    color: 'white',
-    fontSize: '30px',
-    fontWeight: '700',
-    margin: '0',
-    letterSpacing: '-0.5px',
-    textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
+    fontSize: '28px',
+    fontWeight: 'bold',
+    marginBottom: '15px',
   },
   brandDivider: {
-    width: '60px',
+    width: '50px',
     height: '3px',
-    background: 'linear-gradient(90deg, transparent, #ef4444, transparent)',
+    background: 'rgba(255, 255, 255, 0.5)',
     margin: '20px auto',
     borderRadius: '2px',
   },
   brandDescription: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: '15px',
-    lineHeight: '1.5',
-    margin: '0',
-    maxWidth: '280px',
+    fontSize: '14px',
+    lineHeight: '1.6',
+    marginBottom: '30px',
+    opacity: 0.9,
+  },
+  brandFeatures: {
+    textAlign: 'left',
+    marginTop: '30px',
+  },
+  featureItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '12px',
+    fontSize: '13px',
+  },
+  featureIcon: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    background: 'rgba(255, 255, 255, 0.3)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
   },
   
   // Form desktop
@@ -318,7 +378,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '50px 45px',
+    padding: '40px',
     backgroundColor: 'white',
   },
   formContentDesktop: {
@@ -331,7 +391,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px 24px',
+    padding: '30px 20px',
     backgroundColor: 'white',
     minHeight: '100vh',
   },
@@ -343,161 +403,274 @@ const styles = {
   // Mobile logo
   mobileLogoContainer: {
     textAlign: 'center',
-    marginBottom: '32px',
+    marginBottom: '40px',
   },
-  mobileLogo: {
-    width: '80px',
-    height: '80px',
-    objectFit: 'contain',
-    margin: '0 auto',
-  },
-  mobileLogoFallback: {
-    width: '80px',
-    height: '80px',
+  mobileLogoCircle: {
+    width: '70px',
+    height: '70px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%)',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto',
-    border: '2px solid rgba(239, 68, 68, 0.2)',
+    margin: '0 auto 15px',
   },
-  mobileLogoEmoji: {
-    fontSize: '40px',
+  mobileLogoIcon: {
+    fontSize: '35px',
+  },
+  mobileBrandTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#333',
+    margin: 0,
   },
   
-  // Greetings desktop
+  // Header text
+  headerText: {
+    textAlign: 'center',
+    marginBottom: '30px',
+  },
   greetingDesktop: {
-    fontSize: '30px',
-    fontWeight: '700',
-    color: '#1a1a2e',
-    margin: '0 0 5px 0',
+    fontSize: '28px',
+    fontWeight: 'bold',
+    color: '#333',
+    margin: '0 0 8px 0',
   },
   instructionDesktop: {
-    fontSize: '15px',
-    color: '#94a3b8',
-    margin: '0 0 30px 0',
+    fontSize: '14px',
+    color: '#666',
+    margin: 0,
   },
-  
-  // Greetings mobile
   greetingMobile: {
-    fontSize: '26px',
-    fontWeight: '700',
-    color: '#1a1a2e',
-    margin: '0 0 4px 0',
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#333',
+    margin: '0 0 8px 0',
   },
   instructionMobile: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    margin: '0 0 28px 0',
+    fontSize: '13px',
+    color: '#666',
+    margin: 0,
   },
   
+  // Error box
   errorBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    padding: '14px 16px',
-    backgroundColor: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: '10px',
-    marginBottom: '25px',
+    padding: '12px 16px',
+    backgroundColor: '#fee',
+    border: '1px solid #fcc',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    position: 'relative',
   },
   errorIcon: {
-    fontSize: '18px',
+    fontSize: '16px',
     flexShrink: 0,
   },
   errorText: {
-    color: '#991b1b',
-    fontSize: '14px',
-    lineHeight: '1.4',
-    flex: '1',
+    color: '#c33',
+    fontSize: '13px',
+    flex: 1,
   },
-  fieldGroup: {
-    marginBottom: '22px',
-  },
-  fieldLabel: {
-    display: 'block',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: '8px',
-  },
-  inputContainer: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: '14px',
-    fontSize: '18px',
-    zIndex: 1,
-    pointerEvents: 'none',
-  },
-  fieldInput: {
-    width: '100%',
-    padding: '15px 45px 15px 45px',
-    border: '2px solid #e2e8f0',
-    borderRadius: '12px',
-    fontSize: '16px', // Melhor para mobile (evita zoom)
-    color: '#1a1a2e',
-    outline: 'none',
-    backgroundColor: '#fafbfc',
-    transition: 'all 0.3s ease',
-    boxSizing: 'border-box',
-    WebkitAppearance: 'none', // Remove estilos padrão do iOS
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: '10px',
+  errorClose: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: '20px',
-    padding: '8px',
-    color: '#94a3b8',
+    fontSize: '14px',
+    color: '#c33',
+    padding: '0 5px',
   },
+  
+  // Form fields
+  fieldGroup: {
+    marginBottom: '20px',
+  },
+  fieldLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#555',
+    marginBottom: '8px',
+  },
+  labelIcon: {
+    fontSize: '14px',
+  },
+  fieldInput: {
+    width: '100%',
+    padding: '12px 14px',
+    border: '2px solid #e1e5e9',
+    borderRadius: '10px',
+    fontSize: '14px',
+    color: '#333',
+    outline: 'none',
+    transition: 'all 0.3s',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  },
+  fieldInputFocus: {
+    borderColor: '#667eea',
+  },
+  
+  // Password field
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    width: '100%',
+    padding: '12px 45px 12px 14px',
+    border: '2px solid #e1e5e9',
+    borderRadius: '10px',
+    fontSize: '14px',
+    color: '#333',
+    outline: 'none',
+    transition: 'all 0.3s',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '18px',
+    padding: '5px',
+  },
+  
+  // Options
+  optionsContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '25px',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    cursor: 'pointer',
+  },
+  checkbox: {
+    marginRight: '8px',
+    cursor: 'pointer',
+  },
+  checkboxText: {
+    fontSize: '13px',
+    color: '#666',
+  },
+  forgotLink: {
+    fontSize: '13px',
+    color: '#667eea',
+    textDecoration: 'none',
+  },
+  
+  // Login button
   loginButton: {
     width: '100%',
-    padding: '16px',
-    background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #dc2626 100%)',
+    padding: '14px',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     color: 'white',
     border: 'none',
-    borderRadius: '12px',
-    fontSize: '16px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    marginTop: '10px',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 8px 25px rgba(239, 68, 68, 0.3)',
-    letterSpacing: '0.5px',
+    borderRadius: '10px',
+    fontSize: '15px',
+    fontWeight: '600',
+    transition: 'all 0.3s',
+    marginBottom: '20px',
   },
-  registerLink: {
-    textAlign: 'center',
-    marginTop: '25px',
+  loadingSpinner: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
-    flexWrap: 'wrap',
+  },
+  spinner: {
+    width: '16px',
+    height: '16px',
+    border: '2px solid white',
+    borderTopColor: 'transparent',
+    borderRadius: '50%',
+    animation: 'spin 0.6s linear infinite',
+  },
+  
+  // Register
+  registerContainer: {
+    textAlign: 'center',
+    marginBottom: '20px',
   },
   registerText: {
-    color: '#64748b',
-    fontSize: '14px',
+    fontSize: '13px',
+    color: '#666',
+    marginRight: '8px',
   },
-  registerAction: {
-    color: '#ef4444',
+  registerLink: {
+    fontSize: '13px',
+    color: '#667eea',
     textDecoration: 'none',
-    fontWeight: '700',
+    fontWeight: '500',
+  },
+  
+  // Divider
+  divider: {
+    position: 'relative',
+    textAlign: 'center',
+    marginBottom: '20px',
+  },
+  dividerText: {
+    background: 'white',
+    padding: '0 10px',
+    fontSize: '12px',
+    color: '#999',
+    position: 'relative',
+    zIndex: 1,
+  },
+  
+  // Demo button
+  demoButton: {
+    width: '100%',
+    padding: '12px',
+    background: '#f5f5f5',
+    color: '#666',
+    border: '1px solid #e1e5e9',
+    borderRadius: '10px',
     fontSize: '14px',
-    transition: 'color 0.3s',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+  },
+  demoIcon: {
+    fontSize: '16px',
   },
 };
 
-// Adiciona estilos responsivos via media query (para dispositivos muito pequenos)
+// Adiciona animação do spinner
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
-  @media (max-width: 480px) {
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  input:focus {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  button:hover {
+    transform: translateY(-1px);
+  }
+  
+  .demo-button:hover {
+    background: #ececec;
+  }
+  
+  @media (max-width: 768px) {
     input, button {
       font-size: 16px !important;
     }
