@@ -1,4 +1,3 @@
-// src/pages/TwoFactor.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -7,12 +6,20 @@ const TwoFactor = ({ onLogin }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [codigoMostrado, setCodigoMostrado] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     const email = sessionStorage.getItem('login_email');
+    const savedCode = sessionStorage.getItem('2fa_code');
+    
     if (!email) {
       navigate('/login');
+      return;
+    }
+    
+    if (savedCode) {
+      setCodigoMostrado(savedCode);
     }
   }, [navigate]);
 
@@ -34,61 +41,36 @@ const TwoFactor = ({ onLogin }) => {
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       sessionStorage.removeItem('login_email');
+      sessionStorage.removeItem('2fa_code');
       
       onLogin(user);
       navigate('/dashboard');
       
     } catch (err) {
-      console.error('Erro 2FA:', err);
-      setError(err.response?.data?.error || 'Código inválido ou expirado');
+      setError(err.response?.data?.error || 'Código inválido');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVoltar = () => {
-    sessionStorage.removeItem('login_email');
-    navigate('/login');
-  };
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#f0f2f5',
-      padding: '20px',
-      fontFamily: 'Arial, sans-serif',
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '40px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-        width: '100%',
-        maxWidth: '420px',
-        textAlign: 'center',
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔐</div>
-        <h1 style={{ color: '#333', marginBottom: '8px', fontSize: '24px' }}>
-          Verificação 2FA
-        </h1>
-        <p style={{ color: '#666', marginBottom: '28px', fontSize: '14px' }}>
-          Digite o código de 6 dígitos enviado para seu email
-        </p>
+    <div style={styles.wrapper}>
+      <div style={styles.card}>
+        <div style={styles.icon}>🔐</div>
+        <h1 style={styles.title}>Verificação 2FA</h1>
+        <p style={styles.subtitle}>Digite o código de 6 dígitos</p>
+
+        {codigoMostrado && (
+          <div style={styles.codeBox}>
+            <p style={styles.codeLabel}>Seu código é:</p>
+            <p style={styles.codeValue}>{codigoMostrado}</p>
+          </div>
+        )}
 
         {error && (
-          <div style={{
-            backgroundColor: '#fff0f0',
-            color: '#cc0000',
-            padding: '12px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            fontSize: '14px',
-            border: '1px solid #ffcccc',
-          }}>
-            {error}
+          <div style={styles.errorBox}>
+            <span>⚠️</span>
+            <span>{error}</span>
           </div>
         )}
 
@@ -101,56 +83,101 @@ const TwoFactor = ({ onLogin }) => {
             maxLength={6}
             required
             autoFocus
-            style={{
-              width: '100%',
-              padding: '15px',
-              border: '2px solid #ddd',
-              borderRadius: '8px',
-              fontSize: '24px',
-              textAlign: 'center',
-              letterSpacing: '10px',
-              outline: 'none',
-              boxSizing: 'border-box',
-              marginBottom: '20px',
-            }}
+            style={styles.codeInput}
           />
-
-          <button
-            type="submit"
-            disabled={loading || code.length !== 6}
-            style={{
-              width: '100%',
-              padding: '14px',
-              backgroundColor: loading || code.length !== 6 ? '#ccc' : '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: loading || code.length !== 6 ? 'not-allowed' : 'pointer',
-              marginBottom: '16px',
-            }}
-          >
-            {loading ? 'Verificando...' : '✅ Verificar Código'}
+          <button type="submit" disabled={loading || code.length !== 6} style={styles.button}>
+            {loading ? 'Verificando...' : '✅ Verificar'}
           </button>
         </form>
 
-        <button
-          onClick={handleVoltar}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#666',
-            cursor: 'pointer',
-            fontSize: '14px',
-            textDecoration: 'underline',
-          }}
-        >
-          ← Voltar ao login
+        <button onClick={() => { sessionStorage.clear(); navigate('/login'); }} style={styles.backBtn}>
+          ← Voltar
         </button>
       </div>
     </div>
   );
+};
+
+const styles = {
+  wrapper: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#f5f5f5',
+    padding: '20px',
+    fontFamily: 'Arial, sans-serif',
+  },
+  card: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '40px',
+    width: '100%',
+    maxWidth: '400px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+    border: '1px solid #e5e5e5',
+    textAlign: 'center',
+  },
+  icon: { fontSize: '48px', marginBottom: '12px' },
+  title: { fontSize: '22px', fontWeight: '700', color: '#171717', margin: '0 0 4px 0' },
+  subtitle: { fontSize: '13px', color: '#737373', margin: '0 0 24px 0' },
+  codeBox: {
+    background: '#f0fdf4',
+    border: '1px solid #bbf7d0',
+    borderRadius: '10px',
+    padding: '16px',
+    marginBottom: '20px',
+  },
+  codeLabel: { fontSize: '12px', color: '#166534', margin: '0 0 4px 0' },
+  codeValue: { fontSize: '28px', fontWeight: '800', color: '#166534', letterSpacing: '6px', margin: 0 },
+  errorBox: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '12px',
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
+    color: '#991b1b',
+    fontSize: '13px',
+    marginBottom: '20px',
+  },
+  codeInput: {
+    width: '100%',
+    padding: '16px',
+    border: '2px solid #e5e5e5',
+    borderRadius: '10px',
+    fontSize: '28px',
+    textAlign: 'center',
+    letterSpacing: '12px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    fontFamily: 'monospace',
+    marginBottom: '16px',
+  },
+  button: {
+    width: '100%',
+    padding: '14px',
+    background: '#171717',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '15px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  backBtn: {
+    marginTop: '16px',
+    background: 'none',
+    border: 'none',
+    color: '#737373',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    fontFamily: 'inherit',
+  },
 };
 
 export default TwoFactor;
