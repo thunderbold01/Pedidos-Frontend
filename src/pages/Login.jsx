@@ -1,38 +1,36 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-const Login = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const TwoFactor = ({ onLogin }) => {
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [codigo, setCodigo] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const e = sessionStorage.getItem('login_email');
+    const c = sessionStorage.getItem('2fa_code');
+    if (!e) { navigate('/login'); return; }
+    setEmail(e);
+    setCodigo(c);
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const response = await api.post('/auth/login/', { email, password });
-      
-      if (response.data.require_2fa) {
-        sessionStorage.setItem('login_email', email);
-        sessionStorage.setItem('2fa_code', response.data.code);
-        navigate('/2fa');
-        return;
-      }
-      
-      const { access, refresh, user } = response.data;
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
-      onLogin(user);
+      const res = await api.post('/auth/verify-2fa/', { email, code });
+      localStorage.setItem('access_token', res.data.access);
+      localStorage.setItem('refresh_token', res.data.refresh);
+      sessionStorage.clear();
+      onLogin(res.data.user);
       navigate('/dashboard');
-      
     } catch (err) {
-      setError(err.response?.data?.error || 'Email ou senha inválidos');
+      setError(err.response?.data?.error || 'Código inválido');
     } finally {
       setLoading(false);
     }
@@ -41,178 +39,41 @@ const Login = ({ onLogin }) => {
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
-        <div style={styles.logoSection}>
-          <div style={styles.logo}>🎓</div>
-          <h1 style={styles.title}>Sistema de Pedidos</h1>
-          <p style={styles.subtitle}>Faça login para continuar</p>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={styles.logo}>🔐</div>
+          <h1 style={styles.title}>Verificação 2FA</h1>
+          <p style={styles.subtitle}>Código enviado para <strong>{email}</strong></p>
         </div>
-
-        {error && (
-          <div style={styles.errorBox}>
-            <span>⚠️</span>
-            <span>{error}</span>
+        {codigo && (
+          <div style={styles.codeBox}>
+            <p style={{ fontSize: '11px', color: '#166534', margin: '0 0 4px' }}>Seu código:</p>
+            <p style={{ fontSize: '26px', fontWeight: '800', color: '#166534', letterSpacing: '6px', margin: 0 }}>{codigo}</p>
           </div>
         )}
-
+        {error && <div style={styles.error}>{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={styles.field}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              required
-              autoFocus
-              style={styles.input}
-            />
-          </div>
-
-          <div style={styles.field}>
-            <label style={styles.label}>Senha</label>
-            <div style={styles.passwordWrap}>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                style={{ ...styles.input, paddingRight: '48px' }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={styles.eyeBtn}
-              >
-                {showPassword ? '🙈' : '👁️'}
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? 'Entrando...' : 'Entrar'}
+          <input type="text" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6} required autoFocus style={styles.input} />
+          <button type="submit" disabled={loading || code.length !== 6} style={styles.btn}>
+            {loading ? 'Verificando...' : 'Verificar'}
           </button>
         </form>
-
-        <div style={styles.footer}>
-          <Link to="/register" style={styles.link}>Criar conta</Link>
-        </div>
+        <button onClick={() => { sessionStorage.clear(); navigate('/login'); }} style={styles.back}>← Voltar</button>
       </div>
     </div>
   );
 };
 
 const styles = {
-  wrapper: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f5f5f5',
-    padding: '20px',
-    fontFamily: 'Arial, sans-serif',
-  },
-  card: {
-    background: '#ffffff',
-    borderRadius: '16px',
-    padding: '40px',
-    width: '100%',
-    maxWidth: '400px',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-    border: '1px solid #e5e5e5',
-  },
-  logoSection: {
-    textAlign: 'center',
-    marginBottom: '32px',
-  },
-  logo: {
-    fontSize: '48px',
-    marginBottom: '12px',
-  },
-  title: {
-    fontSize: '22px',
-    fontWeight: '700',
-    color: '#171717',
-    margin: '0 0 4px 0',
-  },
-  subtitle: {
-    fontSize: '13px',
-    color: '#737373',
-    margin: 0,
-  },
-  errorBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px',
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: '10px',
-    color: '#991b1b',
-    fontSize: '13px',
-    marginBottom: '20px',
-  },
-  field: {
-    marginBottom: '16px',
-  },
-  label: {
-    display: 'block',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#404040',
-    marginBottom: '6px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  passwordWrap: {
-    position: 'relative',
-  },
-  input: {
-    width: '100%',
-    padding: '12px 14px',
-    border: '2px solid #e5e5e5',
-    borderRadius: '10px',
-    fontSize: '15px',
-    color: '#171717',
-    background: '#fafafa',
-    outline: 'none',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit',
-  },
-  eyeBtn: {
-    position: 'absolute',
-    right: '10px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '18px',
-    padding: '6px',
-  },
-  button: {
-    width: '100%',
-    padding: '14px',
-    background: '#171717',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '15px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    marginTop: '8px',
-    fontFamily: 'inherit',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: '20px',
-  },
-  link: {
-    color: '#737373',
-    textDecoration: 'none',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
+  wrapper: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', padding: '20px', fontFamily: 'Arial' },
+  card: { background: '#fff', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '380px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: '1px solid #e5e5e5', textAlign: 'center' },
+  logo: { fontSize: '44px', marginBottom: '8px' },
+  title: { fontSize: '20px', fontWeight: '700', color: '#171717', margin: '0 0 4px' },
+  subtitle: { fontSize: '13px', color: '#404040', margin: 0 },
+  codeBox: { background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px', marginBottom: '16px' },
+  error: { background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' },
+  input: { width: '100%', padding: '14px', border: '2px solid #e5e5e5', borderRadius: '10px', fontSize: '26px', textAlign: 'center', letterSpacing: '10px', boxSizing: 'border-box', fontFamily: 'monospace', marginBottom: '14px' },
+  btn: { width: '100%', padding: '13px', background: '#171717', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' },
+  back: { marginTop: '14px', background: 'none', border: 'none', color: '#737373', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline', fontFamily: 'inherit' },
 };
 
-export default Login;
+export default TwoFactor;
