@@ -1,0 +1,741 @@
+// src/api.js
+import axios from 'axios';
+
+// ==================== CONFIGURAÇÕES ====================
+// URL da API - suporta ambiente local e produção
+const API_URL = import.meta.env.VITE_API_URL || 'https://pedidos-backend-eljk.onrender.com/api';
+const LOCAL_API_URL = 'http://localhost:8000/api';
+
+// Detecta automaticamente se está em desenvolvimento ou produção
+const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
+const BASE_URL = isDevelopment ? LOCAL_API_URL : API_URL;
+
+console.log(`🔧 API configurada para: ${BASE_URL} (${isDevelopment ? 'Desenvolvimento' : 'Produção'})`);
+
+// ==================== CRIAÇÃO DA INSTÂNCIA AXIOS ====================
+const api = axios.create({
+    baseURL: BASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    },
+    timeout: 30000,
+    withCredentials: false,
+});
+
+// ==================== INTERCEPTOR DE REQUEST ====================
+api.interceptors.request.use(
+    (config) => {
+        // Adicionar token JWT
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        // Adicionar timestamp para evitar cache (opcional)
+        if (config.method === 'get') {
+            config.params = {
+                ...config.params,
+                _t: Date.now()
+            };
+        }
+        
+        // Log em desenvolvimento
+        if (isDevelopment) {
+            console.log(`📤 ${config.method?.toUpperCase()} ${config.url}`, config.data);
+        }
+        
+        return config;
+    },
+    (error) => {
+        console.error('❌ Erro no request:', error);
+        return Promise.reject(error);
+    }
+);
+
+// ==================== INTERCEPTOR DE RESPONSE ====================
+api.interceptors.response.use(
+    (response) => {
+        // Log em desenvolvimento
+        if (isDevelopment) {
+            console.log(`📥 ${response.status} ${response.config.url}`, response.data);
+        }
+        return response;
+    },
+    async (error) => {
+        const originalRequest = error.config;
+        
+        // Erro de rede (API offline)
+        if (!error.response) {
+            console.error('🌐 API offline ou sem internet');
+            return Promise.reject({
+                message: 'Não foi possível conectar ao servidor. Verifique sua conexão com a internet.',
+                type: 'NETWORK_ERROR',
+                original: error
+            });
+        }
+        
+        // Token expirado (401) - tentar renovar
+        if (error.response.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (refreshToken) {
+                try {
+                    console.log('🔄 Tentando renovar token...');
+                    
+                    const response = await axios.post(`${BASE_URL}/token/refresh/`, {
+                        refresh: refreshToken
+                    });
+                    
+                    const { access } = response.data;
+                    localStorage.setItem('access_token', access);
+                    
+                    // Atualizar header e reexecutar request original
+                    originalRequest.headers.Authorization = `Bearer ${access}`;
+                    return api(originalRequest);
+                    
+                } catch (refreshError) {
+                    console.error('❌ Falha ao renovar token:', refreshError);
+                    // Limpar tokens e redirecionar para login
+                    clearAuthData();
+                    redirectToLogin();
+                    return Promise.reject({
+                        message: 'Sessão expirada. Faça login novamente.',
+                        type: 'SESSION_EXPIRED',
+                        original: refreshError
+                    });
+                }
+            } else {
+                console.warn('⚠️ Sem refresh token, redirecionando para login');
+                clearAuthData();
+                redirectToLogin();
+                return Promise.reject({
+                    message: 'Sessão inválida. Faça login novamente.',
+                    type: 'NO_TOKEN',
+                    original: error
+                });
+            }
+        }
+        
+        // Erro 403 - Sem permissão
+        if (error.response.status === 403) {
+            console.warn('🔒 Acesso negado:', error.response.data);
+            return Promise.reject({
+                message: error.response.data?.error || 'Você não tem permissão para esta ação.',
+                type: 'FORBIDDEN',
+                status: 403,
+                original: error
+            });
+        }
+        
+        // Erro 404 - Não encontrado
+        if (error.response.status === 404) {
+            console.warn('🔍 Recurso não encontrado:', error.response.config.url);
+            return Promise.reject({
+                message: 'Recurso não encontrado.',
+                type: 'NOT_FOUND',
+                status: 404,
+                original: error
+            });
+        }
+        
+        // Erro 422 - Validação
+        if (error.response.status === 422) {
+            console.warn('⚠️ Erro de validação:', error.response.data);
+            return Promise.reject({
+                message: error.response.data?.error || 'Dados inválidos.',
+                type: 'VALIDATION_ERROR',
+                errors: error.response.data,
+                status: 422,
+                original: error
+            });
+        }
+        
+        // Erro 500 - Servidor
+        if (error.response.status >= 500) {
+            console.error('💥 Erro no servidor:', error.response.status, error.response.data);
+            return Promise.reject({
+                message: 'Erro interno do servidor. Tente novamente mais tarde.',
+                type: 'SERVER_ERROR',
+                status: error.response.status,
+                original: error
+            });
+        }
+        
+        // Outros erros
+        const errorMessage = error.response?.data?.error || 
+                           error.response?.data?.message || 
+                           error.response?.data?.detail ||
+                           'Erro desconhecido';
+        
+        return Promise.reject({
+            message: errorMessage,
+            type: 'UNKNOWN_ERROR',
+            status: error.response?.status,
+            data: error.response?.data,
+            original: error
+        });
+    }
+);
+
+// ==================== FUNÇÕES AUXILIARES ====================
+
+// Limpar dados de autenticação
+export const clearAuthData = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_data');
+    sessionStorage.clear();
+};
+
+// Verificar se está autenticado
+export const isAuthenticated = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return false;
+    
+    // Verificar se token não está expirado (opcional)
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const exp = payload.exp * 1000;
+        return Date.now() < exp;
+    } catch {
+        return !!token;
+    }
+};
+
+// Redirecionar para login
+export const redirectToLogin = () => {
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+        window.location.href = '/login';
+    }
+};
+
+// Obter dados do usuário do localStorage
+export const getUserData = () => {
+    try {
+        const userData = localStorage.getItem('user_data');
+        return userData ? JSON.parse(userData) : null;
+    } catch {
+        return null;
+    }
+};
+
+// Salvar dados do usuário
+export const saveUserData = (user) => {
+    localStorage.setItem('user_data', JSON.stringify(user));
+};
+
+// ==================== FUNÇÕES DE AUTENTICAÇÃO ====================
+
+// Login
+export const login = async (email, password) => {
+    try {
+        const response = await api.post('/auth/login/', { email, password });
+        const { access, refresh, user } = response.data;
+        
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        if (user) saveUserData(user);
+        
+        return { success: true, user };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao fazer login',
+            status: error.status
+        };
+    }
+};
+
+// Registro
+export const register = async (userData) => {
+    try {
+        const response = await api.post('/auth/register/', userData);
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao criar conta',
+            details: error.data
+        };
+    }
+};
+
+// Logout
+export const logout = async () => {
+    try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+            await api.post('/auth/logout/', { refresh: refreshToken });
+        }
+    } catch (error) {
+        console.error('Erro no logout:', error);
+    } finally {
+        clearAuthData();
+    }
+};
+
+// Verificar 2FA
+export const verify2FA = async (email, code) => {
+    try {
+        const response = await api.post('/auth/verify-2fa/', { email, code });
+        const { access, refresh, user } = response.data;
+        
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        if (user) saveUserData(user);
+        
+        return { success: true, user };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Código inválido'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE USUÁRIO ====================
+
+// Obter dados do usuário atual
+export const getCurrentUser = async () => {
+    try {
+        const response = await api.get('/user/me/');
+        saveUserData(response.data);
+        return { success: true, user: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar dados do usuário'
+        };
+    }
+};
+
+// Atualizar perfil
+export const updateProfile = async (data) => {
+    try {
+        const response = await api.patch('/user/me/update/', data);
+        saveUserData(response.data);
+        return { success: true, user: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao atualizar perfil'
+        };
+    }
+};
+
+// Alterar senha
+export const changePassword = async (oldPassword, newPassword, confirmNewPassword) => {
+    try {
+        const response = await api.post('/auth/password/change/', {
+            old_password: oldPassword,
+            new_password: newPassword,
+            confirm_new_password: confirmNewPassword
+        });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao alterar senha'
+        };
+    }
+};
+
+// Solicitar reset de senha
+export const requestPasswordReset = async (email) => {
+    try {
+        const response = await api.post('/auth/password/reset/', { email });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Email não encontrado'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE PEDIDOS ====================
+
+// Listar pedidos
+export const getPedidos = async (filters = {}) => {
+    try {
+        const params = new URLSearchParams();
+        if (filters.estado) params.append('estado', filters.estado);
+        if (filters.tipo) params.append('tipo', filters.tipo);
+        if (filters.busca) params.append('busca', filters.busca);
+        if (filters.data_inicio) params.append('data_inicio', filters.data_inicio);
+        if (filters.data_fim) params.append('data_fim', filters.data_fim);
+        
+        const url = `/pedidos/${params.toString() ? `?${params}` : ''}`;
+        const response = await api.get(url);
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar pedidos'
+        };
+    }
+};
+
+// Criar pedido
+export const createPedido = async (pedidoData) => {
+    try {
+        const response = await api.post('/pedidos/criar/', pedidoData);
+        return { success: true, pedido: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao criar pedido'
+        };
+    }
+};
+
+// Obter detalhes do pedido
+export const getPedidoDetalhes = async (pedidoId) => {
+    try {
+        const response = await api.get(`/pedidos/${pedidoId}/`);
+        return { success: true, pedido: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar detalhes do pedido'
+        };
+    }
+};
+
+// Aprovar pedido
+export const aprovarPedido = async (pedidoId) => {
+    try {
+        const response = await api.post(`/pedidos/${pedidoId}/aprovar/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao aprovar pedido'
+        };
+    }
+};
+
+// Rejeitar pedido
+export const rejeitarPedido = async (pedidoId, comentario) => {
+    try {
+        const response = await api.post(`/pedidos/${pedidoId}/rejeitar/`, { comentario });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao rejeitar pedido'
+        };
+    }
+};
+
+// Encaminhar pedido (DITE)
+export const encaminharPedidoDITE = async (pedidoId, destino) => {
+    try {
+        const response = await api.post(`/pedidos/${pedidoId}/passar-dite/`, { destino });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao encaminhar pedido'
+        };
+    }
+};
+
+// Encaminhar pedido (Direção/Administração)
+export const encaminharPedido = async (pedidoId) => {
+    try {
+        const response = await api.post(`/pedidos/${pedidoId}/passar/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao encaminhar pedido'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE SEGURANÇA ====================
+
+// Dashboard segurança
+export const getSegurancaDashboard = async () => {
+    try {
+        const response = await api.get('/seguranca/dashboard/');
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar dashboard'
+        };
+    }
+};
+
+// Marcar saída
+export const marcarSaida = async (pedidoId, hora = null) => {
+    try {
+        const data = hora ? { hora_saida: hora } : {};
+        const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`, data);
+        return { success: true, message: response.data.message, hora: response.data.hora };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao registrar saída'
+        };
+    }
+};
+
+// Marcar retorno
+export const marcarRetorno = async (pedidoId, hora = null, observacao = '') => {
+    try {
+        const data = {};
+        if (hora) data.hora_retorno = hora;
+        if (observacao) data.observacao = observacao;
+        
+        const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`, data);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao registrar retorno'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE SAÍDAS COLETIVAS ====================
+
+// Criar saída coletiva
+export const criarSaidaColetiva = async (data) => {
+    try {
+        const response = await api.post('/coletivas/criar/', data);
+        return { success: true, coletiva: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao criar saída coletiva'
+        };
+    }
+};
+
+// Listar saídas coletivas (admin/DITE/Direção/Administração)
+export const listarSaidasColetivas = async (status = null) => {
+    try {
+        const url = status ? `/coletivas/listar/?status=${status}` : '/coletivas/listar/';
+        const response = await api.get(url);
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar saídas coletivas'
+        };
+    }
+};
+
+// Minhas saídas coletivas (estudante)
+export const getMinhasColetivas = async () => {
+    try {
+        const response = await api.get('/coletivas/minhas/');
+        return { success: true, coletivas: response.data.coletivas || [] };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar suas saídas coletivas'
+        };
+    }
+};
+
+// Responder convite
+export const responderConviteColetiva = async (conviteId, resposta) => {
+    try {
+        const response = await api.post(`/coletivas/${conviteId}/responder/`, { resposta });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao responder convite'
+        };
+    }
+};
+
+// Encerrar saída coletiva
+export const encerrarSaidaColetiva = async (coletivaId) => {
+    try {
+        const response = await api.post(`/coletivas/${coletivaId}/encerrar/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao encerrar saída coletiva'
+        };
+    }
+};
+
+// Confirmar saída coletiva
+export const confirmarSaidaColetiva = async (coletivaId) => {
+    try {
+        const response = await api.post(`/coletivas/${coletivaId}/confirmar-saida/`);
+        return { success: true, message: response.data.message, total: response.data.total_confirmados };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao confirmar saída coletiva'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE NOTIFICAÇÕES ====================
+
+// Listar notificações
+export const getNotificacoes = async () => {
+    try {
+        const response = await api.get('/notificacoes/');
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar notificações'
+        };
+    }
+};
+
+// Marcar notificação como lida
+export const marcarNotificacaoLida = async (notificacaoId) => {
+    try {
+        const response = await api.post(`/notificacoes/${notificacaoId}/ler/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao marcar notificação'
+        };
+    }
+};
+
+// Marcar todas como lidas
+export const marcarTodasNotificacoesLidas = async () => {
+    try {
+        const response = await api.post('/notificacoes/ler-todas/');
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao marcar notificações'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE RELATÓRIOS ====================
+
+// Relatórios gerais
+export const getRelatorios = async (params = {}) => {
+    try {
+        const queryParams = new URLSearchParams();
+        if (params.periodo) queryParams.append('periodo', params.periodo);
+        if (params.mes) queryParams.append('mes', params.mes);
+        if (params.ano) queryParams.append('ano', params.ano);
+        
+        const response = await api.get(`/relatorios/${queryParams.toString() ? `?${queryParams}` : ''}`);
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar relatórios'
+        };
+    }
+};
+
+// Relatório de segurança
+export const getRelatorioSeguranca = async (tipo = 'diario', data = null, mes = null, ano = null) => {
+    try {
+        let url = `/relatorio-seguranca/?tipo=${tipo}`;
+        if (data) url += `&data=${data}`;
+        if (mes) url += `&mes=${mes}`;
+        if (ano) url += `&ano=${ano}`;
+        
+        const response = await api.get(url);
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar relatório de segurança'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE DASHBOARD ====================
+
+// Dashboard principal
+export const getDashboard = async () => {
+    try {
+        const response = await api.get('/dashboard/');
+        return { success: true, stats: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar dashboard'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE ADMIN ====================
+
+// Listar todos os usuários (admin)
+export const getUsuarios = async (filters = {}) => {
+    try {
+        const params = new URLSearchParams();
+        if (filters.role) params.append('role', filters.role);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.search) params.append('search', filters.search);
+        
+        const response = await api.get(`/admin/users/${params.toString() ? `?${params}` : ''}`);
+        return { success: true, users: response.data.users, total: response.data.total };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar usuários'
+        };
+    }
+};
+
+// Aprovar usuário (admin)
+export const aprovarUsuario = async (userId) => {
+    try {
+        const response = await api.post(`/admin/users/${userId}/approve/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao aprovar usuário'
+        };
+    }
+};
+
+// Bloquear/Desbloquear usuário (admin)
+export const toggleUserBlock = async (userId, block = true) => {
+    try {
+        const action = block ? 'block' : 'unblock';
+        const response = await api.post(`/admin/users/${userId}/block/`, { action });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao alterar status do usuário'
+        };
+    }
+};
+
+// Alterar papel do usuário (admin)
+export const changeUserRole = async (userId, role) => {
+    try {
+        const response = await api.post(`/admin/users/${userId}/role/`, { role });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao alterar papel do usuário'
+        };
+    }
+};
+
+// ==================== EXPORTAÇÃO PADRÃO ====================
+export default api;
