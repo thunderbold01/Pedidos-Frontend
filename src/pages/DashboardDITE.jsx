@@ -1,4 +1,4 @@
-// src/pages/DashboardDITE.jsx - VERSÃO MODERNA COM VISUAL DO EXEMPLO
+// src/pages/DashboardDITE.jsx - VERSÃO COMPLETA COM TODOS OS FILTROS
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -37,7 +37,7 @@ const DashboardDITE = ({ user, onLogout }) => {
     carregarColetivas();
     carregarAlertasAtraso();
     carregarRelatoriosSeguranca();
-  }, [filtroEstado, filtroData]);
+  }, [filtroEstado, filtroData]); // Recarrega quando filtroEstado ou filtroData mudar
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -264,8 +264,6 @@ const DashboardDITE = ({ user, onLogout }) => {
           to { transform: translateX(0); }
         }
         
-        .animate-fade { animation: fadeIn 0.3s ease-out; }
-        
         .modal-overlay {
           position: fixed;
           inset: 0;
@@ -298,9 +296,6 @@ const DashboardDITE = ({ user, onLogout }) => {
         }
         @media (max-width: 768px) {
           .modal-content { width: 95%; margin: 16px; }
-        }
-        
-        @media (max-width: 768px) {
           .sidebar {
             position: fixed !important;
             left: -280px !important;
@@ -452,10 +447,61 @@ const DashboardDITE = ({ user, onLogout }) => {
             </div>
           </div>
 
+          {/* Barra de Filtros - RESTAURADA COM TODOS OS FILTROS */}
+          <div style={styles.filterBar}>
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Status:</label>
+              <div style={styles.filterButtons}>
+                {menuItems.slice(0, 3).map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setFiltroEstado(item.id)}
+                    style={{
+                      ...styles.filterButton,
+                      background: filtroEstado === item.id ? '#2563EB' : '#F1F5F9',
+                      color: filtroEstado === item.id ? '#fff' : '#64748B'
+                    }}
+                  >
+                    {item.label} {item.count ? `(${item.count})` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Data de Saída:</label>
+              <input
+                type="date"
+                value={filtroData}
+                onChange={(e) => setFiltroData(e.target.value)}
+                style={styles.dateInput}
+              />
+              {filtroData && (
+                <button onClick={() => setFiltroData('')} style={styles.clearFilterBtn}>
+                  <i className="fas fa-times"></i>
+                </button>
+              )}
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Buscar:</label>
+              <div style={styles.searchWrapper}>
+                <i className="fas fa-search" style={styles.searchIcon}></i>
+                <input
+                  type="text"
+                  placeholder="Estudante ou ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.searchInput}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Tabs */}
           <div style={styles.tabsContainer}>
             <button onClick={() => setAba('pedidos')} style={{...styles.tab, background: aba === 'pedidos' ? '#fff' : 'transparent', borderBottom: aba === 'pedidos' ? '2px solid #2563EB' : 'none', color: aba === 'pedidos' ? '#2563EB' : '#64748B' }}>
-              <i className="fas fa-clipboard-list"></i> Pedidos
+              <i className="fas fa-clipboard-list"></i> Pedidos ({pedidosFiltrados.length})
             </button>
             <button onClick={() => setAba('coletivas')} style={{...styles.tab, background: aba === 'coletivas' ? '#fff' : 'transparent', borderBottom: aba === 'coletivas' ? '2px solid #2563EB' : 'none', color: aba === 'coletivas' ? '#2563EB' : '#64748B' }}>
               <i className="fas fa-users"></i> Coletivas ({coletivas.length})
@@ -470,130 +516,155 @@ const DashboardDITE = ({ user, onLogout }) => {
 
           {/* Main Data Card */}
           <div style={styles.dataCard}>
-            <div style={styles.cardHeader}>
-              <h3 style={{ fontSize: 18, fontWeight: 600 }}>Pedidos Recentes</h3>
-              <div style={styles.searchModern}>
-                <i className="fas fa-search" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}></i>
-                <input type="text" placeholder="Buscar estudante, ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
-              </div>
-            </div>
-
             {aba === 'pedidos' && (
-              loading ? (
-                <div style={styles.loading}>Carregando...</div>
-              ) : pedidosFiltrados.length === 0 ? (
-                <div style={styles.emptyState}>Nenhum pedido encontrado</div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={styles.modernTable}>
-                    <thead>
-                      <tr>
-                        <th>Estudante</th>
-                        <th>Tipo de Saída</th>
-                        <th>Data/Hora</th>
-                        <th>Status</th>
-                        <th style={{ textAlign: 'right' }}>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedidosFiltrados.map(p => (
-                        <tr key={p.id}>
-                          <td>
-                            <div style={styles.studentCell}>
-                              <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(p.estudante_nome || 'User')}&background=random`} alt="" style={styles.studentImg} />
-                              <div>
-                                <span style={styles.studentName}>{p.estudante_nome}</span>
-                                <span style={styles.studentCourse}>{p.estudante_curso || '-'} / {p.estudante_classe || '-'}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td>{p.tipo_display}</td>
-                          <td>{p.data_saida}</td>
-                          <td><span style={{...styles.statusPill, ...getStatusStyle(p.estado)}}>{p.estado_display}</span></td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                              <button onClick={() => navigate(`/pedido/${p.id}`)} style={styles.btnOutline}><i className="fas fa-eye"></i></button>
-                              {p.acoes_disponiveis?.includes('aprovar') && (
-                                <button onClick={() => abrirModalAprovacao(p.id)} style={styles.btnPrimary}><i className="fas fa-check"></i> Analisar</button>
-                              )}
-                              {p.acoes_disponiveis?.includes('rejeitar') && (
-                                <button onClick={() => handleAcao(p.id, 'rejeitar')} style={styles.btnDanger}><i className="fas fa-times"></i></button>
-                              )}
-                              {p.estado === 'PENDENTE_DITE' && (
-                                <button onClick={() => setModalEncaminhar(p.id)} style={styles.btnWarning}><i className="fas fa-share"></i></button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <>
+                <div style={styles.cardHeader}>
+                  <h3 style={{ fontSize: 18, fontWeight: 600 }}>Pedidos {filtroEstado ? `- ${menuItems.find(i => i.id === filtroEstado)?.label || filtroEstado}` : ''}</h3>
+                  <div style={styles.resultsInfo}>
+                    <span>Total: {pedidosFiltrados.length} pedidos</span>
+                  </div>
                 </div>
-              )
+                
+                {loading ? (
+                  <div style={styles.loading}>Carregando...</div>
+                ) : pedidosFiltrados.length === 0 ? (
+                  <div style={styles.emptyState}>
+                    <i className="fas fa-inbox" style={{ fontSize: 48, color: '#94A3B8', marginBottom: 16 }}></i>
+                    <p>Nenhum pedido encontrado</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={styles.modernTable}>
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Estudante</th>
+                          <th>Tipo</th>
+                          <th>Data/Hora</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: 'right' }}>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pedidosFiltrados.map(p => (
+                          <tr key={p.id}>
+                            <td style={{ fontWeight: 600, color: '#2563EB' }}>#{p.id}</td>
+                            <td>
+                              <div style={styles.studentCell}>
+                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(p.estudante_nome || 'User')}&background=random`} alt="" style={styles.studentImg} />
+                                <div>
+                                  <span style={styles.studentName}>{p.estudante_nome}</span>
+                                  <span style={styles.studentCourse}>{p.estudante_curso || '-'} / {p.estudante_classe || '-'}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{p.tipo_display}</td>
+                            <td>{p.data_saida}</td>
+                            <td><span style={{...styles.statusPill, ...getStatusStyle(p.estado)}}>{p.estado_display}</span></td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                <button onClick={() => navigate(`/pedido/${p.id}`)} style={styles.btnOutline} title="Ver detalhes"><i className="fas fa-eye"></i></button>
+                                {p.acoes_disponiveis?.includes('aprovar') && (
+                                  <button onClick={() => abrirModalAprovacao(p.id)} style={styles.btnPrimary}><i className="fas fa-check"></i> Analisar</button>
+                                )}
+                                {p.acoes_disponiveis?.includes('rejeitar') && (
+                                  <button onClick={() => handleAcao(p.id, 'rejeitar')} style={styles.btnDanger}><i className="fas fa-times"></i></button>
+                                )}
+                                {p.estado === 'PENDENTE_DITE' && (
+                                  <button onClick={() => setModalEncaminhar(p.id)} style={styles.btnWarning}><i className="fas fa-share"></i></button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
 
             {aba === 'coletivas' && (
-              coletivas.length === 0 ? (
-                <div style={styles.emptyState}>Nenhuma saída coletiva criada</div>
-              ) : (
-                coletivas.map(c => (
-                  <div key={c.id} style={styles.coletivaCard}>
-                    <div style={styles.coletivaHeader}>
-                      <strong>{c.titulo}</strong>
-                      <span style={{...styles.coletivaBadge, background: c.encerrada ? '#F1F5F9' : '#DCFCE7', color: c.encerrada ? '#64748B' : '#166534' }}>
-                        {c.encerrada ? 'Encerrada' : 'Ativa'}
-                      </span>
+              <>
+                <div style={styles.cardHeader}>
+                  <h3 style={{ fontSize: 18, fontWeight: 600 }}>Saídas Coletivas</h3>
+                  <button onClick={() => setShowColetiva(true)} style={styles.btnPrimary}>
+                    <i className="fas fa-plus"></i> Nova Coletiva
+                  </button>
+                </div>
+                {coletivas.length === 0 ? (
+                  <div style={styles.emptyState}>Nenhuma saída coletiva criada</div>
+                ) : (
+                  coletivas.map(c => (
+                    <div key={c.id} style={styles.coletivaCard}>
+                      <div style={styles.coletivaHeader}>
+                        <strong>{c.titulo}</strong>
+                        <span style={{...styles.coletivaBadge, background: c.encerrada ? '#F1F5F9' : '#DCFCE7', color: c.encerrada ? '#64748B' : '#166534' }}>
+                          {c.encerrada ? 'Encerrada' : 'Ativa'}
+                        </span>
+                      </div>
+                      <div style={styles.coletivaInfo}>
+                        <span>📅 Saída: {c.data_saida?.split('T')[0]}</span>
+                        <span>🔙 Volta: {c.data_volta?.split('T')[0]}</span>
+                        <span>👤 Criador: {c.criador_nome || c.criador}</span>
+                      </div>
+                      <div style={styles.progressBar}>
+                        <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, ...styles.progressFill }} />
+                      </div>
+                      <div style={styles.coletivaStats}>
+                        <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
+                        <span><strong style={{ color: '#166534' }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
+                        <span><strong style={{ color: '#991B1B' }}>{c.total_recusados || 0}</strong> Recusaram</span>
+                        <span><strong>{c.total_pendentes || 0}</strong> Pendentes</span>
+                      </div>
                     </div>
-                    <div style={styles.coletivaInfo}>
-                      <span>📅 {c.data_saida?.split('T')[0]}</span>
-                      <span>🔙 {c.data_volta?.split('T')[0]}</span>
-                      <span>👤 {c.criador_nome || c.criador}</span>
-                    </div>
-                    <div style={styles.progressBar}>
-                      <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, ...styles.progressFill }} />
-                    </div>
-                    <div style={styles.coletivaStats}>
-                      <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
-                      <span><strong style={{ color: '#166534' }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
-                      <span><strong style={{ color: '#991B1B' }}>{c.total_recusados || 0}</strong> Recusaram</span>
-                    </div>
-                  </div>
-                ))
-              )
+                  ))
+                )}
+              </>
             )}
 
             {aba === 'alertas' && (
-              alertasAtraso.length === 0 ? (
-                <div style={styles.emptyState}>Nenhum alerta de atraso</div>
-              ) : (
-                alertasAtraso.map(a => (
-                  <div key={a.id} onClick={marcarAlertaLido} style={{...styles.alertaCard, cursor: 'pointer'}}>
-                    <div><strong>{a.estudante_nome}</strong> - Atraso de <strong>{a.tempo_atraso} minutos</strong></div>
-                    <div style={{ fontSize: 12, color: '#64748B' }}>Enviado em: {a.enviado_em}</div>
-                    {!a.lido && <span style={styles.alertaBadge}>🔴 Não lido</span>}
-                  </div>
-                ))
-              )
+              <>
+                <div style={styles.cardHeader}>
+                  <h3 style={{ fontSize: 18, fontWeight: 600 }}>Alertas de Atraso</h3>
+                </div>
+                {alertasAtraso.length === 0 ? (
+                  <div style={styles.emptyState}>Nenhum alerta de atraso</div>
+                ) : (
+                  alertasAtraso.map(a => (
+                    <div key={a.id} onClick={marcarAlertaLido} style={{...styles.alertaCard, cursor: 'pointer'}}>
+                      <div><strong>{a.estudante_nome}</strong> - Atraso de <strong>{a.tempo_atraso} minutos</strong></div>
+                      <div style={{ fontSize: 12, color: '#64748B' }}>Enviado em: {a.enviado_em}</div>
+                      {!a.lido && <span style={styles.alertaBadge}>🔴 Não lido</span>}
+                    </div>
+                  ))
+                )}
+              </>
             )}
 
             {aba === 'relatorios' && (
-              relatoriosSeguranca.length === 0 ? (
-                <div style={styles.emptyState}>Nenhum relatório recebido</div>
-              ) : (
-                relatoriosSeguranca.map(r => (
-                  <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={styles.relatorioCard}>
-                    <div><strong>{r.titulo}</strong></div>
-                    <div style={{ fontSize: 12, color: '#64748B' }}>Enviado por: {r.criado_por} em {r.created_at}</div>
-                    <div style={{ fontSize: 11, color: '#2563EB' }}>📥 Clique para baixar</div>
-                  </div>
-                ))
-              )
+              <>
+                <div style={styles.cardHeader}>
+                  <h3 style={{ fontSize: 18, fontWeight: 600 }}>Relatórios de Segurança</h3>
+                </div>
+                {relatoriosSeguranca.length === 0 ? (
+                  <div style={styles.emptyState}>Nenhum relatório recebido</div>
+                ) : (
+                  relatoriosSeguranca.map(r => (
+                    <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={styles.relatorioCard}>
+                      <div><strong>{r.titulo}</strong></div>
+                      <div style={{ fontSize: 12, color: '#64748B' }}>Enviado por: {r.criado_por} em {r.created_at}</div>
+                      <div style={{ fontSize: 11, color: '#2563EB' }}>📥 Clique para baixar</div>
+                    </div>
+                  ))
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Modal Aprovação */}
+      {/* Modais (mantidos iguais) */}
       <div className={`modal-overlay ${modalAprovacao ? 'open' : ''}`} onClick={() => setModalAprovacao(null)}>
         <div className="modal-content" onClick={e => e.stopPropagation()}>
           <div style={styles.modalHeader}>
@@ -691,7 +762,7 @@ const DashboardDITE = ({ user, onLogout }) => {
                 <div style={styles.notifEmpty}>Nenhuma notificação</div>
               ) : (
                 notificacoes.map(n => (
-                  <div key={n.id} onClick={() => { marcarNotificacaoLida(n.id); if (n.pedido_id) { navigate(`/pedido/${n.pedido_id}`); setShowNotificacoes(false); } }} style={{...styles.notifItem, background: n.lida ? '#fff' : '#FEFCE8' }}>
+                  <div key={n.id} onClick={() => { marcarNotificacaoLida(n.id); if (n.pedido_id) { navigate(`/pedido/${n.pedido_id}`); setShowNotificacoes(false); } }} style={{...styles.notifItem, background: n.lida ? '#fff' : '#FEFCE8'}}>
                     <div style={styles.notifMessage}>{n.mensagem}</div>
                     <div style={styles.notifDate}>{n.data}</div>
                   </div>
@@ -741,6 +812,7 @@ const styles = {
   topHeader: { height: 80, padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 10, '@media (max-width: 768px)': { padding: '0 16px' } },
   menuToggle: { display: 'none', background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#1E293B', '@media (max-width: 768px)': { display: 'flex', marginRight: 16 } },
   headerTitle: { flex: 1 },
+  headerTitle: { flex: 1 },
   headerActions: { display: 'flex', gap: 16 },
   iconBtn: { width: 44, height: 44, borderRadius: 12, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer', transition: 'all 0.2s' },
   notificationDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, background: '#DC2626', borderRadius: '50%', border: '2px solid white' },
@@ -752,6 +824,19 @@ const styles = {
   statIcon: { width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 },
   statInfo: { flex: 1 },
   
+  // Filter Bar - RESTAURADA
+  filterBar: { background: '#fff', borderRadius: 16, padding: 20, marginBottom: 24, border: '1px solid #E2E8F0', display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-end' },
+  filterGroup: { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 200 },
+  filterLabel: { fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  filterButtons: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  filterButton: { padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' },
+  dateInput: { padding: '8px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, outline: 'none' },
+  clearFilterBtn: { marginLeft: 8, padding: '8px 12px', background: '#FEE2E2', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#DC2626' },
+  searchWrapper: { position: 'relative' },
+  searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' },
+  searchInput: { padding: '8px 12px 8px 36px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, width: 220, outline: 'none' },
+  resultsInfo: { fontSize: 13, color: '#64748B' },
+  
   // Tabs
   tabsContainer: { display: 'flex', gap: 4, background: '#F8FAFC', padding: 4, borderRadius: 12, marginBottom: 20, flexWrap: 'wrap' },
   tab: { flex: 1, padding: 12, border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s' },
@@ -759,8 +844,6 @@ const styles = {
   // Data Card
   dataCard: { background: '#fff', borderRadius: 24, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', border: '1px solid #E2E8F0', overflow: 'hidden' },
   cardHeader: { padding: 24, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 },
-  searchModern: { position: 'relative', width: 300, '@media (max-width: 768px)': { width: '100%' } },
-  searchInput: { width: '100%', padding: '12px 16px 12px 44px', borderRadius: 12, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: 14, outline: 'none', transition: 'all 0.2s' },
   
   // Table
   modernTable: { width: '100%', borderCollapse: 'collapse' },
