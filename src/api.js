@@ -6,7 +6,7 @@ const isDevelopment = import.meta.env.DEV || window.location.hostname === 'local
 
 // URLs da API
 const LOCAL_API_URL = 'http://localhost:8000/api';
-const PROD_API_URL = 'https://pedidos-backend.onrender.com/api';
+const PROD_API_URL = 'https://secure-messaging-api.onrender.com/api';
 
 // Escolhe a URL baseada no ambiente
 const API_URL = isDevelopment ? LOCAL_API_URL : PROD_API_URL;
