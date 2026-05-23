@@ -1,4 +1,4 @@
-// src/pages/DashboardDITE.jsx - VERSÃO CORRIGIDA (SEM ERROS DE SINTAXE)
+// src/pages/DashboardDITE.jsx - VERSÃO MODERNA E RESPONSIVA
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -19,10 +19,7 @@ const DashboardDITE = ({ user, onLogout }) => {
   const [modalEncaminhar, setModalEncaminhar] = useState(null);
   const [modalAprovacao, setModalAprovacao] = useState(null);
   const [dadosAprovacao, setDadosAprovacao] = useState({
-    data_saida: '',
-    hora_saida: '07:00',
-    data_volta: '',
-    hora_volta: '19:00'
+    data_saida: '', hora_saida: '07:00', data_volta: '', hora_volta: '19:00'
   });
   const [showColetiva, setShowColetiva] = useState(false);
   const [formColetiva, setFormColetiva] = useState({
@@ -30,16 +27,27 @@ const DashboardDITE = ({ user, onLogout }) => {
   });
   const [loadingColetiva, setLoadingColetiva] = useState(false);
   const [errorColetiva, setErrorColetiva] = useState('');
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [aba, setAba] = useState('pedidos');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Variáveis CSS para temas
+  const colors = {
+    primary: '#2563EB',
+    primaryDark: '#1E40AF',
+    primaryLight: '#60A5FA',
+    bgBody: '#F8FAFC',
+    surface: '#FFFFFF',
+    textMain: '#1E293B',
+    textSecondary: '#64748B',
+    border: '#E2E8F0',
+    success: '#166534',
+    successBg: '#DCFCE7',
+    warning: '#854D0E',
+    warningBg: '#FEF9C3',
+    danger: '#991B1B',
+    dangerBg: '#FEE2E2'
+  };
 
   useEffect(() => {
     carregarDados();
@@ -48,6 +56,17 @@ const DashboardDITE = ({ user, onLogout }) => {
     carregarAlertasAtraso();
     carregarRelatoriosSeguranca();
   }, [filtroEstado, filtroData]);
+
+  // Fechar sidebar ao clicar fora em mobile
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (sidebarOpen && !e.target.closest('.sidebar') && !e.target.closest('.menu-toggle')) {
+        setSidebarOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [sidebarOpen]);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -75,18 +94,14 @@ const DashboardDITE = ({ user, onLogout }) => {
     try {
       const res = await api.get('/coletivas/listar/');
       setColetivas(res.data.coletivas || []);
-    } catch (err) {
-      console.error('Erro ao carregar coletivas:', err);
-    }
+    } catch (err) {}
   };
 
   const carregarAlertasAtraso = async () => {
     try {
       const res = await api.get('/seguranca/alertas-atraso/');
       setAlertasAtraso(res.data.alertas || []);
-    } catch (err) {
-      console.error('Erro ao carregar alertas:', err);
-    }
+    } catch (err) {}
   };
 
   const carregarRelatoriosSeguranca = async () => {
@@ -94,9 +109,7 @@ const DashboardDITE = ({ user, onLogout }) => {
       const res = await api.get('/relatorios/');
       const relatoriosSeg = (res.data.relatorios || []).filter(r => r.tipo === 'SEGURANCA');
       setRelatoriosSeguranca(relatoriosSeg);
-    } catch (err) {
-      console.error('Erro ao carregar relatórios:', err);
-    }
+    } catch (err) {}
   };
 
   const carregarNotificacoes = async () => {
@@ -104,18 +117,13 @@ const DashboardDITE = ({ user, onLogout }) => {
       const res = await api.get('/notificacoes/');
       setNotificacoes(res.data.notificacoes || []);
       setNotificacoesNaoLidas(res.data.nao_lidas || 0);
-    } catch (err) {
-      console.error('Erro:', err);
-    }
+    } catch (err) {}
   };
 
   const abrirModalAprovacao = (pedidoId) => {
     const hoje = new Date().toISOString().split('T')[0];
     setDadosAprovacao({
-      data_saida: hoje,
-      hora_saida: '07:00',
-      data_volta: hoje,
-      hora_volta: '19:00'
+      data_saida: hoje, hora_saida: '07:00', data_volta: hoje, hora_volta: '19:00'
     });
     setModalAprovacao(pedidoId);
   };
@@ -170,22 +178,11 @@ const DashboardDITE = ({ user, onLogout }) => {
     }
   };
 
-  const marcarAlertaLido = async () => {
-    try {
-      await api.get('/seguranca/alertas-atraso/?marcar_lidos=true');
-      carregarAlertasAtraso();
-    } catch (err) {
-      console.error('Erro:', err);
-    }
-  };
-
   const marcarNotificacaoLida = async (id) => {
     try {
       await api.post(`/notificacoes/${id}/ler/`);
       await carregarNotificacoes();
-    } catch (err) {
-      console.error('Erro:', err);
-    }
+    } catch (err) {}
   };
 
   const criarColetiva = async (e) => {
@@ -227,15 +224,15 @@ const DashboardDITE = ({ user, onLogout }) => {
 
   const getStatusStyle = (estado) => {
     const styles = {
-      'PENDENTE_DITE': { background: '#fef3c7', color: '#d97706' },
-      'PENDENTE_DIRECAO': { background: '#ede9fe', color: '#7c3aed' },
-      'PENDENTE_ADMIN': { background: '#dbeafe', color: '#2563eb' },
-      'APROVADO': { background: '#d1fae5', color: '#059669' },
-      'REJEITADO': { background: '#fee2e2', color: '#dc2626' },
-      'EM_ANDAMENTO': { background: '#e0f2fe', color: '#0284c7' },
-      'FINALIZADO': { background: '#f1f5f9', color: '#64748b' }
+      'PENDENTE_DITE': { background: '#FEF9C3', color: '#854D0E' },
+      'PENDENTE_DIRECAO': { background: '#EDE9FE', color: '#7C3AED' },
+      'PENDENTE_ADMIN': { background: '#DBEAFE', color: '#2563EB' },
+      'APROVADO': { background: '#DCFCE7', color: '#166534' },
+      'REJEITADO': { background: '#FEE2E2', color: '#991B1B' },
+      'EM_ANDAMENTO': { background: '#E0F2FE', color: '#0284C7' },
+      'FINALIZADO': { background: '#F1F5F9', color: '#64748B' }
     };
-    return styles[estado] || { background: '#f1f5f9', color: '#64748b' };
+    return styles[estado] || { background: '#F1F5F9', color: '#64748B' };
   };
 
   const pedidosFiltrados = pedidos.filter(p =>
@@ -243,328 +240,586 @@ const DashboardDITE = ({ user, onLogout }) => {
     p.id.toString().includes(searchTerm)
   );
 
-  const menuItems = [
-    { id: 'PENDENTE_DITE', label: 'Pendentes', icon: '📋', count: stats.meus_pedidos_pendentes },
-    { id: 'PENDENTE_DIRECAO', label: 'Em Análise', icon: '⏳' },
-    { id: 'APROVADO', label: 'Aprovados', icon: '✅', count: stats.pedidos_aprovados },
-    { id: 'REJEITADO', label: 'Rejeitados', icon: '❌', count: stats.pedidos_rejeitados },
-    { id: 'EM_ANDAMENTO', label: 'Em Andamento', icon: '🚶' },
-    { id: 'FINALIZADO', label: 'Finalizados', icon: '🏁' }
-  ];
-
   const hoje = new Date().toISOString().split('T')[0];
 
+  // Menu items para sidebar
+  const menuItems = [
+    { id: 'PENDENTE_DITE', label: 'Pendentes', icon: 'fas fa-clock', count: stats.meus_pedidos_pendentes },
+    { id: 'PENDENTE_DIRECAO', label: 'Em Análise', icon: 'fas fa-hourglass-half' },
+    { id: 'APROVADO', label: 'Aprovados', icon: 'fas fa-check-circle', count: stats.pedidos_aprovados },
+    { id: 'REJEITADO', label: 'Rejeitados', icon: 'fas fa-times-circle', count: stats.pedidos_rejeitados },
+    { id: 'EM_ANDAMENTO', label: 'Em Andamento', icon: 'fas fa-walking' },
+    { id: 'FINALIZADO', label: 'Finalizados', icon: 'fas fa-flag-checkered' }
+  ];
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={styles.container}>
+      {/* CSS Global e Fonts */}
+      <style>{`
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+          font-family: 'Inter', sans-serif;
+          background: #F8FAFC;
+          overflow-x: hidden;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideIn {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+        
+        .animate-fade { animation: fadeIn 0.3s ease-out; }
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.5);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+        }
+        .modal-overlay.open {
+          opacity: 1;
+          visibility: visible;
+        }
+        .modal-overlay.open .modal-content {
+          transform: scale(1);
+        }
+        .modal-content {
+          background: white;
+          border-radius: 24px;
+          max-width: 500px;
+          width: 90%;
+          max-height: 90vh;
+          overflow: auto;
+          transform: scale(0.95);
+          transition: transform 0.3s ease;
+        }
+        @media (max-width: 768px) {
+          .modal-content { width: 95%; margin: 16px; }
+        }
+      `}</style>
+
       {/* Sidebar */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, height: '100vh', width: 260,
-        background: '#1a1a1a', color: '#fff', display: 'flex', flexDirection: 'column'
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{
+        ...styles.sidebar,
+        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
       }}>
-        <div style={{ padding: 24, borderBottom: '1px solid #333' }}>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>⚡ DITE</div>
+        <div style={styles.brand}>
+          <div style={styles.brandIcon}><i className="fas fa-bolt"></i></div>
+          <div style={styles.brandText}>DITE</div>
         </div>
-        <div style={{ padding: 20 }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{user?.nome || user?.username}</div>
-          <div style={{ fontSize: 11, color: '#999' }}>DITE - Tecnologia</div>
-        </div>
-        <nav style={{ flex: 1, padding: 16 }}>
+
+        <ul style={styles.navLinks}>
           {menuItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => { setFiltroEstado(item.id); setAba('pedidos'); }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                padding: '12px 16px', background: filtroEstado === item.id ? '#2a2a2a' : 'transparent',
-                border: 'none', borderRadius: 8, color: '#ccc', cursor: 'pointer', textAlign: 'left'
-              }}
-            >
-              <span>{item.icon}</span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.count > 0 && <span style={{ background: '#dc2626', padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>{item.count}</span>}
-            </button>
+            <li key={item.id} style={styles.navItem}>
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); setFiltroEstado(item.id); setAba('pedidos'); setSidebarOpen(false); }}
+                style={{
+                  ...styles.navLink,
+                  background: filtroEstado === item.id ? 'linear-gradient(135deg, #2563EB, #1D4ED8)' : 'transparent',
+                  color: filtroEstado === item.id ? '#fff' : '#64748B',
+                  boxShadow: filtroEstado === item.id ? '0 4px 12px rgba(37, 99, 235, 0.25)' : 'none'
+                }}
+              >
+                <i className={item.icon} style={{ width: 20 }}></i>
+                <span>{item.label}</span>
+                {item.count > 0 && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    background: filtroEstado === item.id ? 'rgba(255,255,255,0.2)' : '#FEE2E2',
+                    color: filtroEstado === item.id ? '#fff' : '#991B1B',
+                    padding: '2px 8px',
+                    borderRadius: 10,
+                    fontSize: 11,
+                    fontWeight: 700
+                  }}>{item.count}</span>
+                )}
+              </a>
+            </li>
           ))}
-          <div style={{ height: 1, background: '#333', margin: '12px 0' }} />
-          <button onClick={() => setAba('coletivas')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', borderRadius: 8, color: '#ccc', cursor: 'pointer' }}>
-            <span>👥</span><span>Saídas Coletivas</span>
-            {coletivas.length > 0 && <span style={{ background: '#dc2626', padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>{coletivas.length}</span>}
-          </button>
-          <button onClick={() => setAba('alertas')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', borderRadius: 8, color: '#ccc', cursor: 'pointer' }}>
-            <span>⚠️</span><span>Alertas Atraso</span>
-            {alertasAtraso.length > 0 && <span style={{ background: '#dc2626', padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>{alertasAtraso.length}</span>}
-          </button>
-          <button onClick={() => setAba('relatorios')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', borderRadius: 8, color: '#ccc', cursor: 'pointer' }}>
-            <span>📊</span><span>Relatórios Segurança</span>
-            {relatoriosSeguranca.length > 0 && <span style={{ background: '#dc2626', padding: '2px 8px', borderRadius: 20, fontSize: 10 }}>{relatoriosSeguranca.length}</span>}
-          </button>
-          <button onClick={() => setShowColetiva(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', borderRadius: 8, color: '#059669', cursor: 'pointer' }}>
-            <span>➕</span><span>Nova Coletiva</span>
-          </button>
-        </nav>
-        <button onClick={onLogout} style={{ margin: 20, padding: 12, background: '#2a2a2a', border: 'none', borderRadius: 10, color: '#fff', cursor: 'pointer' }}>🚪 Sair</button>
+          <li><hr style={styles.divider} /></li>
+          <li style={styles.navItem}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setAba('coletivas'); setSidebarOpen(false); }} style={styles.navLink}>
+              <i className="fas fa-users"></i><span>Saídas Coletivas</span>
+              {coletivas.length > 0 && <span style={styles.badge}>{coletivas.length}</span>}
+            </a>
+          </li>
+          <li style={styles.navItem}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setAba('alertas'); setSidebarOpen(false); }} style={styles.navLink}>
+              <i className="fas fa-shield-alt"></i><span>Alertas Atraso</span>
+              {alertasAtraso.length > 0 && <span style={{...styles.badge, background: '#DC2626', color: '#fff' }}>!</span>}
+            </a>
+          </li>
+          <li style={styles.navItem}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setAba('relatorios'); setSidebarOpen(false); }} style={styles.navLink}>
+              <i className="fas fa-chart-line"></i><span>Relatórios</span>
+              {relatoriosSeguranca.length > 0 && <span style={styles.badge}>{relatoriosSeguranca.length}</span>}
+            </a>
+          </li>
+          <li style={styles.navItem}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setShowColetiva(true); setSidebarOpen(false); }} style={{...styles.navLink, color: '#059669' }}>
+              <i className="fas fa-plus-circle"></i><span>Nova Coletiva</span>
+            </a>
+          </li>
+        </ul>
+
+        <div style={styles.userCard}>
+          <div style={styles.userAvatar}>
+            <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.nome || user?.username || 'User')}&background=2563EB&color=fff`} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+          </div>
+          <div style={styles.userInfo}>
+            <h4>{user?.nome || user?.username}</h4>
+            <p>DITE - Tecnologia</p>
+          </div>
+          <i className="fas fa-chevron-right" style={{ marginLeft: 'auto', fontSize: 12, color: '#94A3B8' }}></i>
+        </div>
       </div>
 
+      {/* Overlay para mobile */}
+      {sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={styles.overlay} />
+      )}
+
       {/* Main Content */}
-      <div style={{ flex: 1, marginLeft: 260, padding: 24, background: '#f5f5f5' }}>
-        <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div><h2 style={{ margin: 0 }}>Olá, {user?.nome || user?.username}</h2><p style={{ margin: 0, color: '#666' }}>Gerencie os pedidos de saída</p></div>
-          <button onClick={() => setShowNotificacoes(!showNotificacoes)} style={{ position: 'relative', padding: 10, background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, cursor: 'pointer' }}>
-            🔔
-            {notificacoesNaoLidas > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: '#dc2626', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 20 }}>{notificacoesNaoLidas}</span>}
+      <div style={styles.mainWrapper}>
+        {/* Header */}
+        <header style={styles.topHeader}>
+          <button className="menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.menuToggle}>
+            <i className="fas fa-bars"></i>
           </button>
-        </div>
+          <div style={styles.headerTitle}>
+            <h1>Visão Geral</h1>
+            <span>Bem-vindo de volta, aqui está o resumo de hoje.</span>
+          </div>
+          <div style={styles.headerActions}>
+            <button className="icon-btn" style={styles.iconBtn} onClick={carregarDados}>
+              <i className="fas fa-sync-alt"></i>
+            </button>
+            <button className="icon-btn" style={{...styles.iconBtn, position: 'relative'}} onClick={() => setShowNotificacoes(!showNotificacoes)}>
+              <i className="fas fa-bell"></i>
+              {notificacoesNaoLidas > 0 && <div style={styles.notificationDot}></div>}
+            </button>
+            <button className="icon-btn" style={styles.iconBtn} onClick={onLogout}>
+              <i className="fas fa-sign-out-alt"></i>
+            </button>
+          </div>
+        </header>
 
-        {/* Abas */}
-        <div style={{ display: 'flex', gap: 4, background: '#f5f5f5', padding: 4, borderRadius: 12, marginBottom: 20 }}>
-          <button onClick={() => setAba('pedidos')} style={{ flex: 1, padding: 12, border: 'none', borderRadius: 10, background: aba === 'pedidos' ? '#fff' : 'transparent', cursor: 'pointer', fontWeight: 600 }}>📋 Pedidos</button>
-          <button onClick={() => setAba('coletivas')} style={{ flex: 1, padding: 12, border: 'none', borderRadius: 10, background: aba === 'coletivas' ? '#fff' : 'transparent', cursor: 'pointer', fontWeight: 600 }}>👥 Coletivas ({coletivas.length})</button>
-          <button onClick={() => setAba('alertas')} style={{ flex: 1, padding: 12, border: 'none', borderRadius: 10, background: aba === 'alertas' ? '#fff' : 'transparent', cursor: 'pointer', fontWeight: 600 }}>⚠️ Alertas ({alertasAtraso.length})</button>
-          <button onClick={() => setAba('relatorios')} style={{ flex: 1, padding: 12, border: 'none', borderRadius: 10, background: aba === 'relatorios' ? '#fff' : 'transparent', cursor: 'pointer', fontWeight: 600 }}>📊 Relatórios ({relatoriosSeguranca.length})</button>
-        </div>
-
-        {/* Conteúdo das Abas */}
-        {aba === 'pedidos' && (
-          <>
-            <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {menuItems.slice(0, 3).map(item => (
-                  <button key={item.id} onClick={() => setFiltroEstado(item.id)} style={{ padding: '8px 16px', border: 'none', borderRadius: 10, background: filtroEstado === item.id ? '#1a1a1a' : '#f5f5f5', color: filtroEstado === item.id ? '#fff' : '#666', cursor: 'pointer' }}>
-                    {item.label} {item.count ? `(${item.count})` : ''}
-                  </button>
-                ))}
+        {/* Content Area */}
+        <div style={styles.contentScroll}>
+          {/* Stats Cards */}
+          <div style={styles.statsGrid}>
+            <div style={styles.statCard}>
+              <div style={{...styles.statIcon, background: '#EFF6FF', color: '#2563EB' }}>
+                <i className="fas fa-clipboard-list"></i>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: 8, border: '1px solid #e0e0e0', borderRadius: 8 }} />
-                <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={{ padding: 8, border: '1px solid #e0e0e0', borderRadius: 8 }} />
-                <button onClick={carregarDados} style={{ padding: '8px 16px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>🔄</button>
+              <div style={styles.statInfo}>
+                <h3>{pedidos.length}</h3>
+                <p>Pedidos Pendentes</p>
+              </div>
+            </div>
+            <div style={styles.statCard}>
+              <div style={{...styles.statIcon, background: '#DCFCE7', color: '#166534' }}>
+                <i className="fas fa-check-circle"></i>
+              </div>
+              <div style={styles.statInfo}>
+                <h3>{stats.pedidos_aprovados || 0}</h3>
+                <p>Aprovados (Mês)</p>
+              </div>
+            </div>
+            <div style={styles.statCard}>
+              <div style={{...styles.statIcon, background: '#FEF9C3', color: '#854D0E' }}>
+                <i className="fas fa-clock"></i>
+              </div>
+              <div style={styles.statInfo}>
+                <h3>{alertasAtraso.length}</h3>
+                <p>Alertas de Atraso</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={styles.tabsContainer}>
+            <button onClick={() => setAba('pedidos')} style={{...styles.tab, background: aba === 'pedidos' ? '#fff' : 'transparent', borderBottom: aba === 'pedidos' ? `2px solid ${colors.primary}` : 'none', color: aba === 'pedidos' ? colors.primary : colors.textSecondary }}>
+              <i className="fas fa-clipboard-list"></i> Pedidos
+            </button>
+            <button onClick={() => setAba('coletivas')} style={{...styles.tab, background: aba === 'coletivas' ? '#fff' : 'transparent', borderBottom: aba === 'coletivas' ? `2px solid ${colors.primary}` : 'none', color: aba === 'coletivas' ? colors.primary : colors.textSecondary }}>
+              <i className="fas fa-users"></i> Coletivas ({coletivas.length})
+            </button>
+            <button onClick={() => setAba('alertas')} style={{...styles.tab, background: aba === 'alertas' ? '#fff' : 'transparent', borderBottom: aba === 'alertas' ? `2px solid ${colors.primary}` : 'none', color: aba === 'alertas' ? colors.primary : colors.textSecondary }}>
+              <i className="fas fa-shield-alt"></i> Alertas ({alertasAtraso.length})
+            </button>
+            <button onClick={() => setAba('relatorios')} style={{...styles.tab, background: aba === 'relatorios' ? '#fff' : 'transparent', borderBottom: aba === 'relatorios' ? `2px solid ${colors.primary}` : 'none', color: aba === 'relatorios' ? colors.primary : colors.textSecondary }}>
+              <i className="fas fa-chart-line"></i> Relatórios ({relatoriosSeguranca.length})
+            </button>
+          </div>
+
+          {/* Data Card */}
+          <div style={styles.dataCard}>
+            <div style={styles.cardHeader}>
+              <h3>Pedidos Recentes</h3>
+              <div style={styles.searchModern}>
+                <i className="fas fa-search" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}></i>
+                <input type="text" placeholder="Buscar estudante, ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
               </div>
             </div>
 
-            <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden' }}>
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: 60 }}>Carregando...</div>
+            {aba === 'pedidos' && (
+              loading ? (
+                <div style={styles.loading}>Carregando...</div>
               ) : pedidosFiltrados.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>Nenhum pedido encontrado</div>
+                <div style={styles.emptyState}>Nenhum pedido encontrado</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table style={styles.modernTable}>
                     <thead>
-                      <tr style={{ background: '#fafafa', borderBottom: '1px solid #e0e0e0' }}>
-                        <th style={{ padding: 14, textAlign: 'left' }}>ID</th>
-                        <th style={{ padding: 14, textAlign: 'left' }}>Estudante</th>
-                        <th style={{ padding: 14, textAlign: 'left' }}>Curso/Classe</th>
-                        <th style={{ padding: 14, textAlign: 'left' }}>Tipo</th>
-                        <th style={{ padding: 14, textAlign: 'left' }}>Data Saída</th>
-                        <th style={{ padding: 14, textAlign: 'left' }}>Status</th>
-                        <th style={{ padding: 14, textAlign: 'left' }}>Ações</th>
+                      <tr>
+                        <th>Estudante</th>
+                        <th>Tipo de Saída</th>
+                        <th>Data/Hora</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right' }}>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {pedidosFiltrados.map(p => (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                          <td style={{ padding: 14 }}><strong>#{p.id}</strong></td>
-                          <td style={{ padding: 14 }}>{p.estudante_nome}</td>
-                          <td style={{ padding: 14 }}>{p.estudante_curso || '-'} / {p.estudante_classe || '-'}</td>
-                          <td style={{ padding: 14 }}>{p.tipo_display}</td>
-                          <td style={{ padding: 14 }}>{p.data_saida}</td>
-                          <td style={{ padding: 14 }}>
-                            <span style={getStatusStyle(p.estado)}>{p.estado_display}</span>
-                          </td>
-                          <td style={{ padding: 14 }}>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => navigate(`/pedido/${p.id}`)} style={{ padding: 6, border: '1px solid #e0e0e0', borderRadius: 6, background: '#fff', cursor: 'pointer' }}>👁️</button>
-                              {p.acoes_disponiveis?.includes('aprovar') && (
-                                <button onClick={() => abrirModalAprovacao(p.id)} style={{ padding: 6, border: '1px solid #e0e0e0', borderRadius: 6, background: '#fff', color: '#10b981', cursor: 'pointer' }}>✅</button>
-                              )}
-                              {p.acoes_disponiveis?.includes('rejeitar') && (
-                                <button onClick={() => handleAcao(p.id, 'rejeitar')} style={{ padding: 6, border: '1px solid #e0e0e0', borderRadius: 6, background: '#fff', color: '#dc2626', cursor: 'pointer' }}>❌</button>
-                              )}
-                              {p.estado === 'PENDENTE_DITE' && (
-                                <button onClick={() => setModalEncaminhar(p.id)} style={{ padding: 6, border: '1px solid #e0e0e0', borderRadius: 6, background: '#fff', color: '#f59e0b', cursor: 'pointer' }}>📤</button>
-                              )}
+                        <tr key={p.id}>
+                          <td>
+                            <div style={styles.studentCell}>
+                              <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(p.estudante_nome || 'User')}&background=random`} alt="" style={styles.studentImg} />
+                              <div>
+                                <span style={styles.studentName}>{p.estudante_nome}</span>
+                                <span style={styles.studentCourse}>{p.estudante_curso || '-'} / {p.estudante_classe || '-'}</span>
+                              </div>
                             </div>
+                          </td>
+                          <td>{p.tipo_display}</td>
+                          <td>{p.data_saida}</td>
+                          <td><span style={{...styles.statusPill, ...getStatusStyle(p.estado)}}>{p.estado_display}</span></td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button onClick={() => navigate(`/pedido/${p.id}`)} style={styles.btnOutline}><i className="fas fa-eye"></i></button>
+                            {p.acoes_disponiveis?.includes('aprovar') && (
+                              <button onClick={() => abrirModalAprovacao(p.id)} style={{...styles.btnPrimary, marginLeft: 8}}><i className="fas fa-check"></i> Analisar</button>
+                            )}
+                            {p.acoes_disponiveis?.includes('rejeitar') && (
+                              <button onClick={() => handleAcao(p.id, 'rejeitar')} style={{...styles.btnDanger, marginLeft: 8}}><i className="fas fa-times"></i></button>
+                            )}
+                            {p.estado === 'PENDENTE_DITE' && (
+                              <button onClick={() => setModalEncaminhar(p.id)} style={{...styles.btnWarning, marginLeft: 8}}><i className="fas fa-share"></i></button>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          </>
-        )}
+              )
+            )}
 
-        {aba === 'coletivas' && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20 }}>
-            <h3>📋 Saídas Coletivas Criadas</h3>
-            {coletivas.length === 0 ? (
-              <p>Nenhuma saída coletiva criada ainda</p>
-            ) : (
-              coletivas.map(c => (
-                <div key={c.id} style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <strong>{c.titulo}</strong>
-                    <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, background: c.encerrada ? '#f1f5f9' : '#d1fae5', color: c.encerrada ? '#64748b' : '#059669' }}>{c.encerrada ? 'Encerrada' : 'Ativa'}</span>
+            {aba === 'coletivas' && (
+              coletivas.length === 0 ? (
+                <div style={styles.emptyState}>Nenhuma saída coletiva criada</div>
+              ) : (
+                coletivas.map(c => (
+                  <div key={c.id} style={styles.coletivaCard}>
+                    <div style={styles.coletivaHeader}>
+                      <strong>{c.titulo}</strong>
+                      <span style={{...styles.coletivaBadge, background: c.encerrada ? '#F1F5F9' : '#DCFCE7', color: c.encerrada ? '#64748B' : '#166534' }}>
+                        {c.encerrada ? 'Encerrada' : 'Ativa'}
+                      </span>
+                    </div>
+                    <div style={styles.coletivaInfo}>
+                      <span>📅 {c.data_saida?.split('T')[0]}</span>
+                      <span>🔙 {c.data_volta?.split('T')[0]}</span>
+                      <span>👤 {c.criador_nome || c.criador}</span>
+                    </div>
+                    <div style={styles.progressBar}>
+                      <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, ...styles.progressFill }} />
+                    </div>
+                    <div style={styles.coletivaStats}>
+                      <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
+                      <span><strong style={{ color: '#166534' }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
+                      <span><strong style={{ color: '#991B1B' }}>{c.total_recusados || 0}</strong> Recusaram</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 13 }}>
-                    <span>📅 {c.data_saida?.split('T')[0]}</span>
-                    <span>🔙 {c.data_volta?.split('T')[0]}</span>
-                    <span>👤 {c.criador_nome || c.criador}</span>
+                ))
+              )
+            )}
+
+            {aba === 'alertas' && (
+              alertasAtraso.length === 0 ? (
+                <div style={styles.emptyState}>Nenhum alerta de atraso</div>
+              ) : (
+                alertasAtraso.map(a => (
+                  <div key={a.id} onClick={marcarAlertaLido} style={styles.alertaCard}>
+                    <div><strong>{a.estudante_nome}</strong> - Atraso de <strong>{a.tempo_atraso} minutos</strong></div>
+                    <div style={{ fontSize: 12, color: '#64748B' }}>Enviado em: {a.enviado_em}</div>
+                    {!a.lido && <span style={styles.alertaBadge}>🔴 Não lido</span>}
                   </div>
-                  <div style={{ height: 8, background: '#e5e7eb', borderRadius: 4, marginBottom: 12 }}>
-                    <div style={{ width: `${(c.total_aceitos || 0) / (c.total_convidados || 1) * 100}%`, height: '100%', background: '#059669', borderRadius: 4 }} />
+                ))
+              )
+            )}
+
+            {aba === 'relatorios' && (
+              relatoriosSeguranca.length === 0 ? (
+                <div style={styles.emptyState}>Nenhum relatório recebido</div>
+              ) : (
+                relatoriosSeguranca.map(r => (
+                  <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={styles.relatorioCard}>
+                    <div><strong>{r.titulo}</strong></div>
+                    <div style={{ fontSize: 12, color: '#64748B' }}>Enviado por: {r.criado_por} em {r.created_at}</div>
+                    <div style={{ fontSize: 11, color: '#2563EB' }}>📥 Clique para baixar</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-                    <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
-                    <span><strong style={{ color: '#059669' }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
-                    <span><strong style={{ color: '#dc2626' }}>{c.total_recusados || 0}</strong> Recusaram</span>
-                    <span><strong>{c.total_pendentes || 0}</strong> Pendentes</span>
-                  </div>
-                </div>
-              ))
+                ))
+              )
             )}
           </div>
-        )}
-
-        {aba === 'alertas' && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20 }}>
-            <h3>⚠️ Alertas de Atraso da Segurança</h3>
-            {alertasAtraso.length === 0 ? (
-              <p>Nenhum alerta de atraso registrado</p>
-            ) : (
-              alertasAtraso.map(a => (
-                <div key={a.id} style={{ background: '#fef2f2', borderLeft: '4px solid #dc2626', padding: 12, marginBottom: 10, borderRadius: 8, cursor: 'pointer' }} onClick={marcarAlertaLido}>
-                  <div><strong>{a.estudante_nome}</strong> - Atraso de <strong>{a.tempo_atraso} minutos</strong></div>
-                  <div style={{ fontSize: 12, color: '#666' }}>Enviado em: {a.enviado_em}</div>
-                  {!a.lido && <span style={{ fontSize: 11, color: '#dc2626' }}>🔴 Não lido</span>}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {aba === 'relatorios' && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20 }}>
-            <h3>📊 Relatórios Recebidos da Segurança</h3>
-            {relatoriosSeguranca.length === 0 ? (
-              <p>Nenhum relatório recebido ainda</p>
-            ) : (
-              relatoriosSeguranca.map(r => (
-                <div key={r.id} style={{ background: '#f5f5f5', padding: 12, marginBottom: 10, borderRadius: 8, cursor: 'pointer' }} onClick={() => baixarRelatorio(r.id)}>
-                  <div><strong>{r.titulo}</strong></div>
-                  <div style={{ fontSize: 12, color: '#666' }}>Enviado por: {r.criado_por} em {r.created_at}</div>
-                  <div style={{ fontSize: 11, color: '#059669' }}>📥 Clique para baixar</div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Modal Aprovação */}
-      {modalAprovacao && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setModalAprovacao(null)}>
-          <div style={{ background: '#fff', borderRadius: 20, width: '90%', maxWidth: 500, maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>✅ Aprovar Pedido #{modalAprovacao}</h3>
-              <button onClick={() => setModalAprovacao(null)} style={{ width: 32, height: 32, border: '1px solid #e0e0e0', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>✕</button>
+      <div className={`modal-overlay ${modalAprovacao ? 'open' : ''}`} onClick={() => setModalAprovacao(null)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div style={styles.modalHeader}>
+            <h2>Detalhes da Aprovação</h2>
+            <button onClick={() => setModalAprovacao(null)} style={styles.modalClose}>✕</button>
+          </div>
+          <div style={styles.modalBody}>
+            <p style={{ marginBottom: 20, color: '#64748B' }}>Confirme os horários para o estudante</p>
+            <div style={styles.formRow}>
+              <div style={styles.inputGroup}>
+                <label>Data de Saída</label>
+                <input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={styles.inputField} min={hoje} />
+              </div>
+              <div style={styles.inputGroup}>
+                <label>Hora</label>
+                <input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={styles.inputField} />
+              </div>
             </div>
-            <div style={{ padding: 20 }}>
-              <p>Defina os horários da saída:</p>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>DATA DE SAÍDA *</label>
-                <input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10 }} min={hoje} required />
+            <div style={styles.formRow}>
+              <div style={styles.inputGroup}>
+                <label>Previsão de Retorno</label>
+                <input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={styles.inputField} min={dadosAprovacao.data_saida} />
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>HORA DE SAÍDA *</label>
-                <input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10 }} step="60" required />
-                <small>Horário padrão: 07:00</small>
+              <div style={styles.inputGroup}>
+                <label>Hora</label>
+                <input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={styles.inputField} />
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>DATA DE RETORNO *</label>
-                <input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10 }} min={dadosAprovacao.data_saida} required />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>HORA DE RETORNO *</label>
-                <input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10 }} step="60" required />
-                <small>Horário padrão: 19:00</small>
-              </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                <button onClick={() => setModalAprovacao(null)} style={{ flex: 1, padding: 12, background: '#f5f5f5', border: 'none', borderRadius: 10, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={confirmarAprovacao} style={{ flex: 2, padding: 12, background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}>✅ Confirmar Aprovação</button>
-              </div>
+            </div>
+            <div style={styles.modalFooter}>
+              <button onClick={() => setModalAprovacao(null)} style={styles.btnCancel}>Cancelar</button>
+              <button onClick={confirmarAprovacao} style={styles.btnConfirm}>Confirmar Saída</button>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Modal Encaminhar */}
-      {modalEncaminhar && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setModalEncaminhar(null)}>
-          <div style={{ background: '#fff', borderRadius: 20, width: '90%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #e0e0e0' }}><h3>Encaminhar Pedido #{modalEncaminhar}</h3></div>
-            <div style={{ padding: 20 }}>
-              <p>Selecione o destino:</p>
-              <button onClick={() => handleEncaminhar(modalEncaminhar, 'DIRECAO')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 16, border: '1px solid #e0e0e0', borderRadius: 12, background: '#fff', cursor: 'pointer', marginBottom: 10 }}>
-                <span style={{ fontSize: 28 }}>👨‍💼</span><div><strong>Direção</strong></div>
-              </button>
-              <button onClick={() => handleEncaminhar(modalEncaminhar, 'ADMINISTRACAO')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 16, border: '1px solid #e0e0e0', borderRadius: 12, background: '#fff', cursor: 'pointer' }}>
-                <span style={{ fontSize: 28 }}>🏛️</span><div><strong>Administração</strong></div>
-              </button>
-            </div>
+      <div className={`modal-overlay ${modalEncaminhar ? 'open' : ''}`} onClick={() => setModalEncaminhar(null)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div style={styles.modalHeader}>
+            <h2>Encaminhar Pedido</h2>
+            <button onClick={() => setModalEncaminhar(null)} style={styles.modalClose}>✕</button>
+          </div>
+          <div style={styles.modalBody}>
+            <p style={{ marginBottom: 20 }}>Selecione o destino:</p>
+            <button onClick={() => handleEncaminhar(modalEncaminhar, 'DIRECAO')} style={styles.destinoBtn}>
+              <span style={{ fontSize: 28 }}>👨‍💼</span>
+              <div><strong>Direção</strong><br /><small>Análise final</small></div>
+            </button>
+            <button onClick={() => handleEncaminhar(modalEncaminhar, 'ADMINISTRACAO')} style={{...styles.destinoBtn, marginTop: 12}}>
+              <span style={{ fontSize: 28 }}>🏛️</span>
+              <div><strong>Administração</strong><br /><small>Recursos e documentos</small></div>
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Modal Coletiva */}
-      {showColetiva && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowColetiva(false)}>
-          <div style={{ background: '#fff', borderRadius: 20, width: '90%', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #e0e0e0' }}><h3>👥 Nova Saída Coletiva</h3></div>
-            <div style={{ padding: 20 }}>
-              {errorColetiva && <div style={{ background: '#fef2f2', color: '#991b1b', padding: 12, borderRadius: 10, marginBottom: 16 }}>{errorColetiva}</div>}
-              <form onSubmit={criarColetiva}>
-                <input type="text" placeholder="Título *" value={formColetiva.titulo} onChange={e => setFormColetiva({...formColetiva, titulo: e.target.value})} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10, marginBottom: 16 }} required />
-                <textarea placeholder="Descrição" value={formColetiva.descricao} onChange={e => setFormColetiva({...formColetiva, descricao: e.target.value})} rows={3} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10, marginBottom: 16 }} />
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                  <input type="datetime-local" placeholder="Data Saída" value={formColetiva.data_saida} onChange={e => setFormColetiva({...formColetiva, data_saida: e.target.value})} style={{ flex: 1, padding: 12, border: '1px solid #e0e0e0', borderRadius: 10 }} required />
-                  <input type="datetime-local" placeholder="Data Volta" value={formColetiva.data_volta} onChange={e => setFormColetiva({...formColetiva, data_volta: e.target.value})} style={{ flex: 1, padding: 12, border: '1px solid #e0e0e0', borderRadius: 10 }} required />
-                </div>
-                <input type="number" placeholder="Prazo (horas)" value={formColetiva.prazo_horas} onChange={e => setFormColetiva({...formColetiva, prazo_horas: e.target.value})} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 10, marginBottom: 16 }} min="1" max="72" />
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button type="button" onClick={() => setShowColetiva(false)} style={{ flex: 1, padding: 12, background: '#f5f5f5', border: 'none', borderRadius: 10, cursor: 'pointer' }}>Cancelar</button>
-                  <button type="submit" disabled={loadingColetiva} style={{ flex: 2, padding: 12, background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}>{loadingColetiva ? 'Criando...' : 'Criar'}</button>
-                </div>
-              </form>
-            </div>
+      <div className={`modal-overlay ${showColetiva ? 'open' : ''}`} onClick={() => setShowColetiva(false)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div style={styles.modalHeader}>
+            <h2>👥 Nova Saída Coletiva</h2>
+            <button onClick={() => setShowColetiva(false)} style={styles.modalClose}>✕</button>
+          </div>
+          <div style={styles.modalBody}>
+            {errorColetiva && <div style={styles.errorMsg}>{errorColetiva}</div>}
+            <form onSubmit={criarColetiva}>
+              <input type="text" placeholder="Título *" value={formColetiva.titulo} onChange={e => setFormColetiva({...formColetiva, titulo: e.target.value})} style={styles.inputField} required />
+              <textarea placeholder="Descrição" value={formColetiva.descricao} onChange={e => setFormColetiva({...formColetiva, descricao: e.target.value})} rows={3} style={{...styles.inputField, resize: 'vertical', marginTop: 12 }} />
+              <div style={styles.formRow}>
+                <input type="datetime-local" placeholder="Data Saída" value={formColetiva.data_saida} onChange={e => setFormColetiva({...formColetiva, data_saida: e.target.value})} style={styles.inputField} required />
+                <input type="datetime-local" placeholder="Data Volta" value={formColetiva.data_volta} onChange={e => setFormColetiva({...formColetiva, data_volta: e.target.value})} style={styles.inputField} required />
+              </div>
+              <input type="number" placeholder="Prazo (horas)" value={formColetiva.prazo_horas} onChange={e => setFormColetiva({...formColetiva, prazo_horas: e.target.value})} style={styles.inputField} min="1" max="72" />
+              <div style={styles.modalFooter}>
+                <button type="button" onClick={() => setShowColetiva(false)} style={styles.btnCancel}>Cancelar</button>
+                <button type="submit" disabled={loadingColetiva} style={styles.btnConfirm}>{loadingColetiva ? 'Criando...' : 'Criar'}</button>
+              </div>
+            </form>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Notificações Panel */}
       {showNotificacoes && (
         <>
-          <div onClick={() => setShowNotificacoes(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 199 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, width: 360, height: '100vh', background: '#fff', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', zIndex: 200, overflow: 'auto' }}>
-            <div style={{ padding: 20, borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between' }}>
+          <div onClick={() => setShowNotificacoes(false)} style={styles.notifOverlay} />
+          <div style={styles.notifPanel}>
+            <div style={styles.notifHeader}>
               <h3>🔔 Notificações</h3>
-              <button onClick={() => setShowNotificacoes(false)} style={{ width: 32, height: 32, background: '#f5f5f5', border: 'none', borderRadius: 8, cursor: 'pointer' }}>✕</button>
+              <button onClick={() => setShowNotificacoes(false)} style={styles.notifClose}>✕</button>
             </div>
-            {notificacoes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>Nenhuma notificação</div>
-            ) : (
-              notificacoes.map(n => (
-                <div key={n.id} onClick={() => { marcarNotificacaoLida(n.id); if (n.pedido_id) { navigate(`/pedido/${n.pedido_id}`); setShowNotificacoes(false); } }} style={{ padding: 16, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', background: n.lida ? '#fff' : '#fefce8' }}>
-                  <div style={{ fontSize: 13, marginBottom: 4 }}>{n.mensagem}</div>
-                  <div style={{ fontSize: 11, color: '#999' }}>{n.data}</div>
-                </div>
-              ))
-            )}
+            <div style={styles.notifList}>
+              {notificacoes.length === 0 ? (
+                <div style={styles.notifEmpty}>Nenhuma notificação</div>
+              ) : (
+                notificacoes.map(n => (
+                  <div key={n.id} onClick={() => { marcarNotificacaoLida(n.id); if (n.pedido_id) { navigate(`/pedido/${n.pedido_id}`); setShowNotificacoes(false); } }} style={{...styles.notifItem, background: n.lida ? '#fff' : '#FEFCE8' }}>
+                    <div style={styles.notifMessage}>{n.mensagem}</div>
+                    <div style={styles.notifDate}>{n.data}</div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </>
       )}
     </div>
   );
+};
+
+const styles = {
+  container: { display: 'flex', minHeight: '100vh', background: '#F8FAFC', position: 'relative' },
+  
+  // Sidebar
+  sidebar: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: 280,
+    height: '100vh',
+    background: '#fff',
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    borderRight: '1px solid #E2E8F0',
+    zIndex: 100,
+    transition: 'transform 0.3s ease',
+    overflowY: 'auto',
+    '@media (max-width: 768px)': { transform: 'translateX(-100%)' }
+  },
+  brand: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, paddingLeft: 10 },
+  brandIcon: { width: 40, height: 40, background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, boxShadow: '0 4px 10px rgba(37,99,235,0.3)' },
+  brandText: { fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', color: '#1E293B' },
+  navLinks: { listStyle: 'none', flex: 1 },
+  navItem: { marginBottom: 8 },
+  navLink: { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 12, textDecoration: 'none', fontWeight: 500, transition: 'all 0.2s', cursor: 'pointer' },
+  divider: { margin: '12px 0', border: 'none', height: 1, background: '#E2E8F0' },
+  badge: { marginLeft: 'auto', background: '#FEE2E2', color: '#991B1B', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 },
+  userCard: { background: '#F8FAFC', padding: 16, borderRadius: 16, display: 'flex', alignItems: 'center', gap: 12, marginTop: 'auto', border: '1px solid #E2E8F0' },
+  userAvatar: { width: 42, height: 42, borderRadius: '50%', overflow: 'hidden' },
+  userInfo: { flex: 1 },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99, '@media (min-width: 769px)': { display: 'none' } },
+  
+  // Main content
+  mainWrapper: { flex: 1, marginLeft: 280, '@media (max-width: 768px)': { marginLeft: 0 } },
+  topHeader: { height: 80, padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 10, '@media (max-width: 768px)': { padding: '0 16px' } },
+  menuToggle: { display: 'none', background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#1E293B', '@media (max-width: 768px)': { display: 'flex' } },
+  headerTitle: { flex: 1, marginLeft: 16, '@media (max-width: 768px)': { marginLeft: 0 } },
+  headerActions: { display: 'flex', gap: 12 },
+  iconBtn: { width: 44, height: 44, borderRadius: 12, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer', transition: 'all 0.2s' },
+  notificationDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, background: '#DC2626', borderRadius: '50%', border: '2px solid white' },
+  
+  // Content
+  contentScroll: { padding: '0 32px 32px', overflowY: 'auto', '@media (max-width: 768px)': { padding: '0 16px 16px' } },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24, marginBottom: 32, '@media (max-width: 768px)': { gap: 16 } },
+  statCard: { background: '#fff', padding: 20, borderRadius: 20, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 20, transition: 'transform 0.2s' },
+  statIcon: { width: 56, height: 56, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 },
+  statInfo: { flex: 1 },
+  
+  // Tabs
+  tabsContainer: { display: 'flex', gap: 4, background: '#F8FAFC', padding: 4, borderRadius: 12, marginBottom: 20, flexWrap: 'wrap' },
+  tab: { flex: 1, padding: 12, border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s' },
+  
+  // Data Card
+  dataCard: { background: '#fff', borderRadius: 24, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0', overflow: 'hidden' },
+  cardHeader: { padding: 24, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 },
+  searchModern: { position: 'relative', width: 300, '@media (max-width: 768px)': { width: '100%' } },
+  searchInput: { width: '100%', padding: '12px 16px 12px 44px', borderRadius: 12, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: 14, outline: 'none', transition: 'all 0.2s' },
+  
+  // Table
+  modernTable: { width: '100%', borderCollapse: 'collapse' },
+  studentCell: { display: 'flex', alignItems: 'center', gap: 12 },
+  studentImg: { width: 36, height: 36, borderRadius: 10, objectFit: 'cover' },
+  studentName: { fontWeight: 600, color: '#1E293B', display: 'block' },
+  studentCourse: { fontSize: 12, color: '#64748B' },
+  statusPill: { padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, display: 'inline-block' },
+  
+  // Buttons
+  btnPrimary: { padding: '8px 16px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' },
+  btnOutline: { padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer' },
+  btnDanger: { padding: '8px 12px', borderRadius: 8, border: '1px solid #FEE2E2', background: '#fff', color: '#DC2626', cursor: 'pointer' },
+  btnWarning: { padding: '8px 12px', borderRadius: 8, border: '1px solid #FEF9C3', background: '#fff', color: '#D97706', cursor: 'pointer' },
+  
+  // Coletivas
+  coletivaCard: { background: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #E2E8F0' },
+  coletivaHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  coletivaBadge: { padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600 },
+  coletivaInfo: { display: 'flex', gap: 16, marginBottom: 12, fontSize: 13, flexWrap: 'wrap' },
+  progressBar: { height: 8, background: '#E2E8F0', borderRadius: 4, marginBottom: 12, overflow: 'hidden' },
+  progressFill: { height: '100%', background: '#059669', borderRadius: 4 },
+  coletivaStats: { display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' },
+  
+  // Alertas
+  alertaCard: { background: '#FEF2F2', borderLeft: '4px solid #DC2626', padding: 12, marginBottom: 10, borderRadius: 8, cursor: 'pointer' },
+  alertaBadge: { fontSize: 11, color: '#DC2626', marginTop: 4, display: 'inline-block' },
+  
+  // Relatórios
+  relatorioCard: { background: '#F5F5F5', padding: 12, marginBottom: 10, borderRadius: 8, cursor: 'pointer' },
+  
+  // Modal
+  modalHeader: { padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  modalClose: { width: 32, height: 32, border: '1px solid #E2E8F0', background: '#fff', borderRadius: 8, cursor: 'pointer' },
+  modalBody: { padding: 20 },
+  modalFooter: { display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' },
+  formRow: { display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' },
+  inputGroup: { flex: 1, minWidth: 120 },
+  inputField: { width: '100%', padding: 12, border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 14, outline: 'none', transition: 'all 0.2s' },
+  btnCancel: { flex: 1, padding: 12, background: '#F5F5F5', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600 },
+  btnConfirm: { flex: 2, padding: 12, background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600 },
+  destinoBtn: { width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff', cursor: 'pointer' },
+  errorMsg: { background: '#FEF2F2', color: '#991B1B', padding: 12, borderRadius: 10, marginBottom: 16 },
+  
+  // Notifications
+  notifOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 199 },
+  notifPanel: { position: 'fixed', top: 0, right: 0, width: 360, height: '100vh', background: '#fff', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', zIndex: 200, overflow: 'auto', '@media (max-width: 768px)': { width: '100%' } },
+  notifHeader: { padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  notifClose: { width: 32, height: 32, background: '#F5F5F5', border: 'none', borderRadius: 8, cursor: 'pointer' },
+  notifList: { overflowY: 'auto', height: 'calc(100vh - 70px)' },
+  notifEmpty: { textAlign: 'center', padding: 60, color: '#999' },
+  notifItem: { padding: 16, borderBottom: '1px solid #F0F0F0', cursor: 'pointer' },
+  notifMessage: { fontSize: 13, color: '#333', marginBottom: 4 },
+  notifDate: { fontSize: 11, color: '#999' },
+  
+  // Loading & Empty
+  loading: { textAlign: 'center', padding: 60, color: '#999' },
+  emptyState: { textAlign: 'center', padding: 60, color: '#999' }
 };
 
 export default DashboardDITE;
