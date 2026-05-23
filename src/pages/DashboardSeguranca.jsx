@@ -1,9 +1,9 @@
-// src/pages/DashboardSeguranca.jsx - VERSÃO VISUAL MODERNO (Lógica Preservada)
-import { useState, useEffect, useMemo } from 'react';
+// src/pages/DashboardSeguranca.jsx - VERSÃO CORRIGIDA
+import { useState, useEffect } from 'react';
 import api from '../api';
 
 const DashboardSeguranca = ({ user, onLogout }) => {
-  // --- ESTADOS ORIGINAIS (PRESERVADOS) ---
+  // Estados originais
   const [pedidosSaida, setPedidosSaida] = useState([]);
   const [pedidosAndamento, setPedidosAndamento] = useState([]);
   const [pedidosFinalizados, setPedidosFinalizados] = useState([]);
@@ -14,36 +14,40 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   const [mostrarModalData, setMostrarModalData] = useState(false);
   const [dataRelatorio, setDataRelatorio] = useState(new Date().toISOString().split('T')[0]);
   const [enviando, setEnviando] = useState(false);
-  const [horaAtual, setHoraAtual] = useState(new Date().toLocaleTimeString('pt-BR'));
+  const [horaAtual, setHoraAtual] = useState('');
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
   const [showNotificacoes, setShowNotificacoes] = useState(false);
   const [stats, setStats] = useState({ saidas_hoje: 0, em_andamento: 0, atrasos_hoje: 0 });
-  
-  // --- NOVO ESTADO PARA FILTRO VISUAL ---
   const [filtroNome, setFiltroNome] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Relógio
+  // Relógio - CORRIGIDO
   useEffect(() => {
-    const timer = setInterval(() => {
-      setHoraAtual(new Date().toLocaleTimeString('pt-BR'));
-    }, 1000);
+    const atualizarHora = () => {
+      const now = new Date();
+      setHoraAtual(now.toLocaleTimeString('pt-BR'));
+    };
+    atualizarHora();
+    const timer = setInterval(atualizarHora, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Carregar dados
+  // Carregar dados quando data mudar
   useEffect(() => {
     carregarDashboard();
     carregarDados();
     carregarNotificacoes();
   }, [dataSelecionada]);
 
-  // --- FUNÇÕES DE BACKEND (INTACTAS) ---
+  // Funções de backend
   const carregarDashboard = async () => {
     try {
       const res = await api.get('/seguranca/dashboard/');
       setStats(res.data);
-    } catch (err) { console.error('Erro dashboard:', err); }
+    } catch (err) {
+      console.error('Erro dashboard:', err);
+    }
   };
 
   const carregarNotificacoes = async () => {
@@ -51,7 +55,9 @@ const DashboardSeguranca = ({ user, onLogout }) => {
       const res = await api.get('/notificacoes/');
       setNotificacoes(res.data.notificacoes || []);
       setNotificacoesNaoLidas(res.data.nao_lidas || 0);
-    } catch (err) { console.error('Erro notificações:', err); }
+    } catch (err) {
+      console.error('Erro notificações:', err);
+    }
   };
 
   const marcarNotificacaoLida = async (id) => {
@@ -64,25 +70,19 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   const carregarDados = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/seguranca/saidas-hoje/`);
-      const saidas = response.data.saidas || [];
-      const hoje = new Date().toISOString().split('T')[0];
-      let dadosFiltrados = saidas;
+      // Buscar dados da data selecionada
+      const response = await api.get(`/seguranca/saidas-data/?data=${dataSelecionada}`);
+      const dados = response.data.saidas || [];
       
-      if (dataSelecionada !== hoje) {
-        const resData = await api.get(`/seguranca/saidas-data/?data=${dataSelecionada}`);
-        dadosFiltrados = resData.data.saidas || [];
-      }
-      
-      setPedidosSaida(dadosFiltrados.filter(p => p.estado === 'APROVADO'));
-      setPedidosAndamento(dadosFiltrados.filter(p => p.estado === 'EM_ANDAMENTO'));
-      setPedidosFinalizados(dadosFiltrados.filter(p => p.estado === 'FINALIZADO'));
+      setPedidosSaida(dados.filter(p => p.estado === 'APROVADO'));
+      setPedidosAndamento(dados.filter(p => p.estado === 'EM_ANDAMENTO'));
+      setPedidosFinalizados(dados.filter(p => p.estado === 'FINALIZADO'));
     } catch (err) {
       console.error('Erro carregar dados:', err);
+      // Fallback
       try {
         const res = await api.get('/pedidos/');
         const todos = res.data.pedidos || [];
-        const hoje = new Date().toISOString().split('T')[0];
         const filtrados = todos.filter(p => {
           const dataPedido = p.data_saida_confirmada?.split(' ')[0] || p.data_saida?.split(' ')[0];
           return dataPedido === dataSelecionada && 
@@ -91,8 +91,12 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         setPedidosSaida(filtrados.filter(p => p.estado === 'APROVADO'));
         setPedidosAndamento(filtrados.filter(p => p.estado === 'EM_ANDAMENTO'));
         setPedidosFinalizados(filtrados.filter(p => p.estado === 'FINALIZADO'));
-      } catch (err2) { console.error('Fallback erro:', err2); }
-    } finally { setLoading(false); }
+      } catch (err2) {
+        console.error('Fallback erro:', err2);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const marcarSaida = async (pedidoId) => {
@@ -100,19 +104,27 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     try {
       const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`);
       alert(`✅ Saída registrada às ${response.data.hora}`);
-      carregarDados(); carregarDashboard();
-    } catch (err) { alert('❌ ' + (err.response?.data?.error || 'Erro ao marcar saída')); }
+      carregarDados();
+      carregarDashboard();
+    } catch (err) {
+      alert('❌ ' + (err.response?.data?.error || 'Erro ao marcar saída'));
+    }
   };
 
   const marcarSaidaAjustada = async (pedidoId) => {
-    const hora = prompt('⏰ Hora da SAÍDA (HH:MM):');
+    const hora = prompt('⏰ Hora da SAÍDA (HH:MM):\nExemplo: 14:30');
     if (!hora) return;
-    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hora)) { alert('❌ Formato inválido! Use HH:MM'); return; }
+    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hora)) {
+      alert('❌ Formato inválido! Use HH:MM');
+      return;
+    }
     try {
       const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`, { hora_saida: hora });
       alert(`✅ Saída registrada: ${response.data.hora}`);
       carregarDados();
-    } catch (err) { alert('❌ ' + (err.response?.data?.error || 'Erro')); }
+    } catch (err) {
+      alert('❌ ' + (err.response?.data?.error || 'Erro'));
+    }
   };
 
   const marcarRetorno = async (pedidoId) => {
@@ -120,20 +132,31 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     try {
       const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`);
       let msg = `✅ Retorno às ${response.data.hora}`;
-      if (response.data.atrasado) msg += `\n⚠️ ATRASO: ${response.data.tempo_atraso} minutos!`;
-      alert(msg); carregarDados(); carregarDashboard();
-    } catch (err) { alert('❌ ' + (err.response?.data?.error || 'Erro')); }
+      if (response.data.atrasado) {
+        msg += `\n⚠️ ATRASO: ${response.data.tempo_atraso} minutos!`;
+      }
+      alert(msg);
+      carregarDados();
+      carregarDashboard();
+    } catch (err) {
+      alert('❌ ' + (err.response?.data?.error || 'Erro'));
+    }
   };
 
   const marcarRetornoAjustado = async (pedidoId) => {
-    const hora = prompt('⏰ Hora do RETORNO (HH:MM):');
+    const hora = prompt('⏰ Hora do RETORNO (HH:MM):\nExemplo: 14:30');
     if (!hora) return;
-    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hora)) { alert('❌ Formato inválido!'); return; }
+    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hora)) {
+      alert('❌ Formato inválido!');
+      return;
+    }
     try {
       const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`, { hora_retorno: hora });
       alert(`✅ Retorno registrado: ${response.data.hora}`);
       carregarDados();
-    } catch (err) { alert('❌ ' + (err.response?.data?.error || 'Erro')); }
+    } catch (err) {
+      alert('❌ ' + (err.response?.data?.error || 'Erro'));
+    }
   };
 
   const gerarRelatorioCompleto = async () => {
@@ -146,18 +169,26 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     } catch (err) {
       console.error('Erro:', err);
       alert('❌ Erro ao gerar relatório: ' + (err.response?.data?.error || err.message));
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const enviarRelatorio = async () => {
     if (!relatorio) return;
     setEnviando(true);
     try {
-      await api.post('/seguranca/enviar-relatorio/', { data: relatorio.data, conteudo: relatorio.texto_relatorio });
+      await api.post('/seguranca/enviar-relatorio/', { 
+        data: relatorio.data,
+        conteudo: relatorio.texto_relatorio 
+      });
       alert('✅ Relatório enviado para DITE!');
       setRelatorio(null);
-    } catch (err) { alert('❌ Erro ao enviar: ' + (err.response?.data?.error || err.message)); }
-    finally { setEnviando(false); }
+    } catch (err) {
+      alert('❌ Erro ao enviar: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const formatarData = (dataStr) => {
@@ -166,373 +197,315 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     return data.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  // --- FILTRO CLIENT-SIDE (SEM BACKEND) ---
-  const filtrarLista = (lista) => {
+  // Filtrar por nome
+  const filtrarPorNome = (lista) => {
     if (!filtroNome) return lista;
     const termo = filtroNome.toLowerCase();
     return lista.filter(p => 
-      p.estudante_nome?.toLowerCase().includes(termo) || 
+      p.estudante_nome?.toLowerCase().includes(termo) ||
       p.estudante_curso?.toLowerCase().includes(termo)
     );
   };
 
-  const listaSaida = useMemo(() => filtrarLista(pedidosSaida), [pedidosSaida, filtroNome]);
-  const listaAndamento = useMemo(() => filtrarLista(pedidosAndamento), [pedidosAndamento, filtroNome]);
-  const listaFinalizados = useMemo(() => filtrarLista(pedidosFinalizados), [pedidosFinalizados, filtroNome]);
-
-  // --- ESTILOS MODERNOS (CSS-in-JS) ---
-  const styles = {
-    container: { display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: 'Inter, system-ui, sans-serif', color: '#0F172A' },
-    
-    // Sidebar Minimalista
-    sidebar: { width: 240, background: '#FFFFFF', borderRight: '1px solid #E2E8F0', padding: 20, display: 'flex', flexDirection: 'column' },
-    brand: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 30, paddingLeft: 8 },
-    brandIcon: { width: 36, height: 36, background: 'linear-gradient(135deg, #2563EB, #1d4ed8)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 16 },
-    brandText: { fontSize: 18, fontWeight: 700, color: '#0F172A' },
-    
-    // Main Content
-    main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-    
-    // Header
-    header: { height: 64, background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
-    headerLeft: { display: 'flex', alignItems: 'center', gap: 20 },
-    pageTitle: { fontSize: 18, fontWeight: 600 },
-    clock: { background: '#EFF6FF', color: '#2563EB', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' },
-    headerRight: { display: 'flex', alignItems: 'center', gap: 12 },
-    
-    // Status Bar (Minimalista)
-    statusBar: { background: '#FFFFFF', padding: '8px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 24, fontSize: 13, fontWeight: 500 },
-    statusItem: { display: 'flex', alignItems: 'center', gap: 6 },
-    dot: { width: 8, height: 8, borderRadius: '50%' },
-    
-    // Toolbar
-    toolbar: { padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' },
-    tabs: { display: 'flex', background: '#E2E8F0', padding: 3, borderRadius: 8 },
-    tabBtn: { padding: '6px 16px', border: 'none', background: 'transparent', borderRadius: 5, fontSize: 13, fontWeight: 600, color: '#64748B', cursor: 'pointer', transition: 'all 0.2s' },
-    tabActive: { background: '#FFFFFF', color: '#0F172A', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' },
-    
-    // Search & Actions
-    searchBox: { position: 'relative', width: 280 },
-    searchInput: { width: '100%', padding: '8px 12px 8px 36px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, outline: 'none', background: '#FFFFFF' },
-    searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 12 },
-    btnReport: { padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, color: '#0F172A', transition: '0.2s' },
-    
-    // Table Container
-    tableContainer: { flex: 1, margin: '0 24px 24px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' },
-    table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-    thead: { position: 'sticky', top: 0, background: '#F8FAFC', zIndex: 5 },
-    th: { textAlign: 'left', padding: '12px 16px', fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.5px' },
-    td: { padding: '12px 16px', borderBottom: '1px solid #F1F5F9', verticalAlign: 'middle' },
-    trHover: { '&:hover': { background: '#F8FAFC' } },
-    
-    // Table Cells
-    userCell: { display: 'flex', alignItems: 'center', gap: 12, width: 250 },
-    avatar: { width: 32, height: 32, background: '#E2E8F0', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 12, color: '#64748B' },
-    userInfo: { display: 'flex', flexDirection: 'column' },
-    userName: { fontWeight: 600, fontSize: 14 },
-    userCourse: { fontSize: 12, color: '#64748B' },
-    
-    // Badges & Buttons
-    badge: { padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, display: 'inline-block' },
-    badgeWarn: { background: '#FEF9C3', color: '#854D0E' },
-    badgeSuccess: { background: '#DCFCE7', color: '#166534' },
-    badgeDanger: { background: '#FEE2E2', color: '#991B1B' },
-    badgeInfo: { background: '#EFF6FF', color: '#2563EB' },
-    
-    actionBtn: { padding: '6px 12px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: '0.2s', display: 'inline-flex', alignItems: 'center', gap: 6 },
-    btnPrimary: { background: 'linear-gradient(135deg, #2563EB, #1d4ed8)', color: 'white' },
-    btnDanger: { background: '#EF4444', color: 'white' },
-    btnOutline: { background: 'transparent', border: '1px solid #E2E8F0', color: '#64748B' },
-    
-    // Modals
-    modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-    modalBox: { background: '#FFFFFF', width: '90%', maxWidth: 500, borderRadius: 16, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' },
-    modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid #E2E8F0' },
-    modalTitle: { fontSize: 18, fontWeight: 600 },
-    modalBody: { display: 'flex', flexDirection: 'column', gap: 16 },
-    modalFooter: { marginTop: 24, paddingTop: 16, borderTop: '1px solid #E2E8F0', display: 'flex', gap: 12, justifyContent: 'flex-end' },
-    
-    formInput: { padding: '10px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, outline: 'none', width: '100%' },
-    
-    // Notification Panel
-    notifPanel: { position: 'fixed', top: 0, right: 0, width: 360, height: '100vh', background: '#FFFFFF', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', zIndex: 200, display: 'flex', flexDirection: 'column' },
-    notifHeader: { padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-    notifList: { flex: 1, overflowY: 'auto' },
-    notifItem: { padding: 16, borderBottom: '1px solid #F1F5F9', cursor: 'pointer' },
-    
-    // Empty State
-    emptyState: { textAlign: 'center', padding: 60, color: '#64748B' },
-  };
+  const saidaFiltrada = filtrarPorNome(pedidosSaida);
+  const andamentoFiltrado = filtrarPorNome(pedidosAndamento);
+  const finalizadosFiltrado = filtrarPorNome(pedidosFinalizados);
 
   return (
     <div style={styles.container}>
+      {/* CSS Global */}
+      <style>{`
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #F8FAFC; }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        .modal-overlay {
+          position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
+          backdrop-filter: blur(4px); display: flex; align-items: center;
+          justify-content: center; z-index: 1000; opacity: 0;
+          visibility: hidden; transition: all 0.3s ease;
+        }
+        .modal-overlay.open { opacity: 1; visibility: visible; }
+        .modal-overlay.open .modal-content { transform: scale(1); }
+        .modal-content {
+          background: white; border-radius: 24px; max-width: 500px;
+          width: 90%; max-height: 90vh; overflow: auto;
+          transform: scale(0.95); transition: transform 0.3s ease;
+        }
+        @media (max-width: 768px) {
+          .sidebar { position: fixed !important; left: -280px !important; transition: left 0.3s ease !important; }
+          .sidebar.open { left: 0 !important; background: #fff; z-index: 1000; }
+          .main-wrapper { margin-left: 0 !important; }
+        }
+      `}</style>
+
       {/* Sidebar */}
-      <aside style={styles.sidebar}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={styles.sidebar}>
         <div style={styles.brand}>
           <div style={styles.brandIcon}><i className="fas fa-shield-alt"></i></div>
-          <span style={styles.brandText}>Segurança</span>
+          <div style={styles.brandText}>Segurança</div>
         </div>
-        <nav style={{ flex: 1 }}>
-          {/* Placeholder para menu futuro */}
+        <div style={styles.userInfo}>
+          <div style={styles.avatar}>
+            {user?.nome?.charAt(0) || user?.username?.charAt(0) || 'S'}
+          </div>
+          <div>
+            <div style={styles.userName}>{user?.nome || user?.username}</div>
+            <div style={styles.userRole}>🛡️ Segurança</div>
+          </div>
+        </div>
+        <nav style={styles.nav}>
+          <button onClick={() => setAbaAtiva('saida')} style={{...styles.navItem, ...(abaAtiva === 'saida' && styles.navActive)}}>
+            <i className="fas fa-sign-out-alt"></i> Saída
+          </button>
+          <button onClick={() => setAbaAtiva('andamento')} style={{...styles.navItem, ...(abaAtiva === 'andamento' && styles.navActive)}}>
+            <i className="fas fa-walking"></i> Em Andamento
+          </button>
+          <button onClick={() => setAbaAtiva('finalizado')} style={{...styles.navItem, ...(abaAtiva === 'finalizado' && styles.navActive)}}>
+            <i className="fas fa-check-circle"></i> Finalizados
+          </button>
         </nav>
-        <button onClick={onLogout} style={{...styles.actionBtn, ...styles.btnOutline, width: '100%', justifyContent: 'center', marginTop: 'auto'}}>
+        <button onClick={onLogout} style={styles.logoutBtn}>
           <i className="fas fa-sign-out-alt"></i> Sair
         </button>
       </aside>
 
+      {/* Overlay mobile */}
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={styles.overlay} />}
+
       {/* Main Content */}
-      <div style={styles.main}>
-        
+      <div className="main-wrapper" style={styles.mainWrapper}>
         {/* Header */}
         <header style={styles.header}>
-          <div style={styles.headerLeft}>
-            <h1 style={styles.pageTitle}>Controle de Portão</h1>
-            <span style={{ color: '#64748B', fontSize: 14 }}>• {horaAtual}</span>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.menuToggle}>
+            <i className="fas fa-bars"></i>
+          </button>
+          <div style={styles.headerTitle}>
+            <h1>🛡️ Controle de Portão</h1>
+            <p>{user?.nome || user?.username} • {horaAtual}</p>
           </div>
-          <div style={styles.headerRight}>
-            <div style={styles.clock}>{dataSelecionada}</div>
-            <button onClick={() => setShowNotificacoes(!showNotificacoes)} style={{...styles.actionBtn, ...styles.btnOutline, position: 'relative'}}>
+          <div style={styles.headerActions}>
+            <div style={styles.dateBox}>
+              <i className="fas fa-calendar"></i>
+              <input type="date" value={dataSelecionada} onChange={(e) => setDataSelecionada(e.target.value)} style={styles.dateInput} />
+            </div>
+            <button onClick={() => setShowNotificacoes(!showNotificacoes)} style={styles.notifBtn}>
               <i className="fas fa-bell"></i>
-              {notificacoesNaoLidas > 0 && <span style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, background: '#EF4444', borderRadius: '50%', border: '2px solid white' }} />}
+              {notificacoesNaoLidas > 0 && <span style={styles.badge}>{notificacoesNaoLidas}</span>}
+            </button>
+            <button onClick={carregarDados} style={styles.refreshBtn}>
+              <i className="fas fa-sync-alt"></i>
             </button>
           </div>
         </header>
 
-        {/* Status Bar Minimalista */}
-        <div style={styles.statusBar}>
-          <div style={styles.statusItem}>
-            <div style={{...styles.dot, background: '#F59E0B'}}></div>
-            <span>Aguardando: <strong>{pedidosSaida.length}</strong></span>
+        {/* Stats Cards */}
+        <div style={styles.statsGrid}>
+          <div style={{...styles.statCard, borderLeftColor: '#f59e0b'}}>
+            <div style={{...styles.statIcon, background: '#FEF9C3', color: '#f59e0b'}}><i className="fas fa-clock"></i></div>
+            <div><div style={styles.statValue}>{pedidosSaida.length}</div><div style={styles.statLabel}>Aguardando Saída</div></div>
           </div>
-          <div style={styles.statusItem}>
-            <div style={{...styles.dot, background: '#3B82F6'}}></div>
-            <span>Em Andamento: <strong>{pedidosAndamento.length}</strong></span>
+          <div style={{...styles.statCard, borderLeftColor: '#3b82f6'}}>
+            <div style={{...styles.statIcon, background: '#EFF6FF', color: '#3b82f6'}}><i className="fas fa-walking"></i></div>
+            <div><div style={styles.statValue}>{pedidosAndamento.length}</div><div style={styles.statLabel}>Em Andamento</div></div>
           </div>
-          <div style={styles.statusItem}>
-            <div style={{...styles.dot, background: '#10B981'}}></div>
-            <span>Finalizados: <strong>{pedidosFinalizados.length}</strong></span>
+          <div style={{...styles.statCard, borderLeftColor: '#10b981'}}>
+            <div style={{...styles.statIcon, background: '#DCFCE7', color: '#10b981'}}><i className="fas fa-check-circle"></i></div>
+            <div><div style={styles.statValue}>{pedidosFinalizados.length}</div><div style={styles.statLabel}>Finalizados</div></div>
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div style={styles.toolbar}>
-          <div style={styles.tabs}>
-            <button onClick={() => setAbaAtiva('saida')} style={{...styles.tabBtn, ...(abaAtiva === 'saida' && styles.tabActive)}}>Saída</button>
-            <button onClick={() => setAbaAtiva('andamento')} style={{...styles.tabBtn, ...(abaAtiva === 'andamento' && styles.tabActive)}}>Em Andamento</button>
-            <button onClick={() => setAbaAtiva('finalizado')} style={{...styles.tabBtn, ...(abaAtiva === 'finalizado' && styles.tabActive)}}>Finalizados</button>
+        {/* Search Bar */}
+        <div style={styles.searchBar}>
+          <div style={styles.searchWrapper}>
+            <i className="fas fa-search" style={styles.searchIcon}></i>
+            <input type="text" placeholder="Buscar por estudante..." value={filtroNome} onChange={(e) => setFiltroNome(e.target.value)} style={styles.searchInput} />
           </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div style={styles.searchBox}>
-              <i className="fas fa-search" style={styles.searchIcon}></i>
-              <input 
-                type="text" 
-                placeholder="Filtrar por nome ou curso..." 
-                style={styles.searchInput}
-                value={filtroNome}
-                onChange={(e) => setFiltroNome(e.target.value)}
-              />
+          <button onClick={() => setMostrarModalData(true)} style={styles.btnReport}>
+            <i className="fas fa-file-alt"></i> Relatório Completo
+          </button>
+        </div>
+
+        {/* Data Destaque */}
+        <div style={styles.dataDestaque}>
+          <i className="fas fa-calendar-day"></i> {formatarData(dataSelecionada)}
+        </div>
+
+        {/* Cards Grid */}
+        <div style={styles.cardsContainer}>
+          {loading ? (
+            <div style={styles.loading}>
+              <div style={styles.spinner} />
+              <p>Carregando...</p>
             </div>
-            <button onClick={() => setMostrarModalData(true)} style={{...styles.btnReport, background: '#2563EB', color: 'white', border: 'none'}}>
-              <i className="fas fa-file-alt"></i> Relatório
-            </button>
-          </div>
-        </div>
-
-        {/* Table View */}
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead style={styles.thead}>
-              <tr>
-                <th style={styles.th}>Estudante</th>
-                <th style={styles.th}>Curso/Classe</th>
-                <th style={styles.th}>Horários</th>
-                <th style={styles.th}>Status</th>
-                <th style={{...styles.th, textAlign: 'right'}}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan="5" style={{...styles.td, textAlign: 'center', padding: 40}}>Carregando dados...</td></tr>
-              ) : (
-                <>
-                  {abaAtiva === 'saida' && listaSaida.length === 0 && (
-                    <tr><td colSpan="5" style={styles.emptyState}>Nenhum estudante aguardando saída</td></tr>
-                  )}
-                  {abaAtiva === 'andamento' && listaAndamento.length === 0 && (
-                    <tr><td colSpan="5" style={styles.emptyState}>Nenhum estudante em andamento</td></tr>
-                  )}
-                  {abaAtiva === 'finalizado' && listaFinalizados.length === 0 && (
-                    <tr><td colSpan="5" style={styles.emptyState}>Nenhum registro finalizado</td></tr>
-                  )}
-
-                  {/* Render: SAÍDA */}
-                  {abaAtiva === 'saida' && listaSaida.map(p => (
-                    <tr key={p.id} style={styles.trHover}>
-                      <td style={styles.td}>
-                        <div style={styles.userCell}>
-                          <div style={styles.avatar}>{p.estudante_nome?.charAt(0)}</div>
-                          <div style={styles.userInfo}>
-                            <span style={styles.userName}>{p.estudante_nome}</span>
+          ) : (
+            <>
+              {/* Aba SAÍDA */}
+              {abaAtiva === 'saida' && (
+                saidaFiltrada.length === 0 ? (
+                  <div style={styles.emptyState}>
+                    <i className="fas fa-inbox" style={{ fontSize: 48, color: '#94A3B8', marginBottom: 16 }}></i>
+                    <p>Nenhum estudante aguardando saída</p>
+                  </div>
+                ) : (
+                  <div style={styles.cardsGrid}>
+                    {saidaFiltrada.map(p => (
+                      <div key={p.id} style={styles.card}>
+                        <div style={styles.cardHeader}>
+                          <div style={styles.cardIcon}>🎓</div>
+                          <div style={styles.cardTitle}>{p.estudante_nome}</div>
+                        </div>
+                        <div style={styles.cardBody}>
+                          <div><i className="fas fa-graduation-cap"></i> {p.estudante_curso || 'Curso não informado'}</div>
+                          <div style={styles.cardTimes}>
+                            <div><span>🚪 Saída: </span><strong>{p.hora_saida_prevista || '-'}</strong></div>
+                            <div><span>🔙 Retorno: </span><strong>{p.hora_volta_prevista || '-'}</strong></div>
                           </div>
                         </div>
-                      </td>
-                      <td style={styles.td}><span style={{ color: '#64748B' }}>{p.estudante_curso || '-'}</span></td>
-                      <td style={styles.td}>
-                        <div style={{ fontSize: 12 }}>
-                          <div>Saída: <strong>{p.hora_saida_prevista}</strong></div>
-                          <div style={{ color: '#64748B' }}>Volta: {p.hora_volta_prevista}</div>
+                        <div style={styles.cardActions}>
+                          <button onClick={() => marcarSaida(p.id)} style={styles.btnSaida}>🟢 REGISTRAR SAÍDA</button>
+                          <button onClick={() => marcarSaidaAjustada(p.id)} style={styles.btnAjustar}>⏰ AJUSTAR</button>
                         </div>
-                      </td>
-                      <td style={styles.td}><span style={{...styles.badge, ...styles.badgeWarn}}>Pendente</span></td>
-                      <td style={{...styles.td, textAlign: 'right'}}>
-                        <button onClick={() => marcarSaidaAjustada(p.id)} style={{...styles.actionBtn, ...styles.btnOutline, marginRight: 8}} title="Ajustar"><i className="fas fa-clock"></i></button>
-                        <button onClick={() => marcarSaida(p.id)} style={{...styles.actionBtn, ...styles.btnPrimary}}>Registrar Saída</button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {/* Render: ANDAMENTO */}
-                  {abaAtiva === 'andamento' && listaAndamento.map(p => (
-                    <tr key={p.id} style={styles.trHover}>
-                      <td style={styles.td}>
-                        <div style={styles.userCell}>
-                          <div style={{...styles.avatar, background: '#DBEAFE', color: '#2563EB'}}>{p.estudante_nome?.charAt(0)}</div>
-                          <div style={styles.userInfo}>
-                            <span style={styles.userName}>{p.estudante_nome}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={styles.td}><span style={{ color: '#64748B' }}>{p.estudante_curso || '-'}</span></td>
-                      <td style={styles.td}>
-                        <div style={{ fontSize: 12 }}>
-                          <div style={{ color: '#166534' }}>Saiu: <strong>{p.hora_saida_real}</strong></div>
-                          <div style={{ color: '#64748B' }}>Prev. Volta: {p.hora_volta_prevista}</div>
-                        </div>
-                      </td>
-                      <td style={styles.td}><span style={{...styles.badge, ...styles.badgeInfo}}>Em Andamento</span></td>
-                      <td style={{...styles.td, textAlign: 'right'}}>
-                        <button onClick={() => marcarRetornoAjustado(p.id)} style={{...styles.actionBtn, ...styles.btnOutline, marginRight: 8}} title="Ajustar"><i className="fas fa-clock"></i></button>
-                        <button onClick={() => marcarRetorno(p.id)} style={{...styles.actionBtn, ...styles.btnDanger}}>Registrar Retorno</button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {/* Render: FINALIZADO */}
-                  {abaAtiva === 'finalizado' && listaFinalizados.map(p => (
-                    <tr key={p.id} style={{...styles.trHover, opacity: 0.8}}>
-                      <td style={styles.td}>
-                        <div style={styles.userCell}>
-                          <div style={{...styles.avatar, background: '#D1FAE5', color: '#059669'}}>{p.estudante_nome?.charAt(0)}</div>
-                          <div style={styles.userInfo}>
-                            <span style={styles.userName}>{p.estudante_nome}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={styles.td}><span style={{ color: '#64748B' }}>{p.estudante_curso || '-'}</span></td>
-                      <td style={styles.td}>
-                        <div style={{ fontSize: 12 }}>
-                          <div>Saída: {p.hora_saida_real}</div>
-                          <div>Volta: {p.hora_retorno_real}</div>
-                        </div>
-                      </td>
-                      <td style={styles.td}>
-                        {p.atrasado 
-                          ? <span style={{...styles.badge, ...styles.badgeDanger}}>Atraso ({p.tempo_atraso}m)</span>
-                          : <span style={{...styles.badge, ...styles.badgeSuccess}}>Concluído</span>}
-                      </td>
-                      <td style={{...styles.td, textAlign: 'right'}}>
-                        <button style={{...styles.actionBtn, ...styles.btnOutline}} disabled>Ver Detalhes</button>
-                      </td>
-                    </tr>
-                  ))}
-                </>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
-            </tbody>
-          </table>
+
+              {/* Aba ANDAMENTO */}
+              {abaAtiva === 'andamento' && (
+                andamentoFiltrado.length === 0 ? (
+                  <div style={styles.emptyState}>
+                    <i className="fas fa-walking" style={{ fontSize: 48, color: '#94A3B8', marginBottom: 16 }}></i>
+                    <p>Nenhum estudante em andamento</p>
+                  </div>
+                ) : (
+                  <div style={styles.cardsGrid}>
+                    {andamentoFiltrado.map(p => (
+                      <div key={p.id} style={{...styles.card, borderLeft: '4px solid #3b82f6'}}>
+                        <div style={styles.cardHeader}>
+                          <div style={styles.cardIcon}>🚶</div>
+                          <div style={styles.cardTitle}>{p.estudante_nome}</div>
+                        </div>
+                        <div style={styles.cardBody}>
+                          <div><i className="fas fa-graduation-cap"></i> {p.estudante_curso || 'Curso não informado'}</div>
+                          <div style={styles.cardTimes}>
+                            <div><span>✅ Saiu às: </span><strong>{p.hora_saida_real || '-'}</strong></div>
+                            <div><span>⏰ Prev. Retorno: </span><strong>{p.hora_volta_prevista || '-'}</strong></div>
+                          </div>
+                        </div>
+                        <div style={styles.cardActions}>
+                          <button onClick={() => marcarRetorno(p.id)} style={styles.btnRetorno}>🔴 REGISTRAR RETORNO</button>
+                          <button onClick={() => marcarRetornoAjustado(p.id)} style={styles.btnAjustar}>⏰ AJUSTAR</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* Aba FINALIZADO */}
+              {abaAtiva === 'finalizado' && (
+                finalizadosFiltrado.length === 0 ? (
+                  <div style={styles.emptyState}>
+                    <i className="fas fa-check-circle" style={{ fontSize: 48, color: '#94A3B8', marginBottom: 16 }}></i>
+                    <p>Nenhum estudante finalizado</p>
+                  </div>
+                ) : (
+                  <div style={styles.cardsGrid}>
+                    {finalizadosFiltrado.map(p => (
+                      <div key={p.id} style={{...styles.card, borderLeft: p.atrasado ? '4px solid #ef4444' : '4px solid #10b981', opacity: 0.9}}>
+                        <div style={styles.cardHeader}>
+                          <div style={styles.cardIcon}>✅</div>
+                          <div style={styles.cardTitle}>{p.estudante_nome}</div>
+                          {p.atrasado && <span style={styles.atrasoBadge}>⚠️ Atraso</span>}
+                        </div>
+                        <div style={styles.cardBody}>
+                          <div><i className="fas fa-graduation-cap"></i> {p.estudante_curso || 'Curso não informado'}</div>
+                          <div style={styles.cardTimes}>
+                            <div><span>✅ Saiu: </span><strong>{p.hora_saida_real || '-'}</strong></div>
+                            <div><span>🔴 Retornou: </span><strong>{p.hora_retorno_real || '-'}</strong></div>
+                          </div>
+                          {p.atrasado && <div style={styles.atrasoInfo}>⚠️ Atraso de {p.tempo_atraso} minutos</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Modal: Relatório Data */}
-      {mostrarModalData && (
-        <div style={styles.modalOverlay} onClick={() => setMostrarModalData(false)}>
-          <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>📄 Gerar Relatório</span>
-              <button onClick={() => setMostrarModalData(false)} style={{...styles.actionBtn, ...styles.btnOutline, padding: '4px 8px'}}><i className="fas fa-times"></i></button>
-            </div>
-            <div style={styles.modalBody}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: '#64748B' }}>Data do Relatório:</label>
-              <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={styles.formInput} />
-            </div>
-            <div style={styles.modalFooter}>
-              <button onClick={() => setMostrarModalData(false)} style={{...styles.actionBtn, ...styles.btnOutline}}>Cancelar</button>
-              <button onClick={gerarRelatorioCompleto} style={{...styles.actionBtn, ...styles.btnPrimary}}>Gerar Relatório</button>
+      {/* Modal Relatório */}
+      <div className={`modal-overlay ${mostrarModalData ? 'open' : ''}`} onClick={() => setMostrarModalData(false)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div style={styles.modalHeader}>
+            <h3>📄 Gerar Relatório Completo</h3>
+            <button onClick={() => setMostrarModalData(false)} style={styles.modalClose}>✕</button>
+          </div>
+          <div style={styles.modalBody}>
+            <label style={styles.modalLabel}>Data do Relatório:</label>
+            <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={styles.modalInput} />
+            <div style={styles.modalButtons}>
+              <button onClick={() => setMostrarModalData(false)} style={styles.btnCancel}>Cancelar</button>
+              <button onClick={gerarRelatorioCompleto} style={styles.btnSuccess}>Gerar</button>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Modal: Relatório Completo */}
+      {/* Modal Relatório Gerado */}
       {relatorio && (
-        <div style={styles.modalOverlay} onClick={() => setRelatorio(null)}>
-          <div style={{...styles.modalBox, maxWidth: 800, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'}} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay open" onClick={() => setRelatorio(null)}>
+          <div style={{...styles.modalContent, maxWidth: 800, maxHeight: '80vh', overflow: 'auto'}} onClick={e => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>📄 Relatório - {relatorio.data}</span>
-              <button onClick={() => setRelatorio(null)} style={{...styles.actionBtn, ...styles.btnOutline, padding: '4px 8px'}}><i className="fas fa-times"></i></button>
+              <h3>📄 Relatório Completo - {relatorio.data}</h3>
+              <button onClick={() => setRelatorio(null)} style={styles.modalClose}>✕</button>
             </div>
-            <div style={{...styles.modalBody, flex: 1, overflowY: 'auto', padding: '0 24px 24px'}}>
-              {/* Resumo Stats */}
-              <div style={{ background: '#F8FAFC', padding: 16, borderRadius: 10, marginBottom: 20 }}>
-                <h4 style={{ marginBottom: 12, fontSize: 14 }}>📊 RESUMO</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, fontSize: 13 }}>
-                  <div>👥 Total: <strong>{relatorio.total_autorizados}</strong></div>
-                  <div>✅ Saídas: <strong>{relatorio.saidas_registradas}</strong></div>
-                  <div>🔴 Retornos: <strong>{relatorio.retornos_registrados}</strong></div>
-                  <div>⚠️ Atrasos: <strong>{relatorio.atrasos}</strong></div>
-                  <div>⏳ Pendentes: <strong>{relatorio.sem_saida}</strong></div>
-                  <div>🚶 Andamento: <strong>{relatorio.em_andamento}</strong></div>
-                </div>
+            <div style={styles.modalBody}>
+              <div style={styles.relatorioResumo}>
+                <h4>📊 RESUMO DO DIA</h4>
+                <p>👥 Total Autorizados: <strong>{relatorio.total_autorizados}</strong></p>
+                <p>✅ Saídas Registradas: <strong>{relatorio.saidas_registradas}</strong> ({relatorio.taxa_saida}%)</p>
+                <p>🔴 Retornos Registrados: <strong>{relatorio.retornos_registrados}</strong> ({relatorio.taxa_retorno}%)</p>
+                <p>⚠️ Atrasos: <strong>{relatorio.atrasos}</strong> ({relatorio.taxa_atraso}%)</p>
               </div>
-              
-              {/* Lista Tabela */}
-              <h4 style={{ marginBottom: 12, fontSize: 14 }}>👨‍🎓 Lista Completa</h4>
-              <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, overflow: 'hidden' }}>
-                <table style={{...styles.table, fontSize: 12 }}>
-                  <thead style={styles.thead}>
-                    <tr>
-                      <th style={styles.th}>Estudante</th>
-                      <th style={styles.th}>Curso</th>
-                      <th style={styles.th}>Saída</th>
-                      <th style={styles.th}>Retorno</th>
-                      <th style={styles.th}>Status</th>
-                    </tr>
+              <div style={styles.relatorioLista}>
+                <h4>👨‍🎓 LISTA COMPLETA</h4>
+                <table style={styles.table}>
+                  <thead>
+                    <tr><th>Estudante</th><th>Saída Real</th><th>Retorno Real</th><th>Status</th></tr>
                   </thead>
                   <tbody>
                     {relatorio.lista_completa?.map((item, idx) => (
                       <tr key={idx} style={item.atrasado ? { background: '#FEF2F2' } : {}}>
-                        <td style={styles.td}>{item.estudante}</td>
-                        <td style={styles.td}>{item.curso}</td>
-                        <td style={styles.td}>{item.hora_saida_real || '⏳'}</td>
-                        <td style={styles.td}>{item.hora_retorno_real || '-'}</td>
-                        <td style={styles.td}>
-                          {item.atrasado ? <span style={{...styles.badge, ...styles.badgeDanger}}>Atrasado</span> : 
-                           item.hora_retorno_real ? <span style={{...styles.badge, ...styles.badgeSuccess}}>OK</span> : 
-                           item.hora_saida_real ? <span style={{...styles.badge, ...styles.badgeInfo}}>Fora</span> : 'Aguardando'}
-                        </td>
+                        <td>{item.estudante}</td>
+                        <td>{item.hora_saida_real || '⏳ Não saiu'}</td>
+                        <td>{item.hora_retorno_real || (item.hora_saida_real ? '⏳ Aguardando' : '-')}</td>
+                        <td>{item.atrasado ? '⚠️ Atrasado' : item.hora_retorno_real ? '✅ Completo' : item.hora_saida_real ? '🚶 Em andamento' : '⏳ Aguardando'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-            <div style={{...styles.modalFooter, padding: 16, background: '#F8FAFC', margin: 0}}>
-              <button onClick={() => window.open(`data:text/plain;charset=utf-8,${encodeURIComponent(relatorio.texto_relatorio)}`, '_blank')} style={{...styles.actionBtn, ...styles.btnOutline}}>
-                <i className="fas fa-file-alt"></i> Texto
-              </button>
-              <button onClick={enviarRelatorio} disabled={enviando} style={{...styles.actionBtn, ...styles.btnPrimary}}>
-                {enviando ? 'Enviando...' : '📧 Enviar para DITE'}
-              </button>
-              <button onClick={() => setRelatorio(null)} style={{...styles.actionBtn, ...styles.btnOutline}}>Fechar</button>
+            <div style={styles.modalFooter}>
+              <button onClick={() => window.open(`data:text/plain;charset=utf-8,${encodeURIComponent(relatorio.texto_relatorio)}`, '_blank')} style={styles.btnSecondary}>📄 Visualizar Texto</button>
+              <button onClick={enviarRelatorio} disabled={enviando} style={styles.btnSuccess}>{enviando ? 'Enviando...' : '📧 Enviar para DITE'}</button>
+              <button onClick={() => setRelatorio(null)} style={styles.btnCancel}>Fechar</button>
             </div>
           </div>
         </div>
@@ -541,20 +514,20 @@ const DashboardSeguranca = ({ user, onLogout }) => {
       {/* Notificações Panel */}
       {showNotificacoes && (
         <>
-          <div onClick={() => setShowNotificacoes(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 199 }} />
+          <div onClick={() => setShowNotificacoes(false)} style={styles.notifOverlay} />
           <div style={styles.notifPanel}>
             <div style={styles.notifHeader}>
-              <h3 style={{ fontSize: 16 }}>🔔 Notificações</h3>
-              <button onClick={() => setShowNotificacoes(false)} style={{...styles.actionBtn, ...styles.btnOutline, padding: '4px 8px'}}><i className="fas fa-times"></i></button>
+              <h3>🔔 Notificações</h3>
+              <button onClick={() => setShowNotificacoes(false)} style={styles.notifClose}>✕</button>
             </div>
             <div style={styles.notifList}>
               {notificacoes.length === 0 ? (
-                <div style={styles.emptyState}>Sem notificações</div>
+                <div style={styles.notifEmpty}>Nenhuma notificação</div>
               ) : (
                 notificacoes.map(n => (
-                  <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{...styles.notifItem, background: n.lida ? '#fff' : '#FEFCE8' }}>
-                    <div style={{ fontSize: 13, marginBottom: 4 }}>{n.mensagem}</div>
-                    <div style={{ fontSize: 11, color: '#94A3B8' }}>{n.data}</div>
+                  <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{...styles.notifItem, background: n.lida ? '#fff' : '#FEFCE8'}}>
+                    <div style={styles.notifMessage}>{n.mensagem}</div>
+                    <div style={styles.notifDate}>{n.data}</div>
                   </div>
                 ))
               )}
@@ -564,6 +537,116 @@ const DashboardSeguranca = ({ user, onLogout }) => {
       )}
     </div>
   );
+};
+
+const styles = {
+  container: { display: 'flex', minHeight: '100vh', background: '#F8FAFC' },
+  
+  // Sidebar
+  sidebar: {
+    width: 280,
+    background: '#FFFFFF',
+    height: '100vh',
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    borderRight: '1px solid #E2E8F0',
+    position: 'sticky',
+    top: 0,
+    transition: 'left 0.3s ease',
+    '@media (max-width: 768px)': { position: 'fixed', left: '-280px', zIndex: 100 }
+  },
+  brand: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 },
+  brandIcon: { width: 40, height: 40, background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 },
+  brandText: { fontSize: 20, fontWeight: 700, color: '#1E293B' },
+  userInfo: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: '#F8FAFC', borderRadius: 16, marginBottom: 24 },
+  avatar: { width: 44, height: 44, borderRadius: 50, background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 600, fontSize: 18 },
+  userName: { fontSize: 14, fontWeight: 600, color: '#1E293B' },
+  userRole: { fontSize: 12, color: '#64748B' },
+  nav: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4 },
+  navItem: { padding: '12px 16px', borderRadius: 12, border: 'none', background: 'transparent', textAlign: 'left', fontSize: 14, fontWeight: 500, color: '#64748B', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 12 },
+  navActive: { background: '#EFF6FF', color: '#2563EB' },
+  logoutBtn: { padding: '12px 16px', background: '#FEF2F2', border: 'none', borderRadius: 12, color: '#DC2626', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, marginTop: 'auto' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99, display: 'none', '@media (max-width: 768px)': { display: 'block' } },
+  
+  // Main content
+  mainWrapper: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  menuToggle: { display: 'none', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', marginRight: 12, '@media (max-width: 768px)': { display: 'block' } },
+  header: { background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
+  headerTitle: { flex: 1 },
+  headerActions: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  dateBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#F8FAFC', padding: '8px 12px', borderRadius: 10, border: '1px solid #E2E8F0' },
+  dateInput: { border: 'none', background: 'transparent', fontSize: 14, outline: 'none' },
+  notifBtn: { position: 'relative', padding: 8, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, cursor: 'pointer' },
+  badge: { position: 'absolute', top: -5, right: -5, background: '#DC2626', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 20 },
+  refreshBtn: { padding: '8px 12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, cursor: 'pointer' },
+  
+  // Stats
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: '24px', '@media (max-width: 768px)': { gap: 12 } },
+  statCard: { background: '#fff', borderRadius: 16, padding: 20, display: 'flex', alignItems: 'center', gap: 16, border: '1px solid #E2E8F0', borderLeftWidth: 4 },
+  statIcon: { width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 },
+  statValue: { fontSize: 24, fontWeight: 700, color: '#1E293B' },
+  statLabel: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  
+  // Search
+  searchBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px 16px', gap: 16, flexWrap: 'wrap' },
+  searchWrapper: { position: 'relative', flex: 1, maxWidth: 320, '@media (max-width: 768px)': { maxWidth: '100%' } },
+  searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 14 },
+  searchInput: { width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 14, outline: 'none' },
+  btnReport: { padding: '10px 20px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 },
+  
+  // Data
+  dataDestaque: { background: '#EFF6FF', margin: '0 24px 16px', padding: '10px 16px', borderRadius: 10, fontSize: 13, color: '#2563EB', textAlign: 'center' },
+  
+  // Cards
+  cardsContainer: { padding: '0 24px 24px', minHeight: 400 },
+  cardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 },
+  card: { background: '#fff', borderRadius: 16, border: '1px solid #E2E8F0', overflow: 'hidden', transition: 'all 0.2s' },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: 12, padding: 16, borderBottom: '1px solid #F1F5F9' },
+  cardIcon: { fontSize: 28 },
+  cardTitle: { flex: 1, fontSize: 16, fontWeight: 600, color: '#1E293B' },
+  atrasoBadge: { padding: '4px 10px', background: '#FEF2F2', color: '#DC2626', borderRadius: 20, fontSize: 11, fontWeight: 600 },
+  cardBody: { padding: 16, display: 'flex', flexDirection: 'column', gap: 12 },
+  cardTimes: { display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 },
+  cardActions: { display: 'flex', gap: 8, padding: 16, borderTop: '1px solid #F1F5F9', background: '#F8FAFC' },
+  atrasoInfo: { marginTop: 8, padding: 8, background: '#FEF2F2', borderRadius: 8, fontSize: 12, color: '#DC2626', textAlign: 'center' },
+  
+  // Buttons
+  btnSaida: { flex: 1, padding: 10, background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 },
+  btnRetorno: { flex: 1, padding: 10, background: '#EF4444', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 },
+  btnAjustar: { flex: 1, padding: 10, background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 },
+  btnSuccess: { padding: '10px 20px', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
+  btnCancel: { padding: '10px 20px', background: '#F1F5F9', color: '#64748B', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
+  btnSecondary: { padding: '10px 20px', background: '#F1F5F9', color: '#1E293B', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
+  
+  // Loading
+  loading: { textAlign: 'center', padding: 60, color: '#94A3B8' },
+  spinner: { width: 40, height: 40, border: '3px solid #E2E8F0', borderTopColor: '#2563EB', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' },
+  emptyState: { textAlign: 'center', padding: 60, color: '#94A3B8' },
+  
+  // Modal
+  modalHeader: { padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  modalClose: { width: 32, height: 32, border: '1px solid #E2E8F0', background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 16 },
+  modalBody: { padding: 20 },
+  modalFooter: { padding: '16px 20px', borderTop: '1px solid #E2E8F0', display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' },
+  modalLabel: { display: 'block', fontSize: 13, fontWeight: 600, color: '#64748B', marginBottom: 8 },
+  modalInput: { width: '100%', padding: 12, border: '1px solid #E2E8F0', borderRadius: 10, fontSize: 14, outline: 'none' },
+  modalButtons: { display: 'flex', gap: 12, marginTop: 20, justifyContent: 'flex-end' },
+  modalContent: { background: '#fff', borderRadius: 16, width: '90%', maxWidth: 550, maxHeight: '80vh', overflow: 'auto' },
+  relatorioResumo: { background: '#F8FAFC', padding: 16, borderRadius: 12, marginBottom: 20 },
+  relatorioLista: { marginBottom: 20, padding: 12, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, maxHeight: 300, overflow: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
+  
+  // Notifications
+  notifOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 199 },
+  notifPanel: { position: 'fixed', top: 0, right: 0, width: 360, height: '100vh', background: '#fff', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', zIndex: 200, overflow: 'auto', '@media (max-width: 768px)': { width: '100%' } },
+  notifHeader: { padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  notifClose: { width: 32, height: 32, background: '#F5F5F5', border: 'none', borderRadius: 8, cursor: 'pointer' },
+  notifList: { overflowY: 'auto', height: 'calc(100vh - 70px)' },
+  notifEmpty: { textAlign: 'center', padding: 60, color: '#94A3B8' },
+  notifItem: { padding: 16, borderBottom: '1px solid #F1F5F9', cursor: 'pointer' },
+  notifMessage: { fontSize: 13, color: '#1E293B', marginBottom: 4 },
+  notifDate: { fontSize: 11, color: '#94A3B8' },
 };
 
 export default DashboardSeguranca;
