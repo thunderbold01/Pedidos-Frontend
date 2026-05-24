@@ -1,17 +1,26 @@
-// src/api.js - COMPLETO E CORRIGIDO
+// src/api.js - VERSÃO COMPLETA E CORRIGIDA
 import axios from 'axios';
 
 // ==================== CONFIGURAÇÃO DE AMBIENTE ====================
 const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
+const isVercel = window.location.hostname.includes('vercel.app');
 
 // URLs da API
 const LOCAL_API_URL = 'http://localhost:8000/api';
 const PROD_API_URL = 'https://pedidos-backend-fium.onrender.com/api';
+const VERCEL_API_URL = 'https://pedidos-backend-fium.onrender.com/api';
 
 // Escolhe a URL baseada no ambiente
-const API_URL = isDevelopment ? LOCAL_API_URL : PROD_API_URL;
+let API_URL;
+if (isDevelopment) {
+    API_URL = LOCAL_API_URL;
+} else if (isVercel) {
+    API_URL = VERCEL_API_URL;
+} else {
+    API_URL = PROD_API_URL;
+}
 
-console.log(`🔧 API configurada para: ${API_URL} (${isDevelopment ? 'Desenvolvimento Local' : 'Produção'})`);
+console.log(`🔧 API configurada para: ${API_URL} (${isDevelopment ? 'Desenvolvimento Local' : isVercel ? 'Vercel' : 'Produção'})`);
 
 // ==================== CRIAÇÃO DA INSTÂNCIA ====================
 const api = axios.create({
@@ -30,6 +39,14 @@ api.interceptors.request.use(
         const token = localStorage.getItem('access_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        // Adicionar timestamp para evitar cache (GET requests)
+        if (config.method === 'get') {
+            config.params = {
+                ...config.params,
+                _t: Date.now()
+            };
         }
         
         if (isDevelopment) {
@@ -55,61 +72,130 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
         
+        // Erro de rede (API offline)
         if (!error.response) {
             console.error('🌐 Erro de conexão:', error.message);
             return Promise.reject({
-                message: 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
+                message: 'Não foi possível conectar ao servidor. Verifique sua conexão com a internet.',
                 type: 'NETWORK_ERROR',
                 original: error
             });
         }
         
+        // Erro 403 - Sem permissão
         if (error.response.status === 403) {
-            console.error('🔒 Erro 403:', error.response.data);
+            console.error('🔒 Acesso negado:', error.response.data);
             return Promise.reject({
-                message: error.response.data?.error || 'Acesso negado. Verifique suas credenciais.',
+                message: error.response.data?.error || 'Você não tem permissão para esta ação.',
                 type: 'FORBIDDEN',
                 status: 403,
                 original: error
             });
         }
         
+        // Erro 404 - Não encontrado
+        if (error.response.status === 404) {
+            console.warn('🔍 Recurso não encontrado:', error.response.config.url);
+            return Promise.reject({
+                message: 'Recurso não encontrado.',
+                type: 'NOT_FOUND',
+                status: 404,
+                original: error
+            });
+        }
+        
+        // Erro 422 - Validação
+        if (error.response.status === 422) {
+            console.warn('⚠️ Erro de validação:', error.response.data);
+            return Promise.reject({
+                message: error.response.data?.error || 'Dados inválidos.',
+                type: 'VALIDATION_ERROR',
+                errors: error.response.data,
+                status: 422,
+                original: error
+            });
+        }
+        
+        // Erro 500 - Servidor
+        if (error.response.status >= 500) {
+            console.error('💥 Erro no servidor:', error.response.status, error.response.data);
+            return Promise.reject({
+                message: 'Erro interno do servidor. Tente novamente mais tarde.',
+                type: 'SERVER_ERROR',
+                status: error.response.status,
+                original: error
+            });
+        }
+        
+        // Token expirado (401) - tentar renovar
         if (error.response.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             
             const refreshToken = localStorage.getItem('refresh_token');
             if (refreshToken) {
                 try {
-                    const res = await axios.post(`${API_URL}/token/refresh/`, {
+                    console.log('🔄 Tentando renovar token...');
+                    
+                    const response = await axios.post(`${API_URL}/token/refresh/`, {
                         refresh: refreshToken
                     });
                     
-                    const newToken = res.data.access;
-                    localStorage.setItem('access_token', newToken);
-                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    const { access } = response.data;
+                    localStorage.setItem('access_token', access);
                     
+                    originalRequest.headers.Authorization = `Bearer ${access}`;
                     return api(originalRequest);
+                    
                 } catch (refreshError) {
-                    console.error('❌ Falha ao renovar token');
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    if (window.location.pathname !== '/login') {
-                        window.location.href = '/login';
-                    }
+                    console.error('❌ Falha ao renovar token:', refreshError);
+                    clearAuthData();
+                    redirectToLogin();
+                    return Promise.reject({
+                        message: 'Sessão expirada. Faça login novamente.',
+                        type: 'SESSION_EXPIRED',
+                        original: refreshError
+                    });
                 }
             } else {
-                localStorage.clear();
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
-                }
+                console.warn('⚠️ Sem refresh token, redirecionando para login');
+                clearAuthData();
+                redirectToLogin();
+                return Promise.reject({
+                    message: 'Sessão inválida. Faça login novamente.',
+                    type: 'NO_TOKEN',
+                    original: error
+                });
             }
         }
         
-        return Promise.reject(error);
+        // Outros erros
+        const errorMessage = error.response?.data?.error || 
+                           error.response?.data?.message || 
+                           error.response?.data?.detail ||
+                           error.message ||
+                           'Erro desconhecido';
+        
+        return Promise.reject({
+            message: errorMessage,
+            type: 'UNKNOWN_ERROR',
+            status: error.response?.status,
+            data: error.response?.data,
+            original: error
+        });
     }
 );
 
 // ==================== FUNÇÕES AUXILIARES ====================
+
+// Limpar dados de autenticação
+export const clearAuthData = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_data');
+    sessionStorage.clear();
+};
+
+// Verificar se está autenticado
 export const isAuthenticated = () => {
     const token = localStorage.getItem('access_token');
     if (!token) return false;
@@ -123,27 +209,43 @@ export const isAuthenticated = () => {
     }
 };
 
-export const clearTokens = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_data');
-    sessionStorage.clear();
+// Redirecionar para login
+export const redirectToLogin = () => {
+    if (window.location.pathname !== '/login' && 
+        window.location.pathname !== '/register' &&
+        window.location.pathname !== '/2fa') {
+        window.location.href = '/login';
+    }
 };
 
-export const saveUserData = (user) => {
-    localStorage.setItem('user_data', JSON.stringify(user));
-};
-
+// Obter dados do usuário do localStorage
 export const getUserData = () => {
     try {
-        const data = localStorage.getItem('user_data');
-        return data ? JSON.parse(data) : null;
+        const userData = localStorage.getItem('user_data');
+        return userData ? JSON.parse(userData) : null;
     } catch {
         return null;
     }
 };
 
+// Salvar dados do usuário
+export const saveUserData = (user) => {
+    localStorage.setItem('user_data', JSON.stringify(user));
+};
+
+// Obter token
+export const getToken = () => {
+    return localStorage.getItem('access_token');
+};
+
+// Obter refresh token
+export const getRefreshToken = () => {
+    return localStorage.getItem('refresh_token');
+};
+
 // ==================== FUNÇÕES DE AUTENTICAÇÃO ====================
+
+// Login
 export const login = async (email, password) => {
     try {
         const response = await api.post('/auth/login/', { email, password });
@@ -155,14 +257,29 @@ export const login = async (email, password) => {
         
         return { success: true, user };
     } catch (error) {
-        return {
-            success: false,
-            error: error.response?.data?.error || error.message || 'Erro ao fazer login',
-            status: error.response?.status
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao fazer login',
+            status: error.status
         };
     }
 };
 
+// Registro
+export const register = async (userData) => {
+    try {
+        const response = await api.post('/auth/register/', userData);
+        return { success: true, data: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao criar conta',
+            details: error.data
+        };
+    }
+};
+
+// Logout
 export const logout = async () => {
     try {
         const refreshToken = localStorage.getItem('refresh_token');
@@ -172,306 +289,603 @@ export const logout = async () => {
     } catch (error) {
         console.error('Erro no logout:', error);
     } finally {
-        clearTokens();
+        clearAuthData();
     }
 };
 
-export const getUser = async () => {
+// Verificar 2FA
+export const verify2FA = async (email, code) => {
+    try {
+        const response = await api.post('/auth/verify-2fa/', { email, code });
+        const { access, refresh, user } = response.data;
+        
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        if (user) saveUserData(user);
+        
+        return { success: true, user };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Código inválido'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE USUÁRIO ====================
+
+// Obter dados do usuário atual
+export const getCurrentUser = async () => {
     try {
         const response = await api.get('/user/me/');
         saveUserData(response.data);
         return { success: true, user: response.data };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar dados do usuário'
+        };
+    }
+};
+
+// Atualizar perfil
+export const updateProfile = async (data) => {
+    try {
+        const response = await api.patch('/user/me/update/', data);
+        saveUserData(response.data);
+        return { success: true, user: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao atualizar perfil'
+        };
+    }
+};
+
+// Alterar senha
+export const changePassword = async (oldPassword, newPassword, confirmNewPassword) => {
+    try {
+        const response = await api.post('/auth/password/change/', {
+            old_password: oldPassword,
+            new_password: newPassword,
+            confirm_new_password: confirmNewPassword
+        });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao alterar senha'
+        };
+    }
+};
+
+// Solicitar reset de senha
+export const requestPasswordReset = async (email) => {
+    try {
+        const response = await api.post('/auth/password/reset/', { email });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Email não encontrado'
+        };
     }
 };
 
 // ==================== FUNÇÕES DE PEDIDOS ====================
-export const getPedidos = async (filtros = {}) => {
+
+// Listar pedidos
+export const getPedidos = async (filters = {}) => {
     try {
         const params = new URLSearchParams();
-        if (filtros.estado) params.append('estado', filtros.estado);
-        if (filtros.tipo) params.append('tipo', filtros.tipo);
-        if (filtros.busca) params.append('busca', filtros.busca);
-        if (filtros.data_inicio) params.append('data_inicio', filtros.data_inicio);
-        if (filtros.data_fim) params.append('data_fim', filtros.data_fim);
+        if (filters.estado) params.append('estado', filters.estado);
+        if (filters.tipo) params.append('tipo', filters.tipo);
+        if (filters.busca) params.append('busca', filters.busca);
+        if (filters.data_inicio) params.append('data_inicio', filters.data_inicio);
+        if (filters.data_fim) params.append('data_fim', filters.data_fim);
         
         const url = `/pedidos/${params.toString() ? `?${params}` : ''}`;
         const response = await api.get(url);
         return { success: true, pedidos: response.data.pedidos || [], total: response.data.total || 0 };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar pedidos'
+        };
     }
 };
 
+// Criar pedido
+export const createPedido = async (pedidoData) => {
+    try {
+        const response = await api.post('/pedidos/criar/', pedidoData);
+        return { success: true, pedido: response.data, pedido_id: response.data.pedido_id };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao criar pedido'
+        };
+    }
+};
+
+// Obter detalhes do pedido
 export const getPedidoDetalhes = async (pedidoId) => {
     try {
         const response = await api.get(`/pedidos/${pedidoId}/`);
         return { success: true, pedido: response.data };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar detalhes do pedido'
+        };
     }
 };
 
-export const criarPedido = async (dados) => {
+// Aprovar pedido
+export const aprovarPedido = async (pedidoId, data = {}) => {
     try {
-        const response = await api.post('/pedidos/criar/', dados);
-        return { success: true, pedido: response.data, pedido_id: response.data.pedido_id };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const aprovarPedido = async (pedidoId) => {
-    try {
-        const response = await api.post(`/pedidos/${pedidoId}/aprovar/`);
+        const response = await api.post(`/pedidos/${pedidoId}/aprovar/`, data);
         return { success: true, message: response.data.message };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao aprovar pedido'
+        };
     }
 };
 
+// Rejeitar pedido
 export const rejeitarPedido = async (pedidoId, comentario) => {
     try {
         const response = await api.post(`/pedidos/${pedidoId}/rejeitar/`, { comentario });
         return { success: true, message: response.data.message };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao rejeitar pedido'
+        };
     }
 };
 
-export const passarPedido = async (pedidoId) => {
-    try {
-        const response = await api.post(`/pedidos/${pedidoId}/passar/`);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const passarPedidoDITE = async (pedidoId, destino) => {
+// Encaminhar pedido (DITE)
+export const encaminharPedidoDITE = async (pedidoId, destino) => {
     try {
         const response = await api.post(`/pedidos/${pedidoId}/passar-dite/`, { destino });
         return { success: true, message: response.data.message };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao encaminhar pedido'
+        };
+    }
+};
+
+// Encaminhar pedido (Direção/Administração)
+export const encaminharPedido = async (pedidoId) => {
+    try {
+        const response = await api.post(`/pedidos/${pedidoId}/passar/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao encaminhar pedido'
+        };
+    }
+};
+
+// Editar datas do pedido
+export const editarDatasPedido = async (pedidoId, dataSaida, dataVolta, motivo) => {
+    try {
+        const response = await api.post(`/pedidos/${pedidoId}/editar-datas/`, {
+            data_saida: dataSaida,
+            data_volta: dataVolta,
+            motivo: motivo
+        });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao editar datas'
+        };
     }
 };
 
 // ==================== FUNÇÕES DE SEGURANÇA ====================
+
+// Dashboard segurança
 export const getSegurancaDashboard = async () => {
     try {
         const response = await api.get('/seguranca/dashboard/');
-        return { success: true, saidas: response.data.saidas_hoje || [], stats: response.data };
+        return { success: true, data: response.data };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar dashboard'
+        };
     }
 };
 
-export const marcarSaida = async (pedidoId, horaSaida = null) => {
+// Saídas de hoje
+export const getSaidasHoje = async () => {
     try {
-        const data = horaSaida ? { hora_saida: horaSaida } : {};
+        const response = await api.get('/seguranca/saidas-hoje/');
+        return { success: true, saidas: response.data.saidas || [], total: response.data.total };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar saídas'
+        };
+    }
+};
+
+// Saídas por data
+export const getSaidasData = async (data) => {
+    try {
+        const response = await api.get(`/seguranca/saidas-data/?data=${data}`);
+        return { success: true, saidas: response.data.saidas || [], total: response.data.total };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar saídas'
+        };
+    }
+};
+
+// Marcar saída
+export const marcarSaida = async (pedidoId, hora = null) => {
+    try {
+        const data = hora ? { hora_saida: hora } : {};
         const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`, data);
-        return { success: true, message: response.data.message, hora: response.data.hora, ajustado: response.data.ajustado };
+        return { success: true, message: response.data.message, hora: response.data.hora };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao registrar saída'
+        };
     }
 };
 
-export const marcarRetorno = async (pedidoId, horaRetorno = null) => {
+// Marcar retorno
+export const marcarRetorno = async (pedidoId, hora = null) => {
     try {
-        const data = horaRetorno ? { hora_retorno: horaRetorno } : {};
+        const data = hora ? { hora_retorno: hora } : {};
         const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`, data);
         return { 
             success: true, 
-            message: response.data.message, 
-            atrasado: response.data.atrasado, 
-            tempo_atraso: response.data.tempo_atraso,
-            ajustado: response.data.ajustado
+            message: response.data.message,
+            atrasado: response.data.atrasado,
+            tempo_atraso: response.data.tempo_atraso
         };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao registrar retorno'
+        };
     }
 };
 
-export const getRelatorioSaidas = async (data = null) => {
+// Relatório completo de segurança
+export const getRelatorioCompleto = async (data) => {
     try {
-        const url = data ? `/seguranca/relatorio-saidas/?data=${data}` : '/seguranca/relatorio-saidas/';
-        const response = await api.get(url);
+        const response = await api.get(`/seguranca/relatorio-completo/?data=${data}`);
         return { success: true, relatorio: response.data };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao gerar relatório'
+        };
     }
 };
 
-export const enviarRelatorioSaidas = async (data = null) => {
+// Enviar relatório
+export const enviarRelatorio = async (data) => {
     try {
-        const requestData = data ? { data } : {};
-        const response = await api.post('/seguranca/enviar-relatorio/', requestData);
-        return { success: true, message: response.data.message, relatorio_id: response.data.relatorio_id, conteudo: response.data.conteudo };
+        const response = await api.post('/seguranca/enviar-relatorio/', { data });
+        return { success: true, message: response.data.message };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao enviar relatório'
+        };
     }
 };
 
 // ==================== FUNÇÕES DE SAÍDAS COLETIVAS ====================
-export const getMinhasColetivas = async () => {
+
+// Criar saída coletiva
+export const criarSaidaColetiva = async (data) => {
     try {
-        const response = await api.get('/coletivas/minhas/');
-        return { success: true, coletivas: response.data.coletivas || [] };
+        const response = await api.post('/coletivas/criar/', data);
+        return { success: true, coletiva: response.data, id: response.data.id };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao criar saída coletiva'
+        };
     }
 };
 
-export const aceitarColetiva = async (conviteId) => {
-    try {
-        const response = await api.post(`/coletivas/${conviteId}/aceitar/`);
-        return { success: true, message: response.data.message, pedido_id: response.data.pedido_id };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const recusarColetiva = async (conviteId) => {
-    try {
-        const response = await api.post(`/coletivas/${conviteId}/recusar/`);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const criarSaidaColetiva = async (dados) => {
-    try {
-        const response = await api.post('/coletivas/criar/', dados);
-        return { success: true, message: response.data.message, id: response.data.id, convidados: response.data.convidados };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const listarColetivas = async (status = null) => {
+// Listar saídas coletivas
+export const listarSaidasColetivas = async (status = null) => {
     try {
         const url = status ? `/coletivas/listar/?status=${status}` : '/coletivas/listar/';
         const response = await api.get(url);
         return { success: true, coletivas: response.data.coletivas || [], total: response.data.total };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar saídas coletivas'
+        };
     }
 };
 
-export const getDetalheColetiva = async (coletivaId) => {
+// Minhas saídas coletivas (estudante)
+export const getMinhasColetivas = async () => {
     try {
-        const response = await api.get(`/coletivas/${coletivaId}/`);
-        return { success: true, coletiva: response.data };
+        const response = await api.get('/coletivas/minhas/');
+        return { success: true, coletivas: response.data.coletivas || [] };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar suas saídas coletivas'
+        };
     }
 };
 
-export const encerrarColetiva = async (coletivaId) => {
+// Aceitar convite coletiva
+export const aceitarColetiva = async (conviteId) => {
+    try {
+        const response = await api.post(`/coletivas/${conviteId}/aceitar/`);
+        return { success: true, message: response.data.message, pedido_id: response.data.pedido_id };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao aceitar convite'
+        };
+    }
+};
+
+// Recusar convite coletiva
+export const recusarColetiva = async (conviteId) => {
+    try {
+        const response = await api.post(`/coletivas/${conviteId}/recusar/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao recusar convite'
+        };
+    }
+};
+
+// Encerrar saída coletiva
+export const encerrarSaidaColetiva = async (coletivaId) => {
     try {
         const response = await api.post(`/coletivas/${coletivaId}/encerrar/`);
         return { success: true, message: response.data.message };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao encerrar saída coletiva'
+        };
     }
 };
 
+// Confirmar saída coletiva
 export const confirmarSaidaColetiva = async (coletivaId) => {
     try {
         const response = await api.post(`/coletivas/${coletivaId}/confirmar-saida/`);
         return { success: true, message: response.data.message, total: response.data.total_confirmados };
     } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-// ==================== FUNÇÕES DE RELATÓRIOS ====================
-export const getRelatorios = async () => {
-    try {
-        const response = await api.get('/relatorios/');
-        return { success: true, relatorios: response.data.relatorios || [], total: response.data.total };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const getRelatorioColetivasDITE = async () => {
-    try {
-        const response = await api.get('/relatorios/dite/coletivas/');
-        return { success: true, conteudo: response.data.conteudo, relatorio_id: response.data.relatorio_id };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const downloadRelatorio = async (relatorioId) => {
-    try {
-        const response = await api.get(`/relatorios/download-texto/${relatorioId}/`, { responseType: 'blob' });
-        return { success: true, blob: response.data };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const deleteRelatorio = async (relatorioId) => {
-    try {
-        const response = await api.delete(`/relatorios/${relatorioId}/delete/`);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || 'Erro ao confirmar saída coletiva'
+        };
     }
 };
 
 // ==================== FUNÇÕES DE NOTIFICAÇÕES ====================
+
+// Listar notificações
 export const getNotificacoes = async () => {
     try {
         const response = await api.get('/notificacoes/');
-        return { success: true, notificacoes: response.data.notificacoes || [], nao_lidas: response.data.nao_lidas || 0, total: response.data.total };
+        return { success: true, notificacoes: response.data.notificacoes || [], nao_lidas: response.data.nao_lidas || 0 };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar notificações'
+        };
     }
 };
 
+// Marcar notificação como lida
 export const marcarNotificacaoLida = async (notificacaoId) => {
     try {
         await api.post(`/notificacoes/${notificacaoId}/ler/`);
         return { success: true };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao marcar notificação'
+        };
     }
 };
 
+// Marcar todas como lidas
 export const marcarTodasNotificacoesLidas = async () => {
     try {
         await api.post('/notificacoes/ler-todas/');
         return { success: true };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao marcar notificações'
+        };
+    }
+};
+
+// ==================== FUNÇÕES DE RELATÓRIOS ====================
+
+// Listar relatórios
+export const getRelatorios = async () => {
+    try {
+        const response = await api.get('/relatorios/');
+        return { success: true, relatorios: response.data.relatorios || [], total: response.data.total };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar relatórios'
+        };
+    }
+};
+
+// Criar relatório
+export const criarRelatorio = async (titulo, dataInicio, dataFim) => {
+    try {
+        const response = await api.post('/relatorios/criar/', {
+            titulo: titulo,
+            tipo: 'PERSONALIZADO',
+            data_inicio: dataInicio,
+            data_fim: dataFim
+        });
+        return { success: true, relatorio: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao criar relatório'
+        };
+    }
+};
+
+// Baixar relatório
+export const baixarRelatorio = async (relatorioId) => {
+    try {
+        const response = await api.get(`/relatorios/download/${relatorioId}/`, { responseType: 'blob' });
+        return { success: true, blob: response.data };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao baixar relatório'
+        };
+    }
+};
+
+// Deletar relatório
+export const deletarRelatorio = async (relatorioId) => {
+    try {
+        const response = await api.delete(`/relatorios/${relatorioId}/delete/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao deletar relatório'
+        };
     }
 };
 
 // ==================== FUNÇÕES DE DASHBOARD ====================
+
+// Dashboard principal
 export const getDashboard = async () => {
     try {
         const response = await api.get('/dashboard/');
         return { success: true, stats: response.data };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar dashboard'
+        };
     }
 };
 
-// ==================== FUNÇÕES DE ALERTAS ====================
-export const getAlertasAtraso = async (marcarLidos = false) => {
+// ==================== FUNÇÕES DE ADMIN ====================
+
+// Listar todos os usuários (admin)
+export const getUsuarios = async (filters = {}) => {
     try {
-        const url = marcarLidos ? '/seguranca/alertas-atraso/?marcar_lidos=true' : '/seguranca/alertas-atraso/';
-        const response = await api.get(url);
+        const params = new URLSearchParams();
+        if (filters.role) params.append('role', filters.role);
+        if (filters.status) params.append('status', filters.status);
+        if (filters.search) params.append('search', filters.search);
+        
+        const response = await api.get(`/admin/users/${params.toString() ? `?${params}` : ''}`);
+        return { success: true, users: response.data.users || [], total: response.data.total };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar usuários'
+        };
+    }
+};
+
+// Aprovar usuário (admin)
+export const aprovarUsuario = async (userId) => {
+    try {
+        const response = await api.post(`/admin/users/${userId}/approve/`);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao aprovar usuário'
+        };
+    }
+};
+
+// Bloquear/Desbloquear usuário (admin)
+export const toggleUserBlock = async (userId, block = true) => {
+    try {
+        const action = block ? 'block' : 'unblock';
+        const response = await api.post(`/admin/users/${userId}/block/`, { action });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao alterar status do usuário'
+        };
+    }
+};
+
+// Alterar papel do usuário (admin)
+export const changeUserRole = async (userId, role) => {
+    try {
+        const response = await api.post(`/admin/users/${userId}/role/`, { role });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao alterar papel do usuário'
+        };
+    }
+};
+
+// Resetar senha (admin)
+export const resetUserPassword = async (userId, newPassword) => {
+    try {
+        const response = await api.post(`/admin/users/${userId}/reset-password/`, { password: newPassword });
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao resetar senha'
+        };
+    }
+};
+
+// ==================== ALERTAS ====================
+
+// Alertas de atraso
+export const getAlertasAtraso = async () => {
+    try {
+        const response = await api.get('/seguranca/alertas-atraso/');
         return { success: true, alertas: response.data.alertas || [], total: response.data.total };
     } catch (error) {
-        return { success: false, error: error.message };
+        return { 
+            success: false, 
+            error: error.message || 'Erro ao carregar alertas'
+        };
     }
 };
 
+// ==================== EXPORTAÇÃO PADRÃO ====================
 export default api;
