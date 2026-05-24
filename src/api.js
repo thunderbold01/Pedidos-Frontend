@@ -475,7 +475,3 @@ export const getAlertasAtraso = async (marcarLidos = false) => {
 };
 
 export default api;
-
-
-
-Faca tambem o api para evirat erros e todos completo
