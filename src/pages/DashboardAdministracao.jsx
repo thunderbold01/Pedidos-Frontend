@@ -9,7 +9,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   const [coletivas, setColetivas] = useState([]);
   const [relatorios, setRelatorios] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [lastDataRefresh, setLastDataRefresh] = useState(null);
   
   // Filters & Navigation
   const [filtroEstado, setFiltroEstado] = useState('PENDENTE_DIRECAO');
@@ -126,7 +125,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Carregar dados quando filtros mudarem - SEM PISCAMENTO
+  // Carregar dados quando filtros mudarem
   useEffect(() => {
     const loadData = async () => {
       await carregarDados();
@@ -136,7 +135,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     loadData();
   }, [filtroEstado, filtroData]);
 
-  // Auto-refresh a cada 60 segundos (menos frequente para evitar piscamento)
+  // Auto-refresh a cada 60 segundos
   useEffect(() => {
     if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
     
@@ -144,7 +143,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       carregarDados();
       carregarNotificacoes();
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-    }, 60000); // 60 segundos
+    }, 60000);
     
     return () => {
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
@@ -369,7 +368,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         }
         @media (max-width: 480px) {
           .grid-stats { grid-template-columns: 1fr !important; }
-          .stats-card { padding: 16px !important; }
         }
       `}</style>
 
@@ -383,13 +381,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         transition: 'width 0.3s ease, transform 0.3s ease',
         overflow: 'hidden', zIndex: 100
       }}>
-        {/* Brand */}
         <div style={{ padding: 20, borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start', gap: 12 }}>
-          <div style={{ 
-            width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, 
-            display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18,
-            cursor: 'pointer', flexShrink: 0
-          }}>A</div>
+          <div style={{ width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>A</div>
           {(!sidebarCollapsed || isMobile) && (
             <div style={{ whiteSpace: 'nowrap' }}>
               <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
@@ -398,7 +391,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           )}
         </div>
 
-        {/* Desktop Collapse Button */}
         {!isMobile && (
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{
             position: 'absolute', right: -12, top: 30, width: 24, height: 24,
@@ -410,35 +402,26 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           </button>
         )}
 
-        {/* Mobile Close Button */}
         {isMobile && (
           <button onClick={() => setMobileMenuOpen(false)} style={{
             position: 'absolute', right: 10, top: 10, width: 30, height: 30,
             background: 'transparent', border: 'none', color: T.textSecondary,
             cursor: 'pointer', fontSize: 18
-          }}>
-            ✕
-          </button>
+          }}>✕</button>
         )}
 
-        {/* User Info */}
         <div style={{ padding: 20, borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ 
-            width: 36, height: 36, borderRadius: '50%', background: T.gradientGold,
-            display: 'grid', placeItems: 'center', color: '#000', fontWeight: 700, fontSize: 14,
-            flexShrink: 0
-          }}>{user?.nome?.[0] || user?.username?.[0] || 'A'}</div>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: T.gradientGold, display: 'grid', placeItems: 'center', color: '#000', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{user?.nome?.[0] || user?.username?.[0] || 'A'}</div>
           {(!sidebarCollapsed || isMobile) && (
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nome?.split(' ')[0] || user?.username || 'Admin'}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.nome?.split(' ')[0] || user?.username || 'Admin'}</div>
               <div style={{ fontSize: 10, color: T.gold }}>Administrador</div>
             </div>
           )}
         </div>
 
-        {/* Navigation */}
         <nav style={{ flex: 1, padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1, whiteSpace: 'nowrap' }}>GESTÃO DE PEDIDOS</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>GESTÃO DE PEDIDOS</div>
           
           {[
             { id: 'PENDENTE_DIRECAO', label: 'Pendentes', icon: '◷' },
@@ -489,7 +472,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           </button>
         </nav>
 
-        {/* Footer */}
         <div style={{ padding: 20, borderTop: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button onClick={() => toggleTheme(isDark ? 'light' : 'dark')} style={{
             width: '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
@@ -516,7 +498,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         width: !isMobile ? `calc(100% - ${sidebarWidth}px)` : '100%'
       }}>
         
-        {/* Top Header */}
         <header className="header-padding" style={{
           height: 70, background: T.glass, borderBottom: `1px solid ${T.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px',
@@ -526,30 +507,18 @@ const DashboardAdministracao = ({ user, onLogout }) => {
             <button onClick={() => setMobileMenuOpen(true)} style={{
               display: isMobile ? 'flex' : 'none',
               background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textPrimary
-            }}>
-              ☰
-            </button>
+            }}>☰</button>
             <div>
-              <h1 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
-                {abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva === 'coletivas' ? 'SAÍDAS COLETIVAS' : 'RELATÓRIOS'}
-              </h1>
-              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
-                {horaAtual} {lastSync && `• Sync: ${lastSync}`}
-              </div>
+              <h1 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0 }}>{abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva === 'coletivas' ? 'SAÍDAS COLETIVAS' : 'RELATÓRIOS'}</h1>
+              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{horaAtual} {lastSync && `• Sync: ${lastSync}`}</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={{
-              padding: '8px 12px', borderRadius: 2, border: `1px solid ${T.border}`,
-              background: T.bgSurface, color: T.textPrimary, fontSize: 12, fontFamily: 'inherit'
-            }} />
+            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={{ padding: '8px 12px', borderRadius: 2, border: `1px solid ${T.border}`, background: T.bgSurface, color: T.textPrimary, fontSize: 12 }} />
             
             <div ref={notifRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} style={{
-                width: 36, height: 36, borderRadius: '50%', border: `1px solid ${T.border}`,
-                background: T.bgSurface, cursor: 'pointer', position: 'relative', color: T.textPrimary
-              }}>
+              <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${T.border}`, background: T.bgSurface, cursor: 'pointer', position: 'relative', color: T.textPrimary }}>
                 🔔
                 {notificacoesNaoLidas > 0 && (
                   <span style={{
@@ -583,13 +552,11 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           </div>
         </header>
 
-        {/* Scrollable Content Area - SEM PISCAMENTO */}
         <div className="content-padding" style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
           
           {/* PEDIDOS VIEW */}
           {abaAtiva === 'pedidos' && (
             <div className="fade-in">
-              {/* Stats Grid */}
               <div className="grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 30 }}>
                 <StatCard title="Pendentes" value={pedidos.filter(p => p.estado === 'PENDENTE_DIRECAO').length || 0} sub="Aguardando Ação" icon="◷" />
                 <StatCard title="Aprovados" value={pedidos.filter(p => p.estado === 'APROVADO').length || 0} sub="Autorizados" icon="✓" />
@@ -597,23 +564,12 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 <StatCard title="Total Geral" value={pedidos.length || 0} sub="Volume Acumulado" icon="◈" isGold />
               </div>
 
-              {/* Filter Toolbar */}
-              <div className="filter-container" style={{ 
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
-                flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
-              }}>
+              <div className="filter-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}` }}>
                 <div style={{ display: 'flex', gap: 10, flex: 1, flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-                    <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
-                      width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
-                      background: T.bgAlt, color: T.textPrimary, fontSize: 13
-                    }} />
+                    <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary, fontSize: 13 }} />
                   </div>
-                  <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={{
-                    padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
-                    background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer',
-                    minWidth: 140
-                  }}>
+                  <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={{ padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer', minWidth: 140 }}>
                     <option value="todos">Todos os Status</option>
                     <option value="PENDENTE_DIRECAO">Pendentes</option>
                     <option value="APROVADO">Aprovados</option>
@@ -622,14 +578,9 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                     <option value="FINALIZADO">Finalizados</option>
                   </select>
                 </div>
-                <button onClick={() => setModalRelatorio(true)} style={{
-                  padding: '10px 20px', background: T.gradientRedBlack, color: '#FFF', border: 'none',
-                  borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12, letterSpacing: 0.5,
-                  boxShadow: '0 4px 10px rgba(139,0,0,0.2)', whiteSpace: 'nowrap'
-                }}>GERAR RELATÓRIO</button>
+                <button onClick={() => setModalRelatorio(true)} style={{ padding: '10px 20px', background: T.gradientRedBlack, color: '#FFF', border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12, letterSpacing: 0.5, boxShadow: '0 4px 10px rgba(139,0,0,0.2)', whiteSpace: 'nowrap' }}>GERAR RELATÓRIO</button>
               </div>
 
-              {/* Data Table - Responsive */}
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
               ) : pedidosFiltrados.length === 0 ? (
@@ -649,65 +600,25 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                     </thead>
                     <tbody>
                       {pedidosFiltrados.map((p, i) => (
-                        <tr key={p.id} 
-                          className={isMobile ? 'mobile-row-clickable' : ''}
-                          onClick={(e) => handleMobilePedidoClick(p, e)}
-                          style={{ 
-                            borderBottom: `1px solid ${T.border}`, 
-                            background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`),
-                            transition: 'background 0.1s'
-                          }}
-                          onMouseEnter={() => !isMobile && setHoveredRow(p.id)}
-                          onMouseLeave={() => !isMobile && setHoveredRow(null)}
-                        >
+                        <tr key={p.id} className={isMobile ? 'mobile-row-clickable' : ''} onClick={(e) => handleMobilePedidoClick(p, e)} style={{ borderBottom: `1px solid ${T.border}`, background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`), transition: 'background 0.1s' }} onMouseEnter={() => !isMobile && setHoveredRow(p.id)} onMouseLeave={() => !isMobile && setHoveredRow(null)}>
                           <td style={{ padding: '12px 16px', fontWeight: 700, color: T.gold, whiteSpace: 'nowrap' }}>#{p.id}</td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <div style={{ fontWeight: 600, color: T.textPrimary }}>{p.estudante_nome}</div>
-                            <div style={{ fontSize: 10, color: T.textSecondary }}>{p.estudante_email}</div>
-                          </td>
+                          <td style={{ padding: '12px 16px' }}><div style={{ fontWeight: 600, color: T.textPrimary }}>{p.estudante_nome}</div><div style={{ fontSize: 10, color: T.textSecondary }}>{p.estudante_email}</div></td>
                           <td style={{ padding: '12px 16px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{p.estudante_curso || '-'}</td>
-                          <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                            <div><strong>Saída:</strong> {p.data_saida?.split(' ')[0] || '-'} {p.hora_saida ? `às ${p.hora_saida}` : ''}</div>
-                            <div style={{ fontSize: 10, color: T.textSecondary, marginTop: 2 }}><strong>Retorno sugerido:</strong> {p.data_volta?.split(' ')[0] || '-'}</div>
-                          </td>
+                          <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}><div><strong>Saída:</strong> {p.data_saida?.split(' ')[0] || '-'} {p.hora_saida ? `às ${p.hora_saida}` : ''}</div><div style={{ fontSize: 10, color: T.textSecondary, marginTop: 2 }}><strong>Retorno sugerido:</strong> {p.data_volta?.split(' ')[0] || '-'}</div></td>
                           <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}><StatusBadge status={p.estado} /></td>
                           <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                             {!isMobile ? (
                               <div className="action-buttons" style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                                <button onClick={() => setModalDetalhes(p)} style={{
-                                  width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary,
-                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                }} title="Ver detalhes">👁</button>
-                                {p.acoes_disponiveis?.includes('aprovar') && (
-                                  <button onClick={() => abrirModalAprovacao(p.id)} style={{
-                                    width: 32, height: 32, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer',
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                  }} title="Aprovar">✓</button>
-                                )}
-                                {p.acoes_disponiveis?.includes('rejeitar') && (
-                                  <button onClick={() => rejeitarPedido(p.id)} style={{
-                                    width: 32, height: 32, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer',
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                  }} title="Rejeitar">✕</button>
-                                )}
-                                {p.estado === 'PENDENTE_DIRECAO' && (
-                                  <button onClick={() => encaminharPedido(p.id)} style={{
-                                    width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer',
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                  }} title="Encaminhar">➜</button>
-                                )}
+                                <button onClick={() => setModalDetalhes(p)} style={{ width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Ver detalhes">👁</button>
+                                {p.acoes_disponiveis?.includes('aprovar') && <button onClick={() => abrirModalAprovacao(p.id)} style={{ width: 32, height: 32, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Aprovar">✓</button>}
+                                {p.acoes_disponiveis?.includes('rejeitar') && <button onClick={() => rejeitarPedido(p.id)} style={{ width: 32, height: 32, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Rejeitar">✕</button>}
+                                {p.estado === 'PENDENTE_DIRECAO' && <button onClick={() => encaminharPedido(p.id)} style={{ width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Encaminhar">➜</button>}
                               </div>
                             ) : (
-                              <div style={{ textAlign: 'center' }}>
-                                <button style={{
-                                  padding: '6px 12px', background: T.gold, color: '#000', border: 'none',
-                                  borderRadius: 2, fontSize: 10, fontWeight: 600, cursor: 'pointer'
-                                }}>⚡ Ações</button>
-                              </div>
+                              <div style={{ textAlign: 'center' }}><button style={{ padding: '6px 12px', background: T.gold, color: '#000', border: 'none', borderRadius: 2, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>⚡ Ações</button></div>
                             )}
-                            </div>
-                          <tr>
-                        )}
+                          </td>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
@@ -720,27 +631,21 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           {abaAtiva === 'coletivas' && (
             <div className="fade-in">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
-                {coletivas.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>Nenhuma saída coletiva criada</div>
-                ) : (
-                  coletivas.map(c => (
-                    <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{c.titulo}</h3>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>{c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}</div>
-                      <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.gold }} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12, flexWrap: 'wrap' }}>
-                        <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
-                        <span><strong style={{ color: T.success }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
-                        <span><strong style={{ color: T.danger }}>{c.total_recusados || 0}</strong> Recusaram</span>
-                      </div>
+                {coletivas.map(c => (
+                  <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{c.titulo}</h3>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</span>
                     </div>
-                  ))
-                )}
+                    <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>{c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}</div>
+                    <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}><div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.gold }} /></div>
+                    <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12, flexWrap: 'wrap' }}>
+                      <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
+                      <span><strong style={{ color: T.success }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
+                      <span><strong style={{ color: T.danger }}>{c.total_recusados || 0}</strong> Recusaram</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -753,93 +658,37 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 16px', background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>NOVO RELATÓRIO</button>
               </div>
               <div style={{ display: 'grid', gap: 10 }}>
-                {relatorios.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>Nenhum relatório gerado</div>
-                ) : (
-                  relatorios.map(r => (
-                    <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
-                      background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
-                      transition: 'all 0.2s', flexWrap: 'wrap', gap: 12
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{r.titulo}</div>
-                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div>
-                      </div>
-                      <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
-                    </div>
-                  ))
-                )}
+                {relatorios.map(r => (
+                  <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
+                    background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+                    transition: 'all 0.2s', flexWrap: 'wrap', gap: 12
+                  }} onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }} onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}>
+                    <div><div style={{ fontWeight: 600, fontSize: 14 }}>{r.titulo}</div><div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div></div>
+                    <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-
         </div>
       </main>
 
       {/* Mobile Actions Modal */}
       {isMobile && showMobileActions && selectedPedido && (
         <>
-          <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-            zIndex: 1000, backdropFilter: 'blur(4px)'
-          }} onClick={() => { setShowMobileActions(false); setSelectedPedido(null); }} />
-          <div className="slide-up mobile-actions-card" style={{
-            position: 'fixed', bottom: 20, left: 20, right: 20,
-            background: T.bgSurface, borderRadius: 16, padding: 20,
-            zIndex: 1001, boxShadow: T.shadowHover,
-            border: `1px solid ${T.gold}`
-          }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, backdropFilter: 'blur(4px)' }} onClick={() => { setShowMobileActions(false); setSelectedPedido(null); }} />
+          <div className="slide-up mobile-actions-card" style={{ position: 'fixed', bottom: 20, left: 20, right: 20, background: T.bgSurface, borderRadius: 16, padding: 20, zIndex: 1001, boxShadow: T.shadowHover, border: `1px solid ${T.gold}` }}>
             <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${T.border}` }}>
               <div style={{ fontWeight: 700, fontSize: 18, color: T.gold }}>{selectedPedido.estudante_nome}</div>
               <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>#{selectedPedido.id} • {selectedPedido.tipo_display}</div>
-              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>Saída: {selectedPedido.data_saida?.split(' ')[0]} {selectedPedido.hora_saida ? `às ${selectedPedido.hora_saida}` : ''}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <button onClick={() => setModalDetalhes(selectedPedido)} style={{
-                padding: 14, background: T.bgAlt, border: `1px solid ${T.border}`,
-                borderRadius: 10, fontSize: 14, fontWeight: 600, color: T.textPrimary,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-              }}>
-                👁 Ver Detalhes
-              </button>
-              {selectedPedido.acoes_disponiveis?.includes('aprovar') && (
-                <button onClick={() => abrirModalAprovacao(selectedPedido.id)} style={{
-                  padding: 14, background: T.success, color: '#FFF', border: 'none',
-                  borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                }}>
-                  ✅ Aprovar Pedido
-                </button>
-              )}
-              {selectedPedido.acoes_disponiveis?.includes('rejeitar') && (
-                <button onClick={() => rejeitarPedido(selectedPedido.id)} style={{
-                  padding: 14, background: T.danger, color: '#FFF', border: 'none',
-                  borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                }}>
-                  ❌ Rejeitar Pedido
-                </button>
-              )}
-              {selectedPedido.estado === 'PENDENTE_DIRECAO' && (
-                <button onClick={() => encaminharPedido(selectedPedido.id)} style={{
-                  padding: 14, background: T.gold, color: '#000', border: 'none',
-                  borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                }}>
-                  📤 Encaminhar para Direção
-                </button>
-              )}
-              <button onClick={() => { setShowMobileActions(false); setSelectedPedido(null); }} style={{
-                padding: 12, background: 'transparent', border: `1px solid ${T.border}`,
-                borderRadius: 10, fontSize: 13, color: T.textSecondary, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-              }}>
-                Fechar
-              </button>
+              <button onClick={() => setModalDetalhes(selectedPedido)} style={{ padding: 14, background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 14, fontWeight: 600, color: T.textPrimary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>👁 Ver Detalhes</button>
+              {selectedPedido.acoes_disponiveis?.includes('aprovar') && <button onClick={() => abrirModalAprovacao(selectedPedido.id)} style={{ padding: 14, background: T.success, color: '#FFF', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>✅ Aprovar Pedido</button>}
+              {selectedPedido.acoes_disponiveis?.includes('rejeitar') && <button onClick={() => rejeitarPedido(selectedPedido.id)} style={{ padding: 14, background: T.danger, color: '#FFF', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>❌ Rejeitar Pedido</button>}
+              {selectedPedido.estado === 'PENDENTE_DIRECAO' && <button onClick={() => encaminharPedido(selectedPedido.id)} style={{ padding: 14, background: T.gold, color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>📤 Encaminhar para Direção</button>}
+              <button onClick={() => { setShowMobileActions(false); setSelectedPedido(null); }} style={{ padding: 12, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 10, fontSize: 13, color: T.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>Fechar</button>
             </div>
           </div>
         </>
@@ -894,7 +743,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
               <p><strong>Curso:</strong> {modalDetalhes.estudante_curso || '-'}</p>
               <p><strong>Tipo:</strong> {modalDetalhes.tipo_display}</p>
               <p><strong>Data Saída Sugerida:</strong> {modalDetalhes.data_saida}</p>
-              <p><strong>Data Retorno Sugerido:</strong> {modalDetalhes.data_volta || 'Não informado'}</p>
               <p><strong>Motivo:</strong> {modalDetalhes.motivo}</p>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
