@@ -1,78 +1,89 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-const DashboardDirecao = ({ user, onLogout }) => {
+const DashboardDITE = ({ user, onLogout }) => {
+  // ==================== ESTADOS ====================
   const [pedidos, setPedidos] = useState([]);
   const [stats, setStats] = useState({});
-  const [coletivas, setColetivas] = useState([]);
-  const [relatorios, setRelatorios] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtroEstado, setFiltroEstado] = useState('PENDENTE_DIRECAO');
-  const [filtroData, setFiltroData] = useState('');
+  const [abaAtiva, setAbaAtiva] = useState('painel');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroData, setFiltroData] = useState(() => new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
-  const [showNotificacoes, setShowNotificacoes] = useState(false);
-  const [modalRelatorio, setModalRelatorio] = useState(false);
-  const [dadosRelatorio, setDadosRelatorio] = useState({ data_inicio: '', data_fim: '' });
-  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState('pedidos');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [modalDetalhes, setModalDetalhes] = useState(null);
+  const [modalGerarRel, setModalGerarRel] = useState(false);
+  const [relPeriodo, setRelPeriodo] = useState({ inicio: '', fim: '' });
+  const [gerando, setGerando] = useState(false);
+  const [relatorios, setRelatorios] = useState([]);
+  const [horaAtual, setHoraAtual] = useState('');
+
+  const notifRef = useRef(null);
   const navigate = useNavigate();
 
-  const [themeMode, setThemeMode] = useState(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-    return 'light';
-  });
-  const isDark = themeMode === 'dark';
+  // ==================== THEME ====================
+  const isDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  const notifRef = useMemo(() => ({ current: null }), []);
+  const C = {
+    gold: '#D4A017',
+    goldLight: '#F4E4A0',
+    goldDark: '#A67C00',
+    goldSoft: isDark ? 'rgba(212,160,23,0.12)' : 'rgba(212,160,23,0.08)',
+    goldGlow: isDark ? 'rgba(212,160,23,0.2)' : 'rgba(212,160,23,0.15)',
+    bg: isDark ? '#0C0A09' : '#FFFBF0',
+    surface: isDark ? '#1C1917' : '#FFFFFF',
+    surfaceAlt: isDark ? '#292524' : '#FAFAF7',
+    border: isDark ? '#44403C' : '#E8E4D9',
+    borderStrong: isDark ? '#57534E' : '#D4CFC0',
+    text: isDark ? '#FAF9F6' : '#1C1917',
+    textMuted: isDark ? '#A8A29E' : '#78716C',
+    textSoft: isDark ? '#57534E' : '#A8A29E',
+    shadow: isDark ? '0 4px 24px rgba(0,0,0,0.5)' : '0 4px 24px rgba(28,25,23,0.06)',
+    shadowHover: isDark ? '0 8px 40px rgba(0,0,0,0.7)' : '0 8px 40px rgba(28,25,23,0.1)',
+    success: isDark ? '#4ADE80' : '#15803D',
+    danger: isDark ? '#F87171' : '#DC2626',
+    warning: isDark ? '#FBBF24' : '#D97706',
+  };
 
+  // ==================== EFFECTS ====================
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e) => setThemeMode(e.matches ? 'dark' : 'light');
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const t = setInterval(() => setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })), 1000);
+    t; return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
     carregarDados();
     carregarNotificacoes();
-    carregarColetivas();
     carregarRelatorios();
   }, [filtroEstado, filtroData]);
 
   useEffect(() => {
     const h = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifPanel(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifDropdown(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
+  // ==================== API ====================
   const carregarDados = async () => {
     setLoading(true);
     try {
-      let url = `/pedidos/`;
+      let url = '/pedidos/';
       const params = new URLSearchParams();
-      if (filtroEstado) params.append('estado', filtroEstado);
+      if (filtroEstado !== 'todos') params.append('estado', filtroEstado);
       if (filtroData) params.append('data_saida', filtroData);
       if (params.toString()) url += `?${params.toString()}`;
-      const [pedidosRes, statsRes] = await Promise.all([api.get(url), api.get('/dashboard/')]);
-      setPedidos(pedidosRes.data.pedidos || []);
+      const [pedRes, statsRes] = await Promise.all([api.get(url), api.get('/dashboard/')]);
+      setPedidos(pedRes.data.pedidos || []);
       setStats(statsRes.data);
     } catch (err) { console.error('Erro:', err); }
     finally { setLoading(false); }
-  };
-
-  const carregarColetivas = async () => {
-    try { const res = await api.get('/coletivas/listar/'); setColetivas(res.data.coletivas || []); } catch (err) {}
-  };
-
-  const carregarRelatorios = async () => {
-    try { const res = await api.get('/relatorios/'); setRelatorios(res.data.relatorios || []); } catch (err) {}
   };
 
   const carregarNotificacoes = async () => {
@@ -83,15 +94,55 @@ const DashboardDirecao = ({ user, onLogout }) => {
     } catch (err) {}
   };
 
+  const carregarRelatorios = async () => {
+    try { const res = await api.get('/relatorios/'); setRelatorios(res.data.relatorios || []); } catch (err) {}
+  };
+
   const marcarNotificacaoLida = async (id) => {
     try { await api.post(`/notificacoes/${id}/ler/`); carregarNotificacoes(); } catch (err) {}
+  };
+
+  const aprovarPedido = async (id) => {
+    if (!confirm('Aprovar este pedido?')) return;
+    try { await api.post(`/pedidos/${id}/aprovar/`); carregarDados(); carregarNotificacoes(); alert('Pedido aprovado!'); }
+    catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Erro')); }
+  };
+
+  const rejeitarPedido = async (id) => {
+    const motivo = prompt('Motivo da rejeição:');
+    if (!motivo) return;
+    try { await api.post(`/pedidos/${id}/rejeitar/`, { comentario: motivo }); carregarDados(); carregarNotificacoes(); alert('Pedido rejeitado!'); }
+    catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Erro')); }
+  };
+
+  const gerarRelatorio = async () => {
+    if (!relPeriodo.inicio || !relPeriodo.fim) { alert('Selecione o período'); return; }
+    setGerando(true);
+    try {
+      await api.post('/relatorios/criar/', {
+        titulo: `Relatório DITE - ${new Date().toLocaleDateString('pt-BR')}`,
+        tipo: 'PERSONALIZADO', descricao: 'Relatório gerado pela DITE',
+        data_inicio: relPeriodo.inicio, data_fim: relPeriodo.fim
+      });
+      alert('Relatório gerado!'); carregarRelatorios();
+    } catch (err) { alert('Erro: ' + (err.response?.data?.error || err.message)); }
+    finally { setGerando(false); setModalGerarRel(false); }
+  };
+
+  const baixarRelatorio = async (id) => {
+    try {
+      const res = await api.get(`/relatorios/download/${id}/`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url; a.download = `relatorio_${id}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (err) { alert('Erro ao baixar'); }
   };
 
   const handleAcao = async (pedidoId, acao, comentario = '') => {
     try {
       await api.post(`/pedidos/${pedidoId}/${acao}/`, comentario ? { comentario } : {});
-      await carregarDados(); await carregarNotificacoes();
-      alert(`Pedido ${acao === 'aprovar' ? 'aprovado' : 'rejeitado'} com sucesso!`);
+      carregarDados(); carregarNotificacoes();
+      alert(`Pedido ${acao === 'aprovar' ? 'aprovado' : 'rejeitado'}!`);
     } catch (err) {
       const msg = err.response?.data?.error || 'Erro';
       if (acao === 'rejeitar' && msg.includes('motivo')) {
@@ -102,312 +153,244 @@ const DashboardDirecao = ({ user, onLogout }) => {
   };
 
   const handleEncaminhar = async (pedidoId) => {
-    if (!confirm('Encaminhar este pedido para a Administração?')) return;
-    try {
-      await api.post(`/pedidos/${pedidoId}/passar/`);
-      await carregarDados(); await carregarNotificacoes();
-      alert('Pedido encaminhado para a Administração!');
-    } catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Erro ao encaminhar')); }
+    if (!confirm('Encaminhar para Administração?')) return;
+    try { await api.post(`/pedidos/${pedidoId}/passar/`); carregarDados(); carregarNotificacoes(); alert('Encaminhado!'); }
+    catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Erro')); }
   };
 
-  const gerarRelatorio = async () => {
-    if (!dadosRelatorio.data_inicio || !dadosRelatorio.data_fim) { alert('Selecione o período do relatório'); return; }
-    setGerandoRelatorio(true);
-    try {
-      await api.post('/relatorios/criar/', {
-        titulo: `Relatório Direção - ${new Date().toLocaleDateString('pt-BR')}`,
-        tipo: 'PERSONALIZADO', descricao: 'Relatório gerado pela Direção',
-        data_inicio: dadosRelatorio.data_inicio, data_fim: dadosRelatorio.data_fim
-      });
-      alert('Relatório gerado com sucesso!');
-      carregarRelatorios();
-    } catch (err) { alert('Erro ao gerar relatório: ' + (err.response?.data?.error || err.message)); }
-    finally { setGerandoRelatorio(false); setModalRelatorio(false); }
-  };
-
-  const baixarRelatorio = async (relatorioId) => {
-    try {
-      const response = await api.get(`/relatorios/download/${relatorioId}/`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url; link.setAttribute('download', `relatorio_${relatorioId}.csv`);
-      document.body.appendChild(link); link.click(); link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) { alert('Erro ao baixar relatório'); }
+  // ==================== HELPERS ====================
+  const formatarData = (d) => {
+    if (!d) return '-';
+    return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
   };
 
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(p =>
       p.estudante_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toString().includes(searchTerm)
+      p.id.toString().includes(searchTerm) ||
+      p.estudante_curso?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [pedidos, searchTerm]);
 
-  const T = {
-    bg: isDark ? '#050505' : '#ffffff',
-    surface: isDark ? '#0f0f0f' : '#ffffff',
-    surfaceAlt: isDark ? '#161616' : '#f4f4f5',
-    border: isDark ? '#27272a' : '#e4e4e7',
-    text: isDark ? '#fafafa' : '#09090b',
-    textMuted: isDark ? '#a1a1aa' : '#71717a',
-    textSoft: isDark ? '#52525b' : '#d4d4d8',
-    accent: isDark ? '#ffffff' : '#000000',
-    success: isDark ? '#d4d4d8' : '#3f3f46',
-    warning: isDark ? '#a1a1aa' : '#71717a',
-    radius: 16,
-    shadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.05)',
-    shadowHover: isDark ? '0 8px 40px rgba(0,0,0,0.7)' : '0 8px 40px rgba(0,0,0,0.1)',
-    glass: isDark ? 'rgba(15,15,15,0.85)' : 'rgba(255,255,255,0.85)',
-  };
+  const totalAprovados = stats.pedidos_aprovados || 0;
+  const totalRejeitados = stats.pedidos_rejeitados || 0;
+  const totalPendentes = stats.meus_pedidos_pendentes || 0;
+  const totalGeral = stats.total_pedidos || 0;
 
-  // ==================== SPEEDOMETER (COMPACTO) ====================
-  const Speedometer = ({ value, max, label, size = 130 }) => {
-    const pct = Math.min(value / Math.max(max, 1), 1);
-    const strokeWidth = 8;
-    const radius = (size - strokeWidth) / 2;
-    const cx = size / 2, cy = size / 2;
-    const startAngle = -225;
-    const endAngle = 45;
-    const totalArc = endAngle - startAngle;
-    const currentAngle = startAngle + (totalArc * pct);
-
-    const polarToCartesian = (angle, r) => {
-      const rad = (angle * Math.PI) / 180;
-      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-    };
-
-    const describeArc = (startA, endA, r) => {
-      const s = polarToCartesian(startA, r);
-      const e = polarToCartesian(endA, r);
-      const largeArc = Math.abs(endA - startA) > 180 ? 1 : 0;
-      return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
-    };
-
-    const needleEnd = polarToCartesian(currentAngle, radius - 4);
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <div style={{ position: 'relative', width: size, height: size * 0.8, overflow: 'hidden' }}>
-          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'translateY(-10%)' }}>
-            <path d={describeArc(startAngle, endAngle, radius)} fill="none" stroke={T.border} strokeWidth={strokeWidth} strokeLinecap="round" />
-            <path d={describeArc(startAngle, currentAngle, radius)} fill="none" stroke={T.accent} strokeWidth={strokeWidth} strokeLinecap="round"
-              style={{ transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
-            <line x1={cx} y1={cy} x2={needleEnd.x} y2={needleEnd.y} stroke={T.accent} strokeWidth="2" strokeLinecap="round"
-              style={{ transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
-            <circle cx={cx} cy={cy} r="3" fill={T.accent} />
-            <circle cx={cx} cy={cy} r="1.5" fill={T.bg} />
-            {[0, 0.25, 0.5, 0.75, 1].map((tick, i) => {
-              const angle = startAngle + (totalArc * tick);
-              const inner = polarToCartesian(angle, radius - 12);
-              const outer = polarToCartesian(angle, radius - 6);
-              return <line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={T.textMuted} strokeWidth="1" opacity="0.4" />;
-            })}
-          </svg>
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: T.text, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: 9, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ==================== BAR CHART ====================
-  const BarChart = ({ data, height = 120 }) => {
-    const maxVal = Math.max(...data.map(d => d.value), 1);
-    return (
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height, padding: '16px 0 0', gap: 16 }}>
-        {data.map((item, idx) => {
-          const h = (item.value / maxVal) * 100;
-          return (
-            <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: '100%', maxWidth: 36, height: `${h}%`, background: item.color || T.accent, borderRadius: 4, transition: 'height 1s ease-out', opacity: 0.85, position: 'relative' }}>
-                <span style={{ position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)', fontSize: 11, fontWeight: 700, color: T.text, whiteSpace: 'nowrap' }}>{item.value}</span>
-              </div>
-              <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 500, textAlign: 'center' }}>{item.label}</div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const Badge = ({ children, tone = 'default' }) => {
-    const map = {
-      default: { bg: T.surfaceAlt, fg: T.textMuted },
-      active: { bg: isDark ? '#27272a' : '#e4e4e7', fg: T.text },
-      success: { bg: isDark ? '#162216' : '#dcfce7', fg: T.success },
-      warning: { bg: isDark ? '#221f16' : '#fef9c3', fg: T.warning },
-      danger: { bg: isDark ? '#221616' : '#fee2e2', fg: T.warning },
-    };
-    const s = map[tone] || map.default;
-    return (
-      <span style={{ background: s.bg, color: s.fg, padding: '3px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{children}</span>
-    );
-  };
-
-  const TabBtn = ({ id, label, count, activeId }) => {
-    const active = activeId === id;
-    return (
-      <button onClick={() => setFiltroEstado(id)} style={{
-        padding: '10px 14px', border: 'none', width: '100%', textAlign: 'left',
-        background: active ? T.surfaceAlt : 'transparent',
-        color: active ? T.text : T.textMuted,
-        fontWeight: active ? 600 : 400, fontSize: 13, borderRadius: 8,
-        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        transition: 'all .2s ease', fontFamily: 'inherit'
-      }}>
-        <span>{label}</span>
-        {count > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: T.textMuted }}>{count}</span>}
-      </button>
-    );
-  };
-
+  // ==================== RENDER ====================
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: T.bg, color: T.text, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background .3s ease, color .3s ease' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background .3s ease, color .3s ease' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
-        body{background:${T.bg};-webkit-font-smoothing:antialiased}
+        body{background:${C.bg};-webkit-font-smoothing:antialiased}
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeInScale{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-        .ds-fade{animation:fadeIn .3s ease both}
+        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+        @keyframes slideRight{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+        .ds-fade{animation:fadeIn .35s ease both}
         .ds-fade-scale{animation:fadeInScale .3s ease both}
-        ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
-        .ds-grid-cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));}
-        .ds-stats-row{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}
-        @media(max-width:768px){
-          .ds-sidebar{position:fixed!important;left:-280px!important;top:0!important;bottom:0!important;z-index:1000!important;transition:left .35s cubic-bezier(.4,0,.2,1)!important;}
-          .ds-sidebar.open{left:0!important;box-shadow:0 0 60px rgba(0,0,0,.5)!important;}
-          .ds-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;backdrop-filter:blur(4px);}
-          .ds-overlay.show{display:block;animation:fadeIn .2s ease;}
-          .ds-mobile-toggle{display:flex!important;}
-          .ds-main{margin-left:0!important;}
-          .ds-stats-row{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;}
-          .ds-content{padding:16px!important;}
-          .ds-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-          .ds-table{min-width:600px;}
+        ::-webkit-scrollbar{width:5px;height:5px} ::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px}
+        .gold-line{position:relative}
+        .gold-line::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,${C.gold},transparent);opacity:.4}
+
+        @media(max-width:1024px){
+          .ds-sidebar{width:240px!important}
         }
-        @media(max-width:480px){.ds-stats-row{grid-template-columns:1fr!important;}}
+        @media(max-width:768px){
+          .ds-sidebar{position:fixed!important;left:-280px!important;top:0!important;bottom:0!important;z-index:1000!important;transition:left .35s cubic-bezier(.4,0,.2,1)!important;width:280px!important;}
+          .ds-sidebar.open{left:0!important;}
+          .ds-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;backdrop-filter:blur(4px);}
+          .ds-overlay.show{display:block;animation:fadeIn .2s ease;}
+          .ds-toggle{display:grid!important;}
+          .ds-main{margin-left:0!important;}
+          .ds-stat-card{min-width:140px!important;}
+          .ds-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+          .ds-table{min-width:640px;}
+          .ds-content{padding:16px!important;}
+          .ds-header{padding:12px 16px!important;}
+        }
+        @media(max-width:480px){
+          .ds-stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px!important;}
+        }
       `}</style>
 
-      {/* Overlay Mobile */}
-      <div className={`ds-overlay ${sidebarOpen ? 'show' : ''}`} onClick={() => setSidebarOpen(false)} />
+      {/* OVERLAY */}
+      <div className={`ds-overlay ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
 
-      {/* SIDEBAR */}
-      <aside className={`ds-sidebar ${sidebarOpen ? 'open' : ''}`} style={{
-        width: 260, background: T.surface, borderRight: `1px solid ${T.border}`,
-        padding: 0, display: 'flex', flexDirection: 'column', height: '100vh',
-        position: 'sticky', top: 0, zIndex: 10, flexShrink: 0, overflowY: 'auto',
-        transition: 'all .3s ease'
+      {/* ==================== SIDEBAR ==================== */}
+      <aside className={`ds-sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{
+        width: 260, background: C.surface, borderRight: `1px solid ${C.border}`,
+        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0,
+        zIndex: 10, flexShrink: 0, transition: 'all .3s ease', overflowY: 'auto'
       }}>
-        <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, background: T.accent, borderRadius: 10, display: 'grid', placeItems: 'center', color: isDark ? '#000' : '#fff', fontWeight: 800, fontSize: 14 }}>D</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: T.text, letterSpacing: -.3 }}>DIREÇÃO</div>
-            <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 500 }}>Gestão de Pedidos</div>
+        {/* Logo */}
+        <div style={{ padding: '28px 20px 24px', borderBottom: `1px solid ${C.border}`, position: 'relative' }}>
+          <div className="gold-line" style={{ paddingBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 14,
+                background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+                display: 'grid', placeItems: 'center', color: '#000', fontWeight: 900, fontSize: 18,
+                boxShadow: `0 4px 16px ${C.goldGlow}`
+              }}>D</div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: -.5 }}>DITE</div>
+                <div style={{ fontSize: 10, color: C.gold, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Direção</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div style={{ margin: '16px 14px 0', padding: 12, background: T.surfaceAlt, borderRadius: 12, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', background: T.accent, color: isDark ? '#000' : '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+        {/* User */}
+        <div style={{ margin: '16px 14px 0', padding: 14, background: C.goldSoft, borderRadius: 14, border: `1px solid ${C.goldGlow}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+            display: 'grid', placeItems: 'center', color: '#000', fontWeight: 800, fontSize: 16, flexShrink: 0
+          }}>
             {(user?.nome || user?.username || 'D').charAt(0).toUpperCase()}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.nome || user?.username}</div>
-            <div style={{ fontSize: 10, color: T.textMuted }}>Administrador</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.nome || user?.username || 'Usuário'}</div>
+            <div style={{ fontSize: 10, color: C.goldDark, fontWeight: 600, marginTop: 1 }}>Administrador</div>
           </div>
         </div>
 
-        <div style={{ padding: '20px 10px 8px' }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: T.textSoft, letterSpacing: 1.5, padding: '0 10px 8px', textTransform: 'uppercase' }}>Pedidos</div>
-          <TabBtn id="PENDENTE_DIRECAO" label="Pendentes" count={stats.meus_pedidos_pendentes || 0} activeId={filtroEstado} />
-          <div style={{ height: 4 }} />
-          <TabBtn id="APROVADO" label="Aprovados" count={stats.pedidos_aprovados || 0} activeId={filtroEstado} />
-          <div style={{ height: 4 }} />
-          <TabBtn id="REJEITADO" label="Rejeitados" count={stats.pedidos_rejeitados || 0} activeId={filtroEstado} />
-          <div style={{ height: 4 }} />
-          <TabBtn id="EM_ANDAMENTO" label="Em Andamento" activeId={filtroEstado} />
-          <div style={{ height: 4 }} />
-          <TabBtn id="FINALIZADO" label="Finalizados" activeId={filtroEstado} />
-        </div>
+        {/* Nav */}
+        <nav style={{ padding: '20px 10px', flex: 1 }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: C.textSoft, letterSpacing: 1.5, padding: '0 12px 10px', textTransform: 'uppercase' }}>Navegação</div>
+          {[
+            { id: 'painel', icon: '◈', label: 'Painel Geral' },
+            { id: 'pendentes', icon: '◷', label: 'Pendentes' },
+            { id: 'aprovados', icon: '◉', label: 'Aprovados' },
+            { id: 'rejeitados', icon: '✕', label: 'Rejeitados' },
+            { id: 'historico', icon: '▤', label: 'Histórico' },
+          ].map(item => {
+            const isActive = (item.id === 'painel' && abaAtiva === 'painel') ||
+              (item.id === 'pendentes' && abaAtiva === 'painel' && filtroEstado === 'PENDENTE_DIRECAO') ||
+              (item.id === 'aprovados' && filtroEstado === 'APROVADO') ||
+              (item.id === 'rejeitados' && filtroEstado === 'REJEITADO') ||
+              (item.id === 'historico' && (filtroEstado === 'EM_ANDAMENTO' || filtroEstado === 'FINALIZADO'));
+            return (
+              <button key={item.id} onClick={() => {
+                setAbaAtiva('painel');
+                if (item.id === 'pendentes') setFiltroEstado('PENDENTE_DIRECAO');
+                else if (item.id === 'aprovados') setFiltroEstado('APROVADO');
+                else if (item.id === 'rejeitados') setFiltroEstado('REJEITADO');
+                else if (item.id === 'historico') setFiltroEstado('EM_ANDAMENTO');
+                else if (item.id === 'painel') setFiltroEstado('todos');
+                setMobileMenuOpen(false);
+              }} style={{
+                width: '100%', padding: '11px 14px', border: 'none', background: isActive ? C.goldSoft : 'transparent',
+                color: isActive ? C.gold : C.textMuted, fontWeight: isActive ? 700 : 500,
+                fontSize: 13, borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 12, marginBottom: 2, fontFamily: 'inherit',
+                transition: 'all .2s ease'
+              }}>
+                <span style={{ fontSize: 14, width: 20, textAlign: 'center', opacity: isActive ? 1 : 0.5 }}>{item.icon}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {isActive && <span style={{ width: 4, height: 4, borderRadius: '50%', background: C.gold }} />}
+              </button>
+            );
+          })}
 
-        <div style={{ padding: '0 10px', flex: 1 }}>
-          <div style={{ borderTop: `1px solid ${T.border}`, margin: '8px 10px' }} />
-          <button onClick={() => { setAbaAtiva('coletivas'); }} style={{
-            width: '100%', padding: '10px 14px', border: 'none', background: abaAtiva === 'coletivas' ? T.surfaceAlt : 'transparent',
-            color: abaAtiva === 'coletivas' ? T.text : T.textMuted, fontWeight: abaAtiva === 'coletivas' ? 600 : 400,
-            fontSize: 13, borderRadius: 8, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit'
-          }}>Coletivas</button>
-          <div style={{ height: 4 }} />
-          <button onClick={() => { setAbaAtiva('relatorios'); }} style={{
-            width: '100%', padding: '10px 14px', border: 'none', background: abaAtiva === 'relatorios' ? T.surfaceAlt : 'transparent',
-            color: abaAtiva === 'relatorios' ? T.text : T.textMuted, fontWeight: abaAtiva === 'relatorios' ? 600 : 400,
-            fontSize: 13, borderRadius: 8, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit'
-          }}>Relatórios</button>
-        </div>
+          <div style={{ borderTop: `1px solid ${C.border}`, margin: '16px 12px' }} />
 
-        <div style={{ padding: '12px 14px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={() => setThemeMode(m => m === 'dark' ? 'light' : 'dark')} style={{
-            width: '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
-            borderRadius: 8, color: T.text, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit'
-          }}>
-            {isDark ? 'MODO CLARO' : 'MODO ESCURO'}
-          </button>
+          {[
+            { id: 'relatorios', icon: '▥', label: 'Relatórios' },
+            { id: 'config', icon: '⚙', label: 'Configurações' },
+          ].map(item => (
+            <button key={item.id} onClick={() => { setAbaAtiva(item.id); setMobileMenuOpen(false); }} style={{
+              width: '100%', padding: '11px 14px', border: 'none', background: abaAtiva === item.id ? C.goldSoft : 'transparent',
+              color: abaAtiva === item.id ? C.gold : C.textMuted, fontWeight: abaAtiva === item.id ? 700 : 500,
+              fontSize: 13, borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+              display: 'flex', alignItems: 'center', gap: 12, marginBottom: 2, fontFamily: 'inherit',
+              transition: 'all .2s ease'
+            }}>
+              <span style={{ fontSize: 14, width: 20, textAlign: 'center', opacity: abaAtiva === item.id ? 1 : 0.5 }}>{item.icon}</span>
+              <span style={{ flex: 1 }}>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Logout */}
+        <div style={{ padding: '12px 14px 20px' }}>
           <button onClick={onLogout} style={{
-            width: '100%', padding: 10, background: T.surfaceAlt, border: 'none',
-            borderRadius: 8, color: T.text, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit'
-          }}>SAIR</button>
+            width: '100%', padding: '12px 14px', background: isDark ? 'rgba(220,38,38,0.1)' : 'rgba(220,38,38,0.06)',
+            border: `1px solid ${isDark ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.1)'}`,
+            borderRadius: 10, color: C.danger, cursor: 'pointer', fontWeight: 700, fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit',
+            transition: 'all .2s ease'
+          }}>
+            <span style={{ fontSize: 14 }}>↗</span> Encerrar sessão
+          </button>
         </div>
       </aside>
 
-      {/* MAIN */}
+      {/* ==================== MAIN ==================== */}
       <main className="ds-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* HEADER */}
-        <header style={{
-          background: T.glass, borderBottom: `1px solid ${T.border}`, padding: '14px 24px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          position: 'sticky', top: 0, zIndex: 5, backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)'
+        <header className="ds-header" style={{
+          background: isDark ? 'rgba(28,25,23,0.9)' : 'rgba(255,251,240,0.9)',
+          borderBottom: `1px solid ${C.border}`, padding: '16px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          position: 'sticky', top: 0, zIndex: 5, backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="ds-mobile-toggle" style={{
-              display: 'none', width: 36, height: 36, background: 'transparent', border: `1px solid ${T.border}`,
-              borderRadius: 8, cursor: 'pointer', alignItems: 'center', justifyContent: 'center', color: T.text, fontSize: 16
+            <button onClick={() => setMobileMenuOpen(true)} className="ds-toggle" style={{
+              display: 'none', width: 36, height: 36, background: 'transparent', border: `1px solid ${C.border}`,
+              borderRadius: 10, cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
+              color: C.text, fontSize: 16
             }}>☰</button>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: T.text, letterSpacing: -.3 }}>
-                {abaAtiva === 'pedidos' ? 'PEDIDOS' : abaAtiva === 'coletivas' ? 'COLETIVAS' : 'RELATÓRIOS'}
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: -.5 }}>
+                {abaAtiva === 'painel' ? 'Painel da Direção' : abaAtiva === 'relatorios' ? 'Relatórios' : 'Configurações'}
               </div>
-              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{filtroEstado.replace(/_/g, ' ').toLowerCase()}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                {horaAtual} · {formatarData(filtroData)}
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} style={{
-              background: T.surfaceAlt, border: `1px solid ${T.border}`, padding: '8px 10px',
-              borderRadius: 8, color: T.text, fontFamily: 'inherit', fontSize: 12, outline: 'none'
+              background: C.surfaceAlt, border: `1px solid ${C.border}`, padding: '8px 12px',
+              borderRadius: 10, color: C.text, fontFamily: 'inherit', fontSize: 12, outline: 'none'
             }} />
             <div ref={notifRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowNotifPanel(s => !s)} style={{
-                width: 36, height: 36, borderRadius: 8, background: T.surfaceAlt, border: `1px solid ${T.border}`,
-                cursor: 'pointer', display: 'grid', placeItems: 'center', color: T.text, position: 'relative', fontSize: 14
+              <button onClick={() => setShowNotifDropdown(s => !s)} style={{
+                width: 38, height: 38, borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`,
+                cursor: 'pointer', display: 'grid', placeItems: 'center', color: C.text, position: 'relative', fontSize: 15
               }}>
                 ◉
-                {notificacoesNaoLidas > 0 && <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, background: T.accent, borderRadius: '50%' }} />}
+                {notificacoesNaoLidas > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, padding: '0 5px',
+                    background: C.gold, color: '#000', borderRadius: 9, fontSize: 9, fontWeight: 800,
+                    display: 'grid', placeItems: 'center', border: `2px solid ${isDark ? '#0C0A09' : '#FFFBF0'}`
+                  }}>{notificacoesNaoLidas}</span>
+                )}
               </button>
-              {showNotifPanel && (
+              {showNotifDropdown && (
                 <div className="ds-fade-scale" style={{
-                  position: 'absolute', right: 0, top: 42, width: 300, background: T.surface,
-                  border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: T.shadow, zIndex: 50,
+                  position: 'absolute', right: 0, top: 46, width: 320, background: C.surface,
+                  border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: C.shadow, zIndex: 50,
                   maxHeight: 400, overflowY: 'auto'
                 }}>
-                  <div style={{ padding: 12, borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Notificações</div>
-                  {notificacoes.length === 0 ? <div style={{ padding: 24, textAlign: 'center', color: T.textMuted, fontSize: 12 }}>Nenhuma notificação</div>
+                  <div style={{ padding: 14, borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 12, color: C.text, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    Notificações
+                    {notificacoesNaoLidas > 0 && <span style={{ background: C.gold, color: '#000', padding: '2px 8px', borderRadius: 6, fontSize: 9, fontWeight: 800 }}>{notificacoesNaoLidas} novas</span>}
+                  </div>
+                  {notificacoes.length === 0 ? <div style={{ padding: 24, textAlign: 'center', color: C.textMuted, fontSize: 12 }}>Nenhuma notificação</div>
                     : notificacoes.map(n => (
-                      <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{ padding: 12, borderBottom: `1px solid ${T.border}`, cursor: 'pointer', fontSize: 12 }}>
-                        <div style={{ fontWeight: 600 }}>{n.mensagem}</div>
+                      <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
+                        padding: 12, borderBottom: `1px solid ${C.border}`, cursor: 'pointer',
+                        background: n.lida ? 'transparent' : C.goldSoft, transition: 'background .15s'
+                      }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{n.mensagem}</div>
+                        {n.data && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 3 }}>{n.data}</div>}
                       </div>
                     ))}
                 </div>
@@ -417,219 +400,427 @@ const DashboardDirecao = ({ user, onLogout }) => {
         </header>
 
         {/* CONTENT */}
-        <div className="ds-content" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="ds-content" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24, flex: 1 }}>
 
-          {/* STATS ROW: 2 Speedometers + Chart + Cards */}
-          <div className="ds-stats-row">
-            {/* Speedometer 1: Pendentes */}
-            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 20, boxShadow: T.shadow, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Speedometer value={stats.meus_pedidos_pendentes || 0} max={Math.max(stats.total_pedidos || 10, 1)} label="Pendentes" />
+          {/* STATS CARDS */}
+          <div className="ds-stats-grid" style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            {/* Pendentes */}
+            <div className="ds-stat-card" style={{
+              background: C.surface, borderRadius: 16, padding: 20, boxShadow: C.shadow,
+              border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 120
+            }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, background: C.goldSoft, borderRadius: '0 0 0 80px', opacity: .5 }} />
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Pendentes</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.gold, lineHeight: 1, letterSpacing: -1 }}>{totalPendentes}</div>
+              </div>
+              <div style={{ position: 'relative', marginTop: 12 }}>
+                <div style={{ height: 3, background: C.surfaceAlt, borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${totalGeral > 0 ? (totalPendentes / totalGeral) * 100 : 0}%`, background: C.gold, borderRadius: 2, transition: 'width .8s ease' }} />
+                </div>
+                <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>Aguardando análise</div>
+              </div>
             </div>
 
-            {/* Speedometer 2: Aprovados */}
-            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 20, boxShadow: T.shadow, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Speedometer value={stats.pedidos_aprovados || 0} max={Math.max(stats.total_pedidos || 10, 1)} label="Aprovados" />
+            {/* Aprovados */}
+            <div className="ds-stat-card" style={{
+              background: C.surface, borderRadius: 16, padding: 20, boxShadow: C.shadow,
+              border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 120
+            }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, background: `${C.success}10`, borderRadius: '0 0 0 80px' }} />
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Aprovados</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.success, lineHeight: 1, letterSpacing: -1 }}>{totalAprovados}</div>
+              </div>
+              <div style={{ position: 'relative', marginTop: 12 }}>
+                <div style={{ height: 3, background: C.surfaceAlt, borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${totalGeral > 0 ? (totalAprovados / totalGeral) * 100 : 0}%`, background: C.success, borderRadius: 2, transition: 'width .8s ease' }} />
+                </div>
+                <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>Autorizados</div>
+              </div>
             </div>
 
-            {/* Chart */}
-            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 20, boxShadow: T.shadow, flex: 2 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Distribuição</div>
-              <BarChart data={[
-                { label: 'Pendentes', value: stats.meus_pedidos_pendentes || 0, color: T.warning },
-                { label: 'Aprovados', value: stats.pedidos_aprovados || 0, color: T.success },
-                { label: 'Rejeitados', value: stats.pedidos_rejeitados || 0, color: T.warning },
-                { label: 'Total', value: stats.total_pedidos || 0, color: T.accent },
-              ]} height={100} />
+            {/* Rejeitados */}
+            <div className="ds-stat-card" style={{
+              background: C.surface, borderRadius: 16, padding: 20, boxShadow: C.shadow,
+              border: `1px solid ${C.border}`, position: 'relative', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 120
+            }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, background: `${C.danger}10`, borderRadius: '0 0 0 80px' }} />
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Rejeitados</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.danger, lineHeight: 1, letterSpacing: -1 }}>{totalRejeitados}</div>
+              </div>
+              <div style={{ position: 'relative', marginTop: 12 }}>
+                <div style={{ height: 3, background: C.surfaceAlt, borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${totalGeral > 0 ? (totalRejeitados / totalGeral) * 100 : 0}%`, background: C.danger, borderRadius: 2, transition: 'width .8s ease' }} />
+                </div>
+                <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>Negados</div>
+              </div>
             </div>
 
-            {/* Total Card */}
-            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 20, boxShadow: T.shadow, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Total Pedidos</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: T.text, lineHeight: 1, letterSpacing: -1 }}>{stats.total_pedidos || 0}</div>
-              <div style={{ fontSize: 10, color: T.textMuted, marginTop: 4 }}>{pedidosFiltrados.length} na lista atual</div>
+            {/* Total */}
+            <div className="ds-stat-card" style={{
+              background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, borderRadius: 16, padding: 20,
+              boxShadow: `0 4px 24px ${C.goldGlow}`, position: 'relative', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 120
+            }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 100, height: 100, background: 'rgba(255,255,255,0.1)', borderRadius: '0 0 0 100px' }} />
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(0,0,0,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Total Geral</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#000', lineHeight: 1, letterSpacing: -1 }}>{totalGeral}</div>
+              </div>
+              <div style={{ position: 'relative', marginTop: 12 }}>
+                <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.6)', fontWeight: 600 }}>Pedidos no sistema</div>
+              </div>
             </div>
           </div>
 
           {/* TOOLBAR */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <input type="text" placeholder="BUSCAR ESTUDANTE OU ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{
-              flex: 1, minWidth: 200, padding: '10px 14px', background: T.surface, border: `1px solid ${T.border}`,
-              borderRadius: 8, color: T.text, fontFamily: 'inherit', fontSize: 12, outline: 'none', letterSpacing: 0.5
-            }} />
-            <button onClick={() => setModalRelatorio(true)} style={{
-              padding: '10px 20px', background: T.accent, color: isDark ? '#000' : '#fff', border: 'none',
-              borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 11, fontFamily: 'inherit', letterSpacing: 0.5
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16,
+            boxShadow: C.shadow, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'
+          }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: C.textMuted, fontSize: 13, pointerEvents: 'none' }}>⌕</span>
+              <input type="text" placeholder="Buscar estudante, curso ou ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{
+                width: '100%', padding: '11px 14px 11px 38px', background: C.surfaceAlt, border: `1px solid ${C.border}`,
+                borderRadius: 10, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none', transition: 'border-color .2s'
+              }} onFocus={(e) => e.currentTarget.style.borderColor = C.gold} onBlur={(e) => e.currentTarget.style.borderColor = C.border} />
+            </div>
+            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{
+              padding: '11px 14px', background: C.surfaceAlt, border: `1px solid ${C.border}`,
+              borderRadius: 10, color: C.text, fontFamily: 'inherit', fontSize: 12, outline: 'none', cursor: 'pointer', fontWeight: 600
             }}>
-              GERAR RELATÓRIO
+              <option value="todos">Todos os estados</option>
+              <option value="PENDENTE_DIRECAO">Pendentes</option>
+              <option value="APROVADO">Aprovados</option>
+              <option value="REJEITADO">Rejeitados</option>
+              <option value="EM_ANDAMENTO">Em Andamento</option>
+              <option value="FINALIZADO">Finalizados</option>
+            </select>
+            <button onClick={() => setModalGerarRel(true)} style={{
+              padding: '11px 20px', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+              color: '#000', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700,
+              fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8,
+              boxShadow: `0 4px 12px ${C.goldGlow}`, transition: 'all .2s ease'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.filter = 'brightness(1.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.filter = 'none'; }}
+            >
+              <span style={{ fontSize: 14 }}>▥</span> Gerar Relatório
             </button>
           </div>
 
           {/* TABS */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {['pedidos', 'coletivas', 'relatorios'].map(tab => (
-              <button key={tab} onClick={() => setAbaAtiva(tab)} style={{
-                padding: '8px 16px', border: `1px solid ${abaAtiva === tab ? T.accent : T.border}`,
-                borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                background: abaAtiva === tab ? T.accent : 'transparent',
-                color: abaAtiva === tab ? (isDark ? '#000' : '#fff') : T.textMuted,
-                fontFamily: 'inherit', letterSpacing: 0.5, transition: 'all .2s ease'
-              }}>
-                {tab.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          {abaAtiva === 'relatorios' ? null : (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { id: 'painel', label: 'Todos' },
+                { id: 'pendentes', label: 'Pendentes', count: totalPendentes },
+                { id: 'aprovados', label: 'Aprovados', count: totalAprovados },
+                { id: 'rejeitados', label: 'Rejeitados', count: totalRejeitados },
+              ].map(tab => {
+                const isActive = (tab.id === 'painel' && filtroEstado === 'todos') ||
+                  (tab.id === 'pendentes' && filtroEstado === 'PENDENTE_DIRECAO') ||
+                  (tab.id === 'aprovados' && filtroEstado === 'APROVADO') ||
+                  (tab.id === 'rejeitados' && filtroEstado === 'REJEITADO');
+                return (
+                  <button key={tab.id} onClick={() => {
+                    setAbaAtiva('painel');
+                    if (tab.id === 'pendentes') setFiltroEstado('PENDENTE_DIRECAO');
+                    else if (tab.id === 'aprovados') setFiltroEstado('APROVADO');
+                    else if (tab.id === 'rejeitados') setFiltroEstado('REJEITADO');
+                    else if (tab.id === 'painel') setFiltroEstado('todos');
+                  }} style={{
+                    padding: '8px 16px', border: `1px solid ${isActive ? C.gold : C.border}`,
+                    borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: isActive ? 700 : 500,
+                    background: isActive ? C.goldSoft : 'transparent',
+                    color: isActive ? C.gold : C.textMuted,
+                    fontFamily: 'inherit', letterSpacing: 0.3, transition: 'all .2s ease'
+                  }}>
+                    {tab.label} {tab.count > 0 && <span style={{ opacity: 0.7 }}>({tab.count})</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          {/* ABA PEDIDOS */}
-          {abaAtiva === 'pedidos' && (
+          {/* CONTENT AREA */}
+          {abaAtiva === 'relatorios' ? (
+            <div className="ds-fade" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: -.3 }}>Relatórios Gerados</div>
+              {relatorios.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 60, color: C.textMuted, border: `1px dashed ${C.borderStrong}`, borderRadius: 16 }}>
+                  <div style={{ fontSize: 40, marginBottom: 12, opacity: .3 }}>▥</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Nenhum relatório gerado</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Clique em "Gerar Relatório" para criar o primeiro</div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {relatorios.map(r => (
+                    <div key={r.id} style={{
+                      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20,
+                      boxShadow: C.shadow, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      cursor: 'pointer', transition: 'all .2s ease', flexWrap: 'wrap', gap: 12
+                    }}
+                    onClick={() => baixarRelatorio(r.id)}
+                    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = C.shadowHover; e.currentTarget.style.borderColor = C.goldGlow; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = C.shadow; e.currentTarget.style.borderColor = C.border; }}
+                    >
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.titulo}</div>
+                        <div style={{ fontSize: 11, color: C.textMuted, marginTop: 3 }}>Criado em {r.created_at} · Por: {r.criado_por}</div>
+                      </div>
+                      <div style={{
+                        padding: '8px 16px', background: C.goldSoft, border: `1px solid ${C.goldGlow}`,
+                        borderRadius: 8, color: C.gold, fontSize: 11, fontWeight: 700
+                      }}>BAIXAR CSV</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : abaAtiva === 'config' ? (
+            <div className="ds-fade" style={{ textAlign: 'center', padding: 80 }}>
+              <div style={{ fontSize: 40, marginBottom: 12, opacity: .3 }}>⚙</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Configurações</div>
+              <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Em desenvolvimento</div>
+            </div>
+          ) : (
             <div className="ds-fade">
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>
-                  <div style={{ width: 32, height: 32, border: `3px solid ${T.border}`, borderTopColor: T.accent, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin .8s linear infinite' }} />
-                  <div style={{ color: T.textMuted, fontSize: 12 }}>Carregando...</div>
+                  <div style={{ width: 36, height: 36, border: `3px solid ${C.border}`, borderTopColor: C.gold, borderRadius: '50%', margin: '0 auto 14px', animation: 'spin .8s linear infinite' }} />
+                  <div style={{ color: C.textMuted, fontSize: 12 }}>Carregando pedidos...</div>
                 </div>
               ) : pedidosFiltrados.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: T.textMuted, border: `1px dashed ${T.border}`, borderRadius: T.radius }}>
-                  Nenhum pedido encontrado
+                <div style={{ textAlign: 'center', padding: 60, color: C.textMuted, border: `1px dashed ${C.borderStrong}`, borderRadius: 16 }}>
+                  <div style={{ fontSize: 40, marginBottom: 12, opacity: .3 }}>◉</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Nenhum pedido encontrado</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Tente ajustar os filtros ou a busca</div>
                 </div>
               ) : (
-                <div className="ds-table-wrap" style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden', boxShadow: T.shadow }}>
+                <div className="ds-table-wrap" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, overflow: 'hidden', boxShadow: C.shadow }}>
                   <table className="ds-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-                        {['ID', 'ESTUDANTE', 'TIPO', 'DATA', 'STATUS', 'AÇÕES'].map(h => (
-                          <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, color: T.textMuted, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' }}>{h}</th>
+                      <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                        {['ID', 'ESTUDANTE', 'CURSO / CLASSE', 'TIPO', 'DATA SAÍDA', 'STATUS', 'AÇÕES'].map(h => (
+                          <th key={h} style={{
+                            padding: '14px 16px', textAlign: 'left', fontWeight: 800, color: C.textMuted,
+                            fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase',
+                            borderBottom: `1px solid ${C.border}`
+                          }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {pedidosFiltrados.map(pedido => (
-                        <tr key={pedido.id} style={{ borderBottom: `1px solid ${T.border}` }}>
-                          <td style={{ padding: '12px 14px', fontWeight: 700, color: T.text }}>#{pedido.id}</td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: 600, color: T.text }}>{pedido.estudante_nome}</div>
-                            <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2 }}>{pedido.estudante_curso || '-'}</div>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <span style={{ display: 'inline-block', padding: '3px 8px', background: T.surfaceAlt, borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{pedido.tipo_display}</span>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ color: T.text }}>{pedido.data_saida}</div>
-                            <div style={{ fontSize: 10, color: T.textMuted }}>{pedido.hora_saida}</div>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <span style={{
-                              display: 'inline-block', padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
-                              background: pedido.estado === 'APROVADO' ? T.surfaceAlt : T.surfaceAlt,
-                              color: pedido.estado === 'APROVADO' ? T.success : pedido.estado === 'REJEITADO' ? T.warning : T.text
-                            }}>{pedido.estado_display}</span>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => navigate(`/pedido/${pedido.id}`)} style={{
-                                width: 28, height: 28, borderRadius: 6, border: `1px solid ${T.border}`,
-                                background: 'transparent', cursor: 'pointer', color: T.text, fontSize: 10,
-                                display: 'grid', placeItems: 'center'
-                              }}>▸</button>
-                              {pedido.acoes_disponiveis?.includes('aprovar') && (
-                                <button onClick={() => handleAcao(pedido.id, 'aprovar')} style={{
-                                  width: 28, height: 28, borderRadius: 6, border: 'none',
-                                  background: T.accent, color: isDark ? '#000' : '#fff', cursor: 'pointer', fontSize: 10,
-                                  display: 'grid', placeItems: 'center', fontWeight: 800
-                                }}>✓</button>
-                              )}
-                              {pedido.acoes_disponiveis?.includes('rejeitar') && (
-                                <button onClick={() => handleAcao(pedido.id, 'rejeitar')} style={{
-                                  width: 28, height: 28, borderRadius: 6, border: `1px solid ${T.border}`,
-                                  background: 'transparent', color: T.text, cursor: 'pointer', fontSize: 10,
-                                  display: 'grid', placeItems: 'center'
-                                }}>✕</button>
-                              )}
-                              {pedido.estado === 'PENDENTE_DIRECAO' && (
-                                <button onClick={() => handleEncaminhar(pedido.id)} style={{
-                                  width: 28, height: 28, borderRadius: 6, border: `1px solid ${T.border}`,
-                                  background: 'transparent', color: T.text, cursor: 'pointer', fontSize: 10,
-                                  display: 'grid', placeItems: 'center'
-                                }}>→</button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {pedidosFiltrados.map((pedido, idx) => {
+                        const statusColor = pedido.estado === 'APROVADO' ? C.success :
+                          pedido.estado === 'REJEITADO' ? C.danger :
+                          pedido.estado === 'EM_ANDAMENTO' ? C.warning : C.gold;
+                        return (
+                          <tr key={pedido.id} style={{
+                            borderBottom: `1px solid ${idx % 2 === 0 ? C.border : 'transparent'}`,
+                            transition: 'background .15s'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = C.goldSoft; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
+                          >
+                            <td style={{ padding: '14px 16px', fontWeight: 800, color: C.gold }}>#{pedido.id}</td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ fontWeight: 600, color: C.text }}>{pedido.estudante_nome}</div>
+                              <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>{pedido.estudante_email || '-'}</div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ color: C.text, fontWeight: 500 }}>{pedido.estudante_curso || '-'}</div>
+                              <div style={{ fontSize: 10, color: C.textMuted }}>{pedido.estudante_classe || '-'}</div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{ display: 'inline-block', padding: '4px 10px', background: C.surfaceAlt, borderRadius: 6, fontSize: 10, fontWeight: 600, color: C.text }}>{pedido.tipo_display}</span>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ color: C.text, fontWeight: 500 }}>{pedido.data_saida}</div>
+                              <div style={{ fontSize: 10, color: C.textMuted }}>{pedido.hora_saida}</div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <span style={{
+                                display: 'inline-block', padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                                background: `${statusColor}15`, color: statusColor,
+                                border: `1px solid ${statusColor}20`
+                              }}>{pedido.estado_display}</span>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <button onClick={() => setModalDetalhes(pedido)} style={{
+                                  width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.border}`,
+                                  background: 'transparent', cursor: 'pointer', color: C.textMuted, fontSize: 11,
+                                  display: 'grid', placeItems: 'center', transition: 'all .15s'
+                                }} title="Ver detalhes">◈</button>
+                                {pedido.acoes_disponiveis?.includes('aprovar') && (
+                                  <button onClick={() => aprovarPedido(pedido.id)} style={{
+                                    width: 30, height: 30, borderRadius: 8, border: 'none',
+                                    background: C.success, color: '#fff', cursor: 'pointer', fontSize: 11,
+                                    display: 'grid', placeItems: 'center', fontWeight: 800, transition: 'all .15s'
+                                  }} title="Aprovar">✓</button>
+                                )}
+                                {pedido.acoes_disponiveis?.includes('rejeitar') && (
+                                  <button onClick={() => rejeitarPedido(pedido.id)} style={{
+                                    width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.danger}30`,
+                                    background: `${C.danger}10`, color: C.danger, cursor: 'pointer', fontSize: 11,
+                                    display: 'grid', placeItems: 'center', transition: 'all .15s'
+                                  }} title="Rejeitar">✕</button>
+                                )}
+                                {pedido.estado === 'PENDENTE_DIRECAO' && (
+                                  <button onClick={() => handleEncaminhar(pedido.id)} style={{
+                                    width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.goldGlow}`,
+                                    background: C.goldSoft, color: C.gold, cursor: 'pointer', fontSize: 11,
+                                    display: 'grid', placeItems: 'center', transition: 'all .15s'
+                                  }} title="Encaminhar">→</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
             </div>
           )}
-
-          {/* ABA COLETIVAS */}
-          {abaAtiva === 'coletivas' && (
-            <div className="ds-fade ds-grid-cards">
-              {coletivas.length === 0 ? <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: T.textMuted, border: `1px dashed ${T.border}`, borderRadius: T.radius }}>Nenhuma saída coletiva</div>
-                : coletivas.map(c => (
-                  <div key={c.id} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 20, boxShadow: T.shadow }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{c.titulo}</div>
-                      <Badge tone={c.encerrada ? 'default' : 'success'}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</Badge>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 10, color: T.textMuted, marginBottom: 12, flexWrap: 'wrap' }}>
-                      <span>{c.data_saida?.split('T')[0]}</span>
-                      <span>{c.data_volta?.split('T')[0]}</span>
-                      <span>{c.criador_nome || c.criador}</span>
-                    </div>
-                    <div style={{ height: 4, background: T.surfaceAlt, borderRadius: 2, marginBottom: 8, overflow: 'hidden' }}>
-                      <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.success, borderRadius: 2 }} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 16, fontSize: 11, color: T.textMuted }}>
-                      <span><strong style={{ color: T.text }}>{c.total_convidados || 0}</strong> convidados</span>
-                      <span><strong style={{ color: T.text }}>{c.total_aceitos || 0}</strong> aceitos</span>
-                      <span><strong style={{ color: T.text }}>{c.total_recusados || 0}</strong> recusados</span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-
-          {/* ABA RELATÓRIOS */}
-          {abaAtiva === 'relatorios' && (
-            <div className="ds-fade ds-grid-cards">
-              {relatorios.length === 0 ? <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: T.textMuted, border: `1px dashed ${T.border}`, borderRadius: T.radius }}>
-                Nenhum relatório gerado
-                <div style={{ marginTop: 12 }}>
-                  <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 20px', background: T.accent, color: isDark ? '#000' : '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit' }}>GERAR RELATÓRIO</button>
-                </div>
-              </div>
-                : relatorios.map(r => (
-                  <div key={r.id} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 20, boxShadow: T.shadow, cursor: 'pointer', transition: 'all .2s ease' }} onClick={() => baixarRelatorio(r.id)}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>{r.titulo}</div>
-                    <div style={{ fontSize: 10, color: T.textMuted, marginBottom: 12 }}>{r.created_at}</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, color: T.textMuted }}>Por: {r.criado_por}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: T.accent, letterSpacing: 0.5 }}>BAIXAR CSV →</span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
         </div>
       </main>
 
-      {/* MODAL RELATÓRIO */}
-      {modalRelatorio && (
-        <div onClick={() => setModalRelatorio(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }}>
-          <div onClick={e => e.stopPropagation()} className="ds-fade-scale" style={{ background: T.surface, padding: 24, borderRadius: 16, width: '100%', maxWidth: 420, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: T.text, marginBottom: 20 }}>GERAR RELATÓRIO</div>
+      {/* ==================== MODAL DETALHES ==================== */}
+      {modalDetalhes && (
+        <div onClick={() => setModalDetalhes(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+          zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20
+        }}>
+          <div onClick={e => e.stopPropagation()} className="ds-fade-scale" style={{
+            background: C.surface, borderRadius: 20, width: '100%', maxWidth: 520,
+            border: `1px solid ${C.border}`, boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
+            maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '24px 24px 20px', borderBottom: `1px solid ${C.border}`,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
+            }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: C.gold, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Pedido #{modalDetalhes.id}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: -.5 }}>{modalDetalhes.estudante_nome}</div>
+              </div>
+              <button onClick={() => setModalDetalhes(null)} style={{
+                width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`,
+                background: 'transparent', cursor: 'pointer', color: C.textMuted, fontSize: 14,
+                display: 'grid', placeItems: 'center'
+              }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {[
+                { label: 'Curso', value: modalDetalhes.estudante_curso || '-' },
+                { label: 'Classe', value: modalDetalhes.estudante_classe || '-' },
+                { label: 'Email', value: modalDetalhes.estudante_email || '-' },
+                { label: 'Tipo de Saída', value: modalDetalhes.tipo_display },
+                { label: 'Data de Saída', value: modalDetalhes.data_saida },
+                { label: 'Hora de Saída', value: modalDetalhes.hora_saida },
+                { label: 'Hora de Retorno Prevista', value: modalDetalhes.hora_volta_prevista || '-' },
+                { label: 'Status', value: modalDetalhes.estado_display },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: i < 7 ? 12 : 0, borderBottom: i < 7 ? `1px solid ${C.border}` : 'none' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text, textAlign: 'right' }}>{item.value}</span>
+                </div>
+              ))}
+
+              {modalDetalhes.justificativa && (
+                <div style={{
+                  background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Justificativa</div>
+                  <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>{modalDetalhes.justificativa}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px 24px', borderTop: `1px solid ${C.border}`,
+              display: 'flex', gap: 10
+            }}>
+              {modalDetalhes.acoes_disponiveis?.includes('aprovar') && (
+                <button onClick={() => { aprovarPedido(modalDetalhes.id); setModalDetalhes(null); }} style={{
+                  flex: 1, padding: '12px 16px', background: C.success, color: '#fff', border: 'none',
+                  borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit'
+                }}>Aprovar</button>
+              )}
+              {modalDetalhes.acoes_disponiveis?.includes('rejeitar') && (
+                <button onClick={() => { rejeitarPedido(modalDetalhes.id); setModalDetalhes(null); }} style={{
+                  flex: 1, padding: '12px 16px', background: `${C.danger}10`, color: C.danger, border: `1px solid ${C.danger}30`,
+                  borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit'
+                }}>Rejeitar</button>
+              )}
+              {modalDetalhes.estado === 'PENDENTE_DIRECAO' && (
+                <button onClick={() => { handleEncaminhar(modalDetalhes.id); setModalDetalhes(null); }} style={{
+                  flex: 1, padding: '12px 16px', background: C.goldSoft, color: C.gold, border: `1px solid ${C.goldGlow}`,
+                  borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit'
+                }}>Encaminhar</button>
+              )}
+              {!modalDetalhes.acoes_disponiveis?.includes('aprovar') && !modalDetalhes.acoes_disponiveis?.includes('rejeitar') && modalDetalhes.estado !== 'PENDENTE_DIRECAO' && (
+                <button onClick={() => setModalDetalhes(null)} style={{
+                  flex: 1, padding: '12px 16px', background: C.surfaceAlt, color: C.text, border: `1px solid ${C.border}`,
+                  borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit'
+                }}>Fechar</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL GERAR RELATÓRIO ==================== */}
+      {modalGerarRel && (
+        <div onClick={() => setModalGerarRel(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+          zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20
+        }}>
+          <div onClick={e => e.stopPropagation()} className="ds-fade-scale" style={{
+            background: C.surface, borderRadius: 20, width: '100%', maxWidth: 440,
+            border: `1px solid ${C.border}`, boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
+            padding: 28
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 6, letterSpacing: -.3 }}>Gerar Relatório</div>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>Selecione o período para gerar o relatório.</div>
+
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: T.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Início</label>
-              <input type="date" value={dadosRelatorio.data_inicio} onChange={(e) => setDadosRelatorio({ ...dadosRelatorio, data_inicio: e.target.value })} style={{ width: '100%', padding: 12, background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Início</label>
+              <input type="date" value={relPeriodo.inicio} onChange={(e) => setRelPeriodo({ ...relPeriodo, inicio: e.target.value })} style={{
+                width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`,
+                borderRadius: 10, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none'
+              }} />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: T.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Fim</label>
-              <input type="date" value={dadosRelatorio.data_fim} onChange={(e) => setDadosRelatorio({ ...dadosRelatorio, data_fim: e.target.value })} style={{ width: '100%', padding: 12, background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Fim</label>
+              <input type="date" value={relPeriodo.fim} onChange={(e) => setRelPeriodo({ ...relPeriodo, fim: e.target.value })} style={{
+                width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`,
+                borderRadius: 10, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none'
+              }} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setModalRelatorio(false)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit' }}>Cancelar</button>
-              <button onClick={gerarRelatorio} disabled={gerandoRelatorio} style={{ flex: 1, padding: 12, background: T.accent, border: 'none', borderRadius: 8, color: isDark ? '#000' : '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit' }}>{gerandoRelatorio ? 'Gerando...' : 'Gerar'}</button>
+              <button onClick={() => setModalGerarRel(false)} style={{
+                flex: 1, padding: '12px 16px', background: 'transparent', border: `1px solid ${C.border}`,
+                borderRadius: 10, color: C.text, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit'
+              }}>Cancelar</button>
+              <button onClick={gerarRelatorio} disabled={gerando} style={{
+                flex: 1, padding: '12px 16px', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
+                color: '#000', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700,
+                fontSize: 12, fontFamily: 'inherit', opacity: gerando ? 0.7 : 1
+              }}>{gerando ? 'Gerando...' : 'Gerar'}</button>
             </div>
           </div>
         </div>
@@ -638,4 +829,4 @@ const DashboardDirecao = ({ user, onLogout }) => {
   );
 };
 
-export default DashboardDirecao;
+export default DashboardDITE;
