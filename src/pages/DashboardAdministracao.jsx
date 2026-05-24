@@ -9,6 +9,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   const [coletivas, setColetivas] = useState([]);
   const [relatorios, setRelatorios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastDataRefresh, setLastDataRefresh] = useState(null);
   
   // Filters & Navigation
   const [filtroEstado, setFiltroEstado] = useState('PENDENTE_DIRECAO');
@@ -43,6 +44,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
 
   const navigate = useNavigate();
   const notifRef = useRef(null);
+  const refreshIntervalRef = useRef(null);
 
   // Detectar mobile
   useEffect(() => {
@@ -124,25 +126,29 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Carregar dados quando filtros mudarem - SEM PISCAMENTO
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await Promise.all([carregarDados(), carregarNotificacoes()]);
-        setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-      } catch (e) { console.error(e); }
+    const loadData = async () => {
+      await carregarDados();
+      await carregarNotificacoes();
+      setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     };
-    fetchData();
+    loadData();
   }, [filtroEstado, filtroData]);
 
+  // Auto-refresh a cada 60 segundos (menos frequente para evitar piscamento)
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+    
+    refreshIntervalRef.current = setInterval(() => {
       carregarDados();
       carregarNotificacoes();
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-    }, 30000);
-    const handleVis = () => !document.hidden && carregarDados();
-    document.addEventListener('visibilitychange', handleVis);
-    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVis); };
+    }, 60000); // 60 segundos
+    
+    return () => {
+      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+    };
   }, [filtroEstado, filtroData]);
 
   useEffect(() => {
@@ -196,8 +202,14 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   };
 
   const abrirModalAprovacao = (pedidoId) => {
+    const pedido = pedidos.find(p => p.id === pedidoId);
     const hoje = new Date().toISOString().split('T')[0];
-    setDadosAprovacao({ data_saida: hoje, hora_saida: '07:00', data_volta: hoje, hora_volta: '19:00' });
+    setDadosAprovacao({ 
+      data_saida: pedido?.data_saida?.split(' ')[0] || hoje, 
+      hora_saida: pedido?.hora_saida || '07:00', 
+      data_volta: pedido?.data_volta?.split(' ')[0] || hoje, 
+      hora_volta: '19:00' 
+    });
     setModalAprovacao(pedidoId);
     setShowMobileActions(false);
     setSelectedPedido(null);
@@ -571,7 +583,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           </div>
         </header>
 
-        {/* Scrollable Content Area */}
+        {/* Scrollable Content Area - SEM PISCAMENTO */}
         <div className="content-padding" style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
           
           {/* PEDIDOS VIEW */}
@@ -617,9 +629,11 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 }}>GERAR RELATÓRIO</button>
               </div>
 
-              {/* Data Table - Responsive com Mobile Actions */}
+              {/* Data Table - Responsive */}
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
+              ) : pedidosFiltrados.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>Nenhum pedido encontrado</div>
               ) : (
                 <div className="table-responsive" style={{ background: T.bgSurface, borderRadius: 2, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -653,8 +667,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                           </td>
                           <td style={{ padding: '12px 16px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{p.estudante_curso || '-'}</td>
                           <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                            <div>{formatarData(p.data_saida)}</div>
-                            <div style={{ fontSize: 10, color: T.textSecondary }}>{p.hora_saida}</div>
+                            <div><strong>Saída:</strong> {p.data_saida?.split(' ')[0] || '-'} {p.hora_saida ? `às ${p.hora_saida}` : ''}</div>
+                            <div style={{ fontSize: 10, color: T.textSecondary, marginTop: 2 }}><strong>Retorno sugerido:</strong> {p.data_volta?.split(' ')[0] || '-'}</div>
                           </td>
                           <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}><StatusBadge status={p.estado} /></td>
                           <td style={{ padding: '12px 16px', textAlign: 'center' }}>
@@ -691,14 +705,12 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                                 }}>⚡ Ações</button>
                               </div>
                             )}
-                           </td>
-                         </tr>
+                            </div>
+                          <tr>
+                        )}
                       ))}
-                      {pedidosFiltrados.length === 0 && (
-                        <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
-                      )}
                     </tbody>
-                   </table>
+                  </table>
                 </div>
               )}
             </div>
@@ -784,6 +796,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
             <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${T.border}` }}>
               <div style={{ fontWeight: 700, fontSize: 18, color: T.gold }}>{selectedPedido.estudante_nome}</div>
               <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>#{selectedPedido.id} • {selectedPedido.tipo_display}</div>
+              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>Saída: {selectedPedido.data_saida?.split(' ')[0]} {selectedPedido.hora_saida ? `às ${selectedPedido.hora_saida}` : ''}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button onClick={() => setModalDetalhes(selectedPedido)} style={{
@@ -880,7 +893,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
               <p><strong>Email:</strong> {modalDetalhes.estudante_email}</p>
               <p><strong>Curso:</strong> {modalDetalhes.estudante_curso || '-'}</p>
               <p><strong>Tipo:</strong> {modalDetalhes.tipo_display}</p>
-              <p><strong>Data Saída:</strong> {modalDetalhes.data_saida}</p>
+              <p><strong>Data Saída Sugerida:</strong> {modalDetalhes.data_saida}</p>
+              <p><strong>Data Retorno Sugerido:</strong> {modalDetalhes.data_volta || 'Não informado'}</p>
               <p><strong>Motivo:</strong> {modalDetalhes.motivo}</p>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
