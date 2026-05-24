@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 // ============================================================
-// DASHBOARD ADMINISTRACAO — Enterprise Edition
-// Design Premium: Gold Accents, Black Typography, Red/Black Gradients
-// Fully Responsive, Dark Mode Detection, Auto-Refresh
+// DASHBOARD ADMINISTRACAO — Enterprise Edition (Responsive Fix)
+// Design Premium: Gold Accents, Black Typography
+// Fully Responsive, Collapsible Sidebar, Auto-Refresh
 // ============================================================
 const DashboardAdministracao = ({ user, onLogout }) => {
   // ==================== STATE MANAGEMENT ====================
@@ -21,10 +21,9 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [abaAtiva, setAbaAtiva] = useState('pedidos');
   
-  // UI States - MENU RETRÁTIL
-  const [menuRetraido, setMenuRetraido] = useState(true);
+  // UI States
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [horaAtual, setHoraAtual] = useState('');
   const [lastSync, setLastSync] = useState('');
@@ -46,19 +45,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
 
   const navigate = useNavigate();
   const notifRef = useRef(null);
-
-  // Detectar mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-      if (window.innerWidth <= 768) {
-        setMenuRetraido(false);
-      }
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // ==================== THEME ENGINE ====================
   const getInitialTheme = () => {
@@ -82,8 +68,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     const goldLight = '#E6C86E';
     const goldDark = '#8F7010';
     const red = '#8B0000';
-    const black = '#0A0A0A';
-    const white = '#FFFFFF';
     
     const bgMain = isDark ? '#050505' : '#F4F4F0';
     const bgSurface = isDark ? '#121212' : '#FFFFFF';
@@ -95,16 +79,15 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     const gradientRedBlack = `linear-gradient(135deg, ${red}, #000000)`;
     const shadowSoft = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.05)';
     const shadowHover = isDark ? '0 8px 30px rgba(0,0,0,0.7)' : '0 8px 30px rgba(0,0,0,0.1)';
-    const glowGold = isDark ? `0 0 15px rgba(197, 160, 40, 0.15)` : `0 0 10px rgba(197, 160, 40, 0.1)`;
 
     return {
-      gold, goldLight, goldDark, red, black, white,
+      gold, goldLight, goldDark, red,
       bgMain, bgSurface,
       bgAlt: isDark ? '#1A1A1A' : '#FAFAFA',
       textPrimary, textSecondary,
       border, borderStrong: isDark ? '#444' : '#CCC',
       gradientGold, gradientRedBlack,
-      shadowSoft, shadowHover, glowGold,
+      shadowSoft, shadowHover,
       success: '#2E7D32',
       warning: '#F9A825',
       danger: '#C62828',
@@ -112,8 +95,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     };
   }, [isDark]);
 
-  // ==================== EFFECTS & DATA LOADING ====================
-  
+  // ==================== EFFECTS ====================
   useEffect(() => {
     const timer = setInterval(() => setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })), 1000);
     return () => clearInterval(timer);
@@ -126,11 +108,9 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       } catch (e) { console.error(e); }
     };
-
     fetchData();
     const interval = setInterval(fetchData, 30000);
     const handleVis = () => !document.hidden && fetchData();
-    
     document.addEventListener('visibilitychange', handleVis);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVis); };
   }, [filtroEstado, filtroData]);
@@ -152,7 +132,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       if (filtroEstado !== 'todos') params.append('estado', filtroEstado);
       if (filtroData) params.append('data_saida', filtroData);
       if (params.toString()) url += `?${params.toString()}`;
-      
       const [pedRes, statsRes] = await Promise.all([api.get(url), api.get('/dashboard/')]);
       setPedidos(pedRes.data.pedidos || []);
       setStats(statsRes.data);
@@ -230,7 +209,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       alert('Relatório gerado.');
       carregarRelatorios();
       setModalRelatorio(false);
-      setDadosRelatorio({ data_inicio: '', data_fim: '' });
     } catch (err) { alert('Erro ao gerar relatório'); }
     finally { setGerandoRelatorio(false); }
   };
@@ -241,11 +219,9 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url; a.download = `relatorio_${id}.csv`;
       document.body.appendChild(a); a.click(); a.remove();
-      window.URL.revokeObjectURL(url);
     } catch (err) { alert('Erro no download'); }
   };
 
-  // Helpers
   const formatarData = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-';
   
   const pedidosFiltrados = useMemo(() => pedidos.filter(p => 
@@ -253,26 +229,16 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     p.id.toString().includes(searchTerm)
   ), [pedidos, searchTerm]);
 
-  const menuLargura = menuRetraido ? 70 : 260;
-
   // ==================== SUB-COMPONENTS ====================
-
   const StatusBadge = ({ status }) => {
     let color = T.textSecondary;
     let bg = T.bgAlt;
-    
     if (status.includes('APROVADO')) { color = T.success; bg = `${T.success}15`; }
     else if (status.includes('REJEITADO')) { color = T.danger; bg = `${T.danger}15`; }
     else if (status.includes('PENDENTE')) { color = T.gold; bg = `${T.gold}15`; }
     else if (status.includes('ANDAMENTO')) { color = '#1976D2'; bg = '#1976D215'; }
-
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-        borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-        backgroundColor: bg, color: color, border: `1px solid ${color}30`,
-        textTransform: 'uppercase'
-      }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, backgroundColor: bg, color: color, border: `1px solid ${color}30`, textTransform: 'uppercase' }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
         {status.replace(/_/g, ' ')}
       </span>
@@ -282,9 +248,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   const StatCard = ({ title, value, sub, icon, isGold }) => (
     <div style={{
       background: isGold ? T.gradientGold : T.bgSurface,
-      borderRadius: 2,
-      padding: 24,
-      boxShadow: T.shadowSoft,
+      borderRadius: 2, padding: 24, boxShadow: T.shadowSoft,
       border: isGold ? 'none' : `1px solid ${T.border}`,
       position: 'relative', overflow: 'hidden',
       transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -294,7 +258,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = T.shadowSoft; }}
     >
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: isGold ? 'rgba(255,255,255,0.3)' : T.gradientRedBlack }} />
-      
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h3 style={{ fontSize: 11, fontWeight: 700, color: isGold ? 'rgba(0,0,0,0.6)' : T.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>{title}</h3>
@@ -302,19 +265,13 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         </div>
         <div style={{ fontSize: 24, color: isGold ? 'rgba(0,0,0,0.2)' : T.gold, opacity: 0.8 }}>{icon}</div>
       </div>
-      
-      <div style={{ fontSize: 11, color: isGold ? 'rgba(0,0,0,0.5)' : T.textSecondary, marginTop: 12, borderTop: `1px solid ${isGold ? 'rgba(0,0,0,0.1)' : T.border}`, paddingTop: 12 }}>
-        {sub}
-      </div>
+      <div style={{ fontSize: 11, color: isGold ? 'rgba(0,0,0,0.5)' : T.textSecondary, marginTop: 12, borderTop: `1px solid ${isGold ? 'rgba(0,0,0,0.1)' : T.border}`, paddingTop: 12 }}>{sub}</div>
     </div>
   );
 
   // ==================== RENDER ====================
   return (
-    <div style={{ 
-      display: 'flex', minHeight: '100vh', fontFamily: "'Inter', sans-serif", 
-      backgroundColor: T.bgMain, color: T.textPrimary, transition: 'background 0.3s ease' 
-    }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Inter', sans-serif", backgroundColor: T.bgMain, color: T.textPrimary, transition: 'background 0.3s ease' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; outline: none; }
@@ -322,223 +279,190 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: ${T.gold}; }
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
-        @media (max-width: 1024px) { .grid-stats { grid-template-columns: repeat(2, 1fr) !important; } }
-        @media (max-width: 768px) {
-          .sidebar-retratil { position: fixed; left: ${menuRetraido ? '-70px' : '-280px'}; width: 280px !important; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-          .sidebar-retratil.open { left: 0 !important; }
-          .overlay-mobile { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); }
-          .overlay-mobile.show { display: block; }
-          .toggle-mobile { display: flex !important; }
-          .main-content-retratil { margin-left: 0 !important; width: 100% !important; }
-          .table-wrap { overflow-x: auto; }
-          table { min-width: 700px; }
+        /* Responsive Logic */
+        @media (max-width: 1024px) { 
+          .grid-stats { grid-template-columns: repeat(2, 1fr) !important; } 
         }
-        @media (min-width: 769px) {
-          .toggle-mobile { display: none !important; }
+        @media (max-width: 768px) {
+          .sidebar-desktop { display: none !important; }
+          .sidebar-mobile { 
+            position: fixed !important; 
+            left: 0 !important; 
+            top: 0 !important;
+            height: 100vh !important;
+            z-index: 1000 !important; 
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          }
+          .sidebar-mobile.open { transform: translateX(0) !important; box-shadow: 10px 0 30px rgba(0,0,0,0.5) !important; }
+          
+          .overlay { 
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.7); 
+            z-index: 999; 
+            backdrop-filter: blur(2px); 
+          }
+          .overlay.show { display: block; }
+          
+          .main-content { margin-left: 0 !important; width: 100% !important; }
+          .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          table { min-width: 600px; }
+          .header-title { font-size: 16px !important; }
+          .content-padding { padding: 16px !important; }
+        }
+        @media (max-width: 480px) {
+          .grid-stats { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
       {/* Mobile Overlay */}
-      <div className={`overlay-mobile ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
+      <div className={`overlay ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
 
-      {/* ==================== SIDEBAR RETRÁTIL ==================== */}
-      <aside className={`sidebar-retratil ${mobileMenuOpen ? 'open' : ''}`} style={{
-        width: menuLargura,
-        background: T.bgSurface,
-        borderRight: `1px solid ${T.border}`,
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflow: 'hidden'
+      {/* ==================== SIDEBAR (Desktop - Collapsible) ==================== */}
+      <aside className="sidebar-desktop" style={{
+        width: sidebarCollapsed ? 80 : 260, background: T.bgSurface, borderRight: `1px solid ${T.border}`,
+        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0, zIndex: 10,
+        transition: 'width 0.3s ease', overflow: 'hidden'
       }}>
-        {/* Botão Toggle Desktop */}
-        <button onClick={() => setMenuRetraido(!menuRetraido)} style={{
-          position: 'absolute',
-          right: -12,
-          top: 30,
-          width: 24,
-          height: 24,
-          background: T.gold,
-          color: '#000',
-          border: 'none',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          fontSize: 12,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 101,
-          boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-        }}>
-          {menuRetraido ? '→' : '←'}
-        </button>
-
-        {/* Botão Mobile */}
-        <button className="toggle-mobile" onClick={() => setMobileMenuOpen(true)} style={{
-          position: 'fixed',
-          top: 15,
-          left: 15,
-          zIndex: 90,
-          width: 40,
-          height: 40,
-          background: T.gold,
-          color: '#000',
-          border: 'none',
-          borderRadius: 4,
-          fontSize: 18,
-          cursor: 'pointer',
-          display: 'none',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          ☰
-        </button>
-
         {/* Brand */}
-        <div style={{ padding: 30, borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ 
-              width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, 
-              display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18,
-              boxShadow: '0 4px 10px rgba(139,0,0,0.3)',
-              flexShrink: 0
-            }}>A</div>
-            {!menuRetraido && (
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
-                <div style={{ fontSize: 10, color: T.gold, fontWeight: 600, letterSpacing: 1 }}>ENTERPRISE PORTAL</div>
-              </div>
-            )}
-          </div>
+        <div style={{ padding: 20, borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 12 }}>
+          <div onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{ 
+            width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, 
+            display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18, cursor: 'pointer', flexShrink: 0
+          }}>A</div>
+          {!sidebarCollapsed && (
+            <div style={{ whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
+              <div style={{ fontSize: 10, color: T.gold, fontWeight: 600, letterSpacing: 1 }}>ENTERPRISE</div>
+            </div>
+          )}
         </div>
 
-        {/* User Profile Mini */}
-        <div style={{ padding: 20, background: T.bgAlt, whiteSpace: 'nowrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ 
-              width: 36, height: 36, borderRadius: '50%', background: T.textPrimary, color: T.bgSurface,
-              display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14,
-              flexShrink: 0
-            }}>{user?.nome?.[0] || 'U'}</div>
-            {!menuRetraido && (
-              <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nome || 'Usuário'}</div>
-                <div style={{ fontSize: 10, color: T.gold }}>Gestor Senior</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1, whiteSpace: 'nowrap' }}>GESTÃO DE PEDIDOS</div>
-          
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
             { id: 'PENDENTE_DIRECAO', label: 'Pendentes', icon: '◷' },
             { id: 'APROVADO', label: 'Aprovados', icon: '✓' },
             { id: 'REJEITADO', label: 'Rejeitados', icon: '✕' },
-            { id: 'EM_ANDAMENTO', label: 'Em Andamento', icon: '→' },
+            { id: 'EM_ANDAMENTO', label: 'Andamento', icon: '→' },
             { id: 'FINALIZADO', label: 'Finalizados', icon: '▣' },
           ].map(item => {
             const active = abaAtiva === 'pedidos' && filtroEstado === item.id;
             return (
-              <button key={item.id} onClick={() => { setAbaAtiva('pedidos'); setFiltroEstado(item.id); if(isMobile) setMobileMenuOpen(false); }} style={{
-                width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+              <button key={item.id} onClick={() => { setAbaAtiva('pedidos'); setFiltroEstado(item.id); }} style={{
+                width: '100%', padding: sidebarCollapsed ? '12px 0' : '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
                 background: active ? `${T.gold}15` : 'transparent',
                 color: active ? T.gold : T.textSecondary,
-                fontWeight: active ? 600 : 500, fontSize: 13, textAlign: 'left',
-                display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
-                borderLeft: active ? `3px solid ${T.gold}` : '3px solid transparent',
-                whiteSpace: 'nowrap'
+                fontWeight: active ? 600 : 500, fontSize: 13, textAlign: sidebarCollapsed ? 'center' : 'left',
+                display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 12, transition: 'all 0.2s'
               }}>
-                <span style={{ width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-                {!menuRetraido && item.label}
-                {menuRetraido && <span style={{ marginLeft: 'auto' }}></span>}
+                <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{item.icon}</span>
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </button>
             );
           })}
-
-          {!menuRetraido && <div style={{ height: 1, background: T.border, margin: '20px 0' }} />}
-          {!menuRetraido && <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>MÓDULOS</div>}
-          
-          <button onClick={() => { setAbaAtiva('coletivas'); if(isMobile) setMobileMenuOpen(false); }} style={{
-            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
-            background: abaAtiva === 'coletivas' ? `${T.gold}15` : 'transparent',
-            color: abaAtiva === 'coletivas' ? T.gold : T.textSecondary,
-            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12,
-            whiteSpace: 'nowrap'
-          }}>
-            <span style={{ width: 20, textAlign: 'center', flexShrink: 0 }}>👥</span>
-            {!menuRetraido && 'Coletivas'}
-          </button>
-          
-          <button onClick={() => { setAbaAtiva('relatorios'); if(isMobile) setMobileMenuOpen(false); }} style={{
-            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
-            background: abaAtiva === 'relatorios' ? `${T.gold}15` : 'transparent',
-            color: abaAtiva === 'relatorios' ? T.gold : T.textSecondary,
-            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12,
-            whiteSpace: 'nowrap'
-          }}>
-            <span style={{ width: 20, textAlign: 'center', flexShrink: 0 }}>📊</span>
-            {!menuRetraido && 'Relatórios'}
-          </button>
         </nav>
 
-        {/* Footer Actions */}
-        <div style={{ padding: 20, borderTop: `1px solid ${T.border}` }}>
+        {/* Footer */}
+        <div style={{ padding: 20, borderTop: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', gap: 8, alignItems: sidebarCollapsed ? 'center' : 'stretch' }}>
           <button onClick={() => toggleTheme(isDark ? 'light' : 'dark')} style={{
-            width: '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
-            borderRadius: 2, color: T.textSecondary, cursor: 'pointer', fontSize: 12, marginBottom: 10,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            whiteSpace: 'nowrap'
+            width: sidebarCollapsed ? 40 : '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
+            borderRadius: 2, color: T.textSecondary, cursor: 'pointer', fontSize: 16, display: 'grid', placeItems: 'center'
           }}>
-            <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
-            <span style={{ fontSize: 16 }}>{isDark ? '☀' : '☾'}</span>
+            {isDark ? '☀' : '☾'}
           </button>
           <button onClick={onLogout} style={{
-            width: '100%', padding: 10, background: T.danger, color: '#FFF', border: 'none',
-            borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 8
+            width: sidebarCollapsed ? 40 : '100%', padding: 10, background: T.danger, color: '#FFF', border: 'none',
+            borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 16, display: 'grid', placeItems: 'center'
           }}>
-            {!menuRetraido ? 'ENCERRAR SESSÃO' : '🚪'}
+            ↗
           </button>
         </div>
       </aside>
 
-      {/* ==================== MAIN CONTENT ==================== */}
-      <main className="main-content-retratil" style={{ 
-        flex: 1, 
-        display: 'flex', 
-        flexDirection: 'column', 
-        overflow: 'hidden',
-        marginLeft: !isMobile ? menuLargura : 0,
-        transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        width: !isMobile ? `calc(100% - ${menuLargura}px)` : '100%'
+      {/* ==================== SIDEBAR (Mobile - Drawer) ==================== */}
+      <aside className={`sidebar-mobile ${mobileMenuOpen ? 'open' : ''}`} style={{
+        width: 280, background: T.bgSurface, borderRight: `1px solid ${T.border}`,
+        display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 1000
       }}>
+        <div style={{ padding: 20, borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800 }}>A</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
+            <div style={{ fontSize: 10, color: T.gold }}>MENU</div>
+          </div>
+        </div>
+        <nav style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+           {[
+            { id: 'PENDENTE_DIRECAO', label: 'Pendentes', icon: '◷' },
+            { id: 'APROVADO', label: 'Aprovados', icon: '✓' },
+            { id: 'REJEITADO', label: 'Rejeitados', icon: '✕' },
+            { id: 'EM_ANDAMENTO', label: 'Andamento', icon: '→' },
+            { id: 'FINALIZADO', label: 'Finalizados', icon: '▣' },
+            { id: 'coletivas', label: 'Coletivas', icon: '👥' },
+            { id: 'relatorios', label: 'Relatórios', icon: '📊' },
+          ].map(item => {
+             const isModule = item.id === 'coletivas' || item.id === 'relatorios';
+             const active = isModule ? abaAtiva === item.id : (abaAtiva === 'pedidos' && filtroEstado === item.id);
+             return (
+              <button key={item.id} onClick={() => { 
+                if(isModule) setAbaAtiva(item.id); 
+                else { setAbaAtiva('pedidos'); setFiltroEstado(item.id); }
+                setMobileMenuOpen(false); 
+              }} style={{
+                width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+                background: active ? `${T.gold}15` : 'transparent',
+                color: active ? T.gold : T.textSecondary,
+                fontWeight: active ? 600 : 500, fontSize: 14, textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 12
+              }}>
+                <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+             );
+          })}
+        </nav>
+        <div style={{ padding: 20, borderTop: `1px solid ${T.border}` }}>
+           <button onClick={onLogout} style={{ width: '100%', padding: 12, background: T.danger, color: '#FFF', border: 'none', borderRadius: 2, fontWeight: 600 }}>SAIR</button>
+        </div>
+      </aside>
+
+      {/* ==================== MAIN CONTENT ==================== */}
+      <main className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
         {/* Top Header */}
         <header style={{
           height: 70, background: T.glass, borderBottom: `1px solid ${T.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px',
           backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 5
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Mobile Toggle */}
+            <button onClick={() => setMobileMenuOpen(true)} style={{
+              display: 'none', background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textPrimary
+            }} className="mobile-toggle">
+              ☰
+            </button>
+            
+            {/* Desktop Toggle (Only if sidebar is visible) */}
+            <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="desktop-toggle" style={{
+              background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: T.textPrimary, marginRight: 10
+            }}>
+              {sidebarCollapsed ? '»' : '«'}
+            </button>
+
             <div>
-              <h1 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
+              <h1 className="header-title" style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
                 {abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva.toUpperCase()}
               </h1>
               <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
-                {horaAtual} <span style={{margin:'0 5px'}}>•</span> {lastSync && `Sync: ${lastSync}`}
+                {horaAtual} {lastSync && `• Sync: ${lastSync}`}
               </div>
             </div>
           </div>
@@ -563,7 +487,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                   }}>{notificacoesNaoLidas}</span>
                 )}
               </button>
-              
               {showNotifDropdown && (
                 <div className="fade-in" style={{
                   position: 'absolute', right: 0, top: 45, width: 320, background: T.bgSurface,
@@ -589,7 +512,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         </header>
 
         {/* Scrollable Content Area */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
+        <div className="content-padding" style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
           
           {/* DASHBOARD VIEW */}
           {abaAtiva === 'pedidos' && (
@@ -607,7 +530,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
                 flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
               }}>
-                <div style={{ display: 'flex', gap: 10, flex: 1, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 10, flex: 1, width: '100%' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
                     <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
                       width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
@@ -627,8 +550,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 <button onClick={() => setModalRelatorio(true)} style={{
                   padding: '10px 20px', background: T.gradientRedBlack, color: '#FFF', border: 'none',
                   borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12, letterSpacing: 0.5,
-                  boxShadow: '0 4px 10px rgba(139,0,0,0.2)',
-                  whiteSpace: 'nowrap'
+                  boxShadow: '0 4px 10px rgba(139,0,0,0.2)', whiteSpace: 'nowrap'
                 }}>GERAR RELATÓRIO</button>
               </div>
 
@@ -667,7 +589,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                           </td>
                           <td style={{ padding: '15px 20px' }}><StatusBadge status={p.estado} /></td>
                           <td style={{ padding: '15px 20px' }}>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 8 }}>
                               <button onClick={() => setModalDetalhes(p)} style={{
                                 width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary
                               }}>👁</button>
@@ -694,7 +616,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                         </tr>
                       ))}
                       {pedidosFiltrados.length === 0 && (
-                        <td><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
+                        <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -706,66 +628,49 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           {/* COLETIVAS VIEW */}
           {abaAtiva === 'coletivas' && (
             <div className="fade-in">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
-                {coletivas.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>
-                    Nenhuma saída coletiva criada
-                  </div>
-                ) : (
-                  coletivas.map(c => (
-                    <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{c.titulo}</h3>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>
-                        {c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}
-                      </div>
-                      <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.gold }} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11 }}>
-                        <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
-                        <span><strong style={{ color: T.success }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
-                        <span><strong style={{ color: T.danger }}>{c.total_recusados || 0}</strong> Recusaram</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+                 {coletivas.map(c => (
+                   <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2 }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{c.titulo}</h3>
+                       <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</span>
+                     </div>
+                     <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>
+                       {c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}
+                     </div>
+                     <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
+                       <div style={{ width: '60%', height: '100%', background: T.gold }} />
+                     </div>
+                   </div>
+                 ))}
+               </div>
             </div>
           )}
 
           {/* RELATORIOS VIEW */}
           {abaAtiva === 'relatorios' && (
             <div className="fade-in">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
                 <h2 style={{ fontSize: 18, fontWeight: 700 }}>Histórico de Relatórios</h2>
-                <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 16px', background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>NOVO RELATÓRIO</button>
+                <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 16px', background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>NOVO</button>
               </div>
               <div style={{ display: 'grid', gap: 10 }}>
-                {relatorios.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>
-                    Nenhum relatório gerado
-                  </div>
-                ) : (
-                  relatorios.map(r => (
-                    <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
-                      background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
-                      transition: 'all 0.2s', flexWrap: 'wrap', gap: 12
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{r.titulo}</div>
-                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div>
-                      </div>
-                      <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
+                {relatorios.map(r => (
+                  <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
+                    background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{r.titulo}</div>
+                      <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div>
                     </div>
-                  ))
-                )}
+                    <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -773,34 +678,20 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         </div>
       </main>
 
-      {/* Approval Modal */}
+      {/* ==================== MODALS ==================== */}
       {modalAprovacao && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center' }} onClick={() => setModalAprovacao(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '90%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalAprovacao(null)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>APROVAR PEDIDO #{modalAprovacao}</h2>
-            
             <div style={{ display: 'grid', gap: 15 }}>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA</label>
-                <input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA SAÍDA</label>
-                <input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-              </div>
+              <div><label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA</label><input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} /></div>
+              <div><label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA SAÍDA</label><input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA</label>
-                  <input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA VOLTA</label>
-                  <input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                </div>
+                 <div><label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA</label><input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} /></div>
+                 <div><label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA VOLTA</label><input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} /></div>
               </div>
             </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 25, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 25 }}>
               <button onClick={() => setModalAprovacao(null)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, cursor: 'pointer', fontWeight: 600 }}>CANCELAR</button>
               <button onClick={confirmarAprovacao} style={{ flex: 1, padding: 12, background: T.success, color: '#FFF', border: 'none', cursor: 'pointer', fontWeight: 600 }}>CONFIRMAR</button>
             </div>
@@ -808,16 +699,15 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Report Modal */}
       {modalRelatorio && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center' }} onClick={() => setModalRelatorio(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '90%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalRelatorio(null)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>GERAR RELATÓRIO</h2>
             <div style={{ display: 'grid', gap: 15 }}>
               <input type="date" value={dadosRelatorio.data_inicio} onChange={e => setDadosRelatorio({...dadosRelatorio, data_inicio: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
               <input type="date" value={dadosRelatorio.data_fim} onChange={e => setDadosRelatorio({...dadosRelatorio, data_fim: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
             </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setModalRelatorio(null)} style={{ flex: 1, padding: 10, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer' }}>FECHAR</button>
               <button onClick={gerarRelatorio} disabled={gerandoRelatorio} style={{ flex: 1, padding: 10, background: T.gold, border: 'none', cursor: 'pointer', fontWeight: 600 }}>{gerandoRelatorio ? 'GERANDO...' : 'GERAR'}</button>
             </div>
@@ -825,25 +715,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Detalhes Modal */}
-      {modalDetalhes && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center' }} onClick={() => setModalDetalhes(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '90%', maxWidth: 500, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>Detalhes do Pedido #{modalDetalhes.id}</h2>
-            <div style={{ display: 'grid', gap: 10 }}>
-              <p><strong>Estudante:</strong> {modalDetalhes.estudante_nome}</p>
-              <p><strong>Email:</strong> {modalDetalhes.estudante_email}</p>
-              <p><strong>Curso:</strong> {modalDetalhes.estudante_curso || '-'}</p>
-              <p><strong>Tipo:</strong> {modalDetalhes.tipo_display}</p>
-              <p><strong>Data Saída:</strong> {modalDetalhes.data_saida}</p>
-              <p><strong>Motivo:</strong> {modalDetalhes.motivo}</p>
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setModalDetalhes(null)} style={{ flex: 1, padding: 12, background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>FECHAR</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
