@@ -21,7 +21,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   const [filtroNome, setFiltroNome] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Tema: auto-detect + toggle
   const [themeMode, setThemeMode] = useState(() => {
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
     return 'light';
@@ -30,7 +29,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
 
   const notifRef = useRef(null);
 
-  // ==================== RELÓGIO ====================
   useEffect(() => {
     const atualizar = () => setHoraAtual(new Date().toLocaleTimeString('pt-BR'));
     atualizar();
@@ -38,7 +36,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     return () => clearInterval(t);
   }, []);
 
-  // Auto-detect system theme changes
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e) => setThemeMode(e.matches ? 'dark' : 'light');
@@ -46,7 +43,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Fecha popover de notificações clicando fora
   useEffect(() => {
     const h = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotificacoes(false);
@@ -55,12 +51,10 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  // ==================== CARREGAR DADOS (100% MANTIDO) ====================
   useEffect(() => {
     carregarDashboard();
     carregarDados();
     carregarNotificacoes();
-    // eslint-disable-next-line
   }, [dataSelecionada]);
 
   const carregarDashboard = async () => {
@@ -79,10 +73,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   };
 
   const marcarNotificacaoLida = async (id) => {
-    try {
-      await api.post(`/notificacoes/${id}/ler/`);
-      carregarNotificacoes();
-    } catch (err) {}
+    try { await api.post(`/notificacoes/${id}/ler/`); carregarNotificacoes(); } catch (err) {}
   };
 
   const carregarDados = async () => {
@@ -100,8 +91,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         const todos = res.data.pedidos || [];
         const filtrados = todos.filter(p => {
           const dataPedido = p.data_saida_confirmada?.split(' ')[0] || p.data_saida?.split(' ')[0];
-          return dataPedido === dataSelecionada &&
-            ['APROVADO', 'EM_ANDAMENTO', 'FINALIZADO'].includes(p.estado);
+          return dataPedido === dataSelecionada && ['APROVADO', 'EM_ANDAMENTO', 'FINALIZADO'].includes(p.estado);
         });
         setPedidosSaida(filtrados.filter(p => p.estado === 'APROVADO'));
         setPedidosAndamento(filtrados.filter(p => p.estado === 'EM_ANDAMENTO'));
@@ -110,16 +100,13 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     } finally { setLoading(false); }
   };
 
-  // ==================== AÇÕES (100% MANTIDAS) ====================
   const marcarSaida = async (pedidoId) => {
     if (!window.confirm('✅ Confirmar SAÍDA?')) return;
     try {
       const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`);
       alert(`✅ Saída registrada às ${response.data.hora}`);
       carregarDados(); carregarDashboard();
-    } catch (err) {
-      alert('❌ Erro: ' + (err.response?.data?.error || 'Erro ao marcar saída'));
-    }
+    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Erro ao marcar saída')); }
   };
 
   const marcarSaidaAjustada = async (pedidoId) => {
@@ -139,8 +126,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
       const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`);
       let msg = `✅ Retorno às ${response.data.hora}`;
       if (response.data.atrasado) msg += `\n⚠️ ATRASO: ${response.data.tempo_atraso} minutos!`;
-      alert(msg);
-      carregarDados(); carregarDashboard();
+      alert(msg); carregarDados(); carregarDashboard();
     } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Erro')); }
   };
 
@@ -159,12 +145,10 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     setLoading(true);
     try {
       const response = await api.get(`/seguranca/relatorio-completo/?data=${dataRelatorio}`);
-      setRelatorio(response.data);
-      setMostrarModalData(false);
+      setRelatorio(response.data); setMostrarModalData(false);
       alert('✅ Relatório completo gerado com sucesso!');
-    } catch (err) {
-      alert('❌ Erro ao gerar relatório: ' + (err.response?.data?.error || err.message));
-    } finally { setLoading(false); }
+    } catch (err) { alert('❌ Erro ao gerar relatório: ' + (err.response?.data?.error || err.message)); }
+    finally { setLoading(false); }
   };
 
   const enviarRelatorio = async () => {
@@ -172,14 +156,11 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     setEnviando(true);
     try {
       await api.post('/seguranca/enviar-relatorio/', { data: relatorio.data, conteudo: relatorio.texto_relatorio });
-      alert('✅ Relatório enviado para DITE!');
-      setRelatorio(null);
-    } catch (err) {
-      alert('❌ Erro ao enviar: ' + (err.response?.data?.error || err.message));
-    } finally { setEnviando(false); }
+      alert('✅ Relatório enviado para DITE!'); setRelatorio(null);
+    } catch (err) { alert('❌ Erro ao enviar: ' + (err.response?.data?.error || err.message)); }
+    finally { setEnviando(false); }
   };
 
-  // ==================== HELPERS ====================
   const formatarData = (dataStr) => {
     if (!dataStr) return '-';
     const d = new Date(dataStr + 'T00:00:00');
@@ -202,127 +183,166 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   const totalDia = pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length;
   const taxaConclusao = totalDia > 0 ? Math.round((pedidosFinalizados.length / totalDia) * 100) : 0;
 
-  // ==================== DESIGN TOKENS (B&W) ====================
   const T = {
-    bg: isDark ? '#0a0a0a' : '#ffffff',
-    bgSecondary: isDark ? '#111111' : '#f5f5f5',
-    bgTertiary: isDark ? '#1a1a1a' : '#fafafa',
-    surface: isDark ? '#141414' : '#ffffff',
-    surfaceAlt: isDark ? '#1c1c1c' : '#f0f0f0',
+    bg: isDark ? '#080808' : '#ffffff',
+    bgSecondary: isDark ? '#0e0e0e' : '#f5f5f5',
+    bgTertiary: isDark ? '#141414' : '#fafafa',
+    surface: isDark ? '#111111' : '#ffffff',
+    surfaceAlt: isDark ? '#1a1a1a' : '#f0f0f0',
     surfaceHover: isDark ? '#222222' : '#e8e8e8',
-    border: isDark ? '#2a2a2a' : '#e5e5e5',
-    borderStrong: isDark ? '#3a3a3a' : '#d4d4d4',
+    border: isDark ? '#252525' : '#e5e5e5',
+    borderStrong: isDark ? '#353535' : '#d4d4d4',
     text: isDark ? '#f0f0f0' : '#0a0a0a',
-    textMuted: isDark ? '#888888' : '#666666',
-    textSoft: isDark ? '#555555' : '#999999',
+    textMuted: isDark ? '#808080' : '#666666',
+    textSoft: isDark ? '#505050' : '#999999',
     accent: isDark ? '#ffffff' : '#0a0a0a',
-    accentSoft: isDark ? '#ffffff12' : '#0a0a0a08',
+    accentSoft: isDark ? '#ffffff10' : '#0a0a0a06',
     success: isDark ? '#4ade80' : '#16a34a',
     warning: isDark ? '#fbbf24' : '#d97706',
     danger: isDark ? '#f87171' : '#dc2626',
     info: isDark ? '#60a5fa' : '#2563eb',
-    radius: 16,
-    radiusSm: 10,
+    radius: 18,
+    radiusSm: 12,
     shadow: isDark
-      ? '0 1px 3px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.3)'
-      : '0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06)',
+      ? '0 1px 4px rgba(0,0,0,.6), 0 8px 32px rgba(0,0,0,.35)'
+      : '0 1px 4px rgba(0,0,0,.06), 0 8px 32px rgba(0,0,0,.06)',
     shadowHover: isDark
-      ? '0 4px 12px rgba(0,0,0,.6), 0 16px 40px rgba(0,0,0,.4)'
-      : '0 4px 12px rgba(0,0,0,.1), 0 16px 40px rgba(0,0,0,.08)',
-    shadowInner: isDark ? 'inset 0 1px 3px rgba(0,0,0,.5)' : 'inset 0 1px 3px rgba(0,0,0,.08)',
-    glass: isDark ? 'rgba(20,20,20,.8)' : 'rgba(255,255,255,.8)',
+      ? '0 4px 16px rgba(0,0,0,.7), 0 20px 48px rgba(0,0,0,.45)'
+      : '0 4px 16px rgba(0,0,0,.1), 0 20px 48px rgba(0,0,0,.08)',
+    shadowInner: isDark ? 'inset 0 2px 6px rgba(0,0,0,.6)' : 'inset 0 2px 6px rgba(0,0,0,.06)',
+    glass: isDark ? 'rgba(17,17,17,.85)' : 'rgba(255,255,255,.85)',
     glassBorder: isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)',
   };
 
-  // ==================== SUB COMPONENTES ====================
-
-  // Speedometer / Gauge Component
-  const SpeedGauge = ({ value, max, label, subtitle, color }) => {
+  // ==================== GAUGE COMPONENT ====================
+  const MonitorGauge = ({ value, max, label, subtitle, icon, color, accentIcon }) => {
     const pct = Math.min(value / Math.max(max, 1), 1);
-    const startAngle = -225;
-    const endAngle = 45;
-    const totalArc = endAngle - startAngle;
-    const currentAngle = startAngle + totalArc * pct;
-    const cx = 70, cy = 70, r = 55;
-
-    const polarToCartesian = (angle) => {
-      const rad = (angle * Math.PI) / 180;
-      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-    };
-
-    const describeArc = (startA, endA) => {
-      const s = polarToCartesian(startA);
-      const e = polarToCartesian(endA);
-      const largeArc = Math.abs(endA - startA) > 180 ? 1 : 0;
-      return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
-    };
-
-    const needleEnd = polarToCartesian(currentAngle);
+    const size = 140;
+    const strokeWidth = 8;
+    const radius = (size - strokeWidth) / 2 - 4;
+    const cx = size / 2, cy = size / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (pct * circumference);
 
     return (
       <div style={{
         background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius,
-        padding: '20px 16px 16px', boxShadow: T.shadow, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', gap: 8, position: 'relative', overflow: 'hidden'
+        padding: '24px 16px 18px', boxShadow: T.shadow, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', gap: 12, position: 'relative', overflow: 'hidden',
+        transition: 'all .3s ease'
       }}>
+        {/* Subtle top glow */}
         <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-          background: `linear-gradient(90deg, transparent, ${color || T.accent}, transparent)`,
-          opacity: .6
+          position: 'absolute', top: -1, left: '20%', right: '20%', height: 1,
+          background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+          opacity: .5
         }} />
-        <svg width="140" height="140" viewBox="0 0 140 140" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.1))' }}>
-          {/* Background arc */}
-          <path d={describeArc(startAngle, endAngle)} fill="none" stroke={T.border} strokeWidth="8" strokeLinecap="round" />
-          {/* Value arc */}
-          {pct > 0 && (
-            <path d={describeArc(startAngle, currentAngle)} fill="none" stroke={color || T.accent} strokeWidth="8" strokeLinecap="round"
-              style={{ transition: 'all .6s cubic-bezier(.4,0,.2,1)' }} />
+
+        {/* Circular Progress */}
+        <div style={{ position: 'relative', width: size, height: size }}>
+          {/* Background glow */}
+          <div style={{
+            position: 'absolute', inset: -8, borderRadius: '50%',
+            background: `radial-gradient(circle, ${color}08 0%, transparent 70%)`
+          }} />
+
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+            {/* Track */}
+            <circle cx={cx} cy={cy} r={radius} fill="none" stroke={T.border} strokeWidth={strokeWidth} />
+            {/* Progress */}
+            <circle
+              cx={cx} cy={cy} r={radius} fill="none"
+              stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              style={{ transition: 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)', filter: `drop-shadow(0 0 6px ${color}40)` }}
+            />
+            {/* Inner subtle ring */}
+            <circle cx={cx} cy={cy} r={radius - 8} fill="none" stroke={T.border} strokeWidth="1" opacity=".3" />
+          </svg>
+
+          {/* Center content */}
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center'
+          }}>
+            <div style={{ fontSize: 18, marginBottom: 2, filter: 'grayscale(.3)' }}>{icon}</div>
+            <div style={{
+              fontSize: 28, fontWeight: 900, color: T.text, lineHeight: 1,
+              fontVariantNumeric: 'tabular-nums', letterSpacing: -.5
+            }}>{value}</div>
+            <div style={{ fontSize: 9, color: T.textSoft, fontWeight: 600, marginTop: 2, textTransform: 'uppercase', letterSpacing: 1 }}>
+              de {max}
+            </div>
+          </div>
+
+          {/* Small dot indicator */}
+          {value > 0 && (
+            <div style={{
+              position: 'absolute',
+              width: 4, height: 4, borderRadius: '50%',
+              background: color,
+              boxShadow: `0 0 8px ${color}`,
+              top: '50%', right: strokeWidth + 2,
+              transform: 'translateY(-50%)'
+            }} />
           )}
-          {/* Needle */}
-          <line x1={cx} y1={cy} x2={needleEnd.x} y2={needleEnd.y} stroke={color || T.accent} strokeWidth="2.5" strokeLinecap="round"
-            style={{ transition: 'all .6s cubic-bezier(.4,0,.2,1)' }} />
-          <circle cx={cx} cy={cy} r="4" fill={color || T.accent} />
-          <circle cx={cx} cy={cy} r="2" fill={T.bg} />
-          {/* Tick marks */}
-          {Array.from({ length: 11 }).map((_, i) => {
-            const a = startAngle + (totalArc / 10) * i;
-            const inner = polarToCartesian(a);
-            const outer = polarToCartesian(a);
-            const ri = r - 12;
-            const ro = r - 8;
-            return (
-              <line key={i}
-                x1={cx + ri * Math.cos(a * Math.PI / 180)} y1={cy + ri * Math.sin(a * Math.PI / 180)}
-                x2={cx + ro * Math.cos(a * Math.PI / 180)} y2={cy + ro * Math.sin(a * Math.PI / 180)}
-                stroke={T.textSoft} strokeWidth="1" opacity=".4" />
-            );
-          })}
-        </svg>
+        </div>
+
+        {/* Label */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.text, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-          <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, marginTop: 2 }}>{label}</div>
-          {subtitle && <div style={{ fontSize: 10, color: T.textSoft, marginTop: 2 }}>{subtitle}</div>}
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.text, letterSpacing: .3 }}>{label}</div>
+          {subtitle && <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2 }}>{subtitle}</div>}
+        </div>
+
+        {/* Mini bar at bottom */}
+        <div style={{
+          width: '100%', height: 3, background: T.surfaceAlt, borderRadius: 2, overflow: 'hidden',
+          marginTop: 2
+        }}>
+          <div style={{
+            height: '100%', width: `${pct * 100}%`, background: color, borderRadius: 2,
+            transition: 'width .8s cubic-bezier(.4,0,.2,1)'
+          }} />
         </div>
       </div>
     );
   };
 
-  // Horizontal bar progress
-  const BarProgress = ({ value, max, label, color }) => {
-    const pct = Math.min((value / Math.max(max, 1)) * 100, 100);
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: T.textMuted }}>{label}</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-        </div>
-        <div style={{ height: 6, background: T.surfaceAlt, borderRadius: 3, overflow: 'hidden', border: `1px solid ${T.border}` }}>
-          <div style={{
-            height: '100%', width: `${pct}%`, background: color || T.accent, borderRadius: 3,
-            transition: 'width .6s cubic-bezier(.4,0,.2,1)'
-          }} />
-        </div>
+  // ==================== DONUT CHART ====================
+  const DonutChart = ({ data, size = 120 }) => {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return (
+      <div style={{ width: size, height: size, display: 'grid', placeItems: 'center', opacity: .3 }}>
+        <span style={{ fontSize: 24 }}>📊</span>
       </div>
+    );
+    const radius = 38;
+    const cx = size / 2, cy = size / 2;
+    const circumference = 2 * Math.PI * radius;
+    let accumulated = 0;
+
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {data.map((d, i) => {
+          const pct = d.value / total;
+          const dash = circumference * pct;
+          const gap = circumference - dash;
+          const rot = (accumulated / total) * 360 - 90;
+          accumulated += d.value;
+          return (
+            <circle key={i} cx={cx} cy={cy} r={radius} fill="none"
+              stroke={d.color} strokeWidth={10}
+              strokeDasharray={`${dash - 2} ${gap + 2}`}
+              transform={`rotate(${rot} ${cx} ${cy})`}
+              strokeLinecap="round"
+              style={{ transition: 'all .8s cubic-bezier(.4,0,.2,1)', filter: `drop-shadow(0 0 4px ${d.color}30)` }}
+            />
+          );
+        })}
+        <text x={cx} y={cy - 6} textAnchor="middle" fill={T.text} fontSize="18" fontWeight="900" fontFamily="inherit">{total}</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill={T.textMuted} fontSize="8" fontWeight="600" fontFamily="inherit" textTransform="uppercase" letterSpacing="1">Total</text>
+      </svg>
     );
   };
 
@@ -331,9 +351,9 @@ const DashboardSeguranca = ({ user, onLogout }) => {
       primary: [T.accentSoft, T.text],
       success: [isDark ? '#4ade8018' : '#16a34a15', T.success],
       warning: [isDark ? '#fbbf2418' : '#d9770615', T.warning],
-      danger:  [isDark ? '#f8717118' : '#dc262615', T.danger],
-      info:    [isDark ? '#60a5fa18' : '#2563eb15', T.info],
-      muted:   [T.surfaceAlt, T.textMuted],
+      danger: [isDark ? '#f8717118' : '#dc262615', T.danger],
+      info: [isDark ? '#60a5fa18' : '#2563eb15', T.info],
+      muted: [T.surfaceAlt, T.textMuted],
     };
     const [bg, fg] = map[tone] || map.primary;
     return (
@@ -388,14 +408,12 @@ const DashboardSeguranca = ({ user, onLogout }) => {
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = T.shadowHover; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = isDark ? '#3a3a3a' : '#ccc'; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = T.shadow; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = T.border; }}
       >
-        {/* Top accent line */}
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 2,
           background: `linear-gradient(90deg, ${cfg.tone === 'warning' ? T.warning : cfg.tone === 'info' ? T.info : T.success}, transparent)`,
           opacity: .5
         }} />
 
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{
             width: 48, height: 48, borderRadius: 14,
@@ -414,7 +432,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           <Badge tone={cfg.tone}>{cfg.tag}</Badge>
         </div>
 
-        {/* Info grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <InfoBox label={tipo === 'saida' ? '🚪 Saída prev.' : '✅ Saiu às'} value={tipo === 'saida' ? (p.hora_saida_prevista || '-') : (p.hora_saida_real || '-')} T={T} />
           <InfoBox label={tipo === 'finalizado' ? '🔙 Voltou às' : '⏰ Retorno prev.'} value={tipo === 'finalizado' ? (p.hora_volta_real || '-') : (p.hora_volta_prevista || '-')} T={T} />
@@ -429,7 +446,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           </div>
         )}
 
-        {/* Ações */}
         {cfg.primaryAct && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -492,14 +508,12 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     finalizado: { dados: finalizadosFiltrado, tipo: 'finalizado', vazio: { icon: '✅', title: 'Nenhum retorno finalizado ainda', hint: 'Conforme registros forem feitos, surgem aqui.' } },
   };
 
-  // ==================== RENDER ====================
   return (
     <div style={{
       minHeight: '100vh', background: T.bg, color: T.text,
       fontFamily: "'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif",
       display: 'flex', transition: 'background .3s ease, color .3s ease'
     }}>
-      {/* CSS GLOBAL */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box}
@@ -507,19 +521,15 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeInScale{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-        @keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-        @keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         .ds-fade{animation:fadeIn .3s cubic-bezier(.4,0,.2,1) both}
         .ds-fade-scale{animation:fadeInScale .3s cubic-bezier(.4,0,.2,1) both}
         ::-webkit-scrollbar{width:6px;height:6px}
         ::-webkit-scrollbar-thumb{background:${isDark ? '#333' : '#ccc'};border-radius:3px}
         ::-webkit-scrollbar-track{background:transparent}
-        input:focus,button:focus,select:focus{outline:none}
-        input:focus,button:focus{box-shadow:0 0 0 2px ${isDark ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'}}
+        input:focus,button:focus{outline:none}
+        input:focus,button:focus{box-shadow:0 0 0 2px ${isDark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.1)'}}
 
-        /* GRID RESPONSIVO */
         .ds-gauges{display:grid;gap:16px;grid-template-columns:repeat(4,1fr);}
         .ds-cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));}
         .ds-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
@@ -538,7 +548,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           .ds-report-btn-text{display:none}
           .ds-header-title{font-size:16px!important;}
           .ds-header-sub{font-size:11px!important;}
-          .ds-stat-value{font-size:24px!important;}
         }
         @media(max-width:420px){
           .ds-gauges{grid-template-columns:1fr 1fr;gap:8px;}
@@ -547,21 +556,16 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         }
       `}</style>
 
-      {/* OVERLAY MOBILE */}
       <div className={`ds-overlay ${sidebarOpen ? 'show' : ''}`} onClick={() => setSidebarOpen(false)} />
 
       {/* ==================== SIDEBAR ==================== */}
       <aside className={`ds-sidebar ${sidebarOpen ? 'open' : ''}`} style={{
         width: 270, background: T.surface, borderRight: `1px solid ${T.border}`,
         padding: 0, display: 'flex', flexDirection: 'column', height: '100vh',
-        position: 'sticky', top: 0, transition: 'background .3s ease, border .3s ease',
-        zIndex: 1001, flexShrink: 0, overflowY: 'auto'
+        position: 'sticky', top: 0, zIndex: 1001, flexShrink: 0, overflowY: 'auto',
+        transition: 'background .3s ease, border .3s ease'
       }}>
-        {/* Brand */}
-        <div style={{
-          padding: '24px 20px 20px', borderBottom: `1px solid ${T.border}`,
-          display: 'flex', alignItems: 'center', gap: 14
-        }}>
+        <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{
             width: 44, height: 44, borderRadius: 14, background: T.accent,
             display: 'grid', placeItems: 'center', color: isDark ? '#000' : '#fff',
@@ -573,11 +577,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           </div>
         </div>
 
-        {/* User chip */}
-        <div style={{
-          margin: '16px 14px 0', padding: 14, background: T.surfaceAlt,
-          borderRadius: 14, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12
-        }}>
+        <div style={{ margin: '16px 14px 0', padding: 14, background: T.surfaceAlt, borderRadius: 14, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 40, height: 40, borderRadius: '50%', background: T.accent, color: isDark ? '#000' : '#fff',
             display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 15, flexShrink: 0
@@ -589,15 +589,11 @@ const DashboardSeguranca = ({ user, onLogout }) => {
               {user?.nome || user?.username || 'Usuário'}
             </div>
             <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: '50%', background: T.success,
-                animation: 'pulse 2s infinite'
-              }} /> Online
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.success, animation: 'pulse 2s infinite' }} /> Online
             </div>
           </div>
         </div>
 
-        {/* Nav */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '20px 10px', flex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 800, color: T.textSoft, letterSpacing: 1.5, padding: '0 10px 10px', textTransform: 'uppercase' }}>Menu</div>
           <TabBtn id="overview" icon="📊" label="Visão Geral" />
@@ -606,13 +602,12 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           <TabBtn id="finalizado" icon="✅" label="Finalizados" count={pedidosFinalizados.length} tone="success" />
         </nav>
 
-        {/* Theme Toggle */}
         <div style={{ padding: '0 14px 10px' }}>
           <button onClick={() => setThemeMode(m => m === 'dark' ? 'light' : 'dark')} style={{
             width: '100%', padding: '10px 14px', background: T.surfaceAlt, color: T.text,
             border: `1px solid ${T.border}`, borderRadius: 10, cursor: 'pointer',
-            fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10,
-            fontFamily: 'inherit', transition: 'all .2s ease'
+            fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit',
+            transition: 'all .2s ease'
           }}
           onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceHover; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
@@ -632,14 +627,12 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           </button>
         </div>
 
-        {/* Logout */}
         <div style={{ padding: '10px 14px 20px' }}>
           <button onClick={onLogout} style={{
             width: '100%', padding: '12px 14px', background: isDark ? '#dc262615' : '#dc262610',
             color: T.danger, border: `1px solid ${isDark ? 'rgba(220,38,38,.15)' : 'rgba(220,38,38,.1)'}`,
             borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13,
-            display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit',
-            transition: 'all .2s ease'
+            display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit', transition: 'all .2s ease'
           }}
           onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
@@ -651,7 +644,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
 
       {/* ==================== MAIN ==================== */}
       <main className="ds-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* HEADER */}
         <header style={{
           background: T.glass, borderBottom: `1px solid ${T.glassBorder}`,
           padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
@@ -677,7 +669,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Date picker */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
               background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 12,
@@ -690,7 +681,6 @@ const DashboardSeguranca = ({ user, onLogout }) => {
               }} />
             </div>
 
-            {/* Notificações */}
             <div ref={notifRef} style={{ position: 'relative' }}>
               <button onClick={() => setShowNotificacoes(s => !s)} style={{
                 width: 42, height: 42, borderRadius: 12, background: T.surfaceAlt, border: `1px solid ${T.border}`,
@@ -718,8 +708,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
                 }}>
                   <div style={{
                     padding: 16, borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 14,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: T.surfaceAlt
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.surfaceAlt
                   }}>
                     <span>Notificações</span>
                     {notificacoesNaoLidas > 0 && <Badge tone="danger">{notificacoesNaoLidas} novas</Badge>}
@@ -732,8 +721,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
                   ) : notificacoes.map(n => (
                     <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
                       padding: 14, borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
-                      background: n.lida ? 'transparent' : T.accentSoft,
-                      transition: 'background .15s ease'
+                      background: n.lida ? 'transparent' : T.accentSoft, transition: 'background .15s ease'
                     }}
                     onMouseEnter={(e) => { if (!n.lida) e.currentTarget.style.background = T.surfaceHover; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = n.lida ? 'transparent' : T.accentSoft; }}
@@ -748,29 +736,40 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           </div>
         </header>
 
-        {/* CONTENT */}
         <div className="ds-content" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* GAUGES / STATS */}
+          {/* GAUGES */}
           <div className="ds-gauges">
-            <SpeedGauge value={pedidosSaida.length} max={Math.max(pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length, 10)} label="Aguardando" subtitle="Na portaria" color={T.warning} />
-            <SpeedGauge value={pedidosAndamento.length} max={Math.max(pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length, 10)} label="Em Andamento" subtitle="Fora da unidade" color={T.info} />
-            <SpeedGauge value={pedidosFinalizados.length} max={Math.max(pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length, 10)} label="Finalizados" subtitle="Retornaram" color={T.success} />
-            <SpeedGauge value={taxaConclusao} max={100} label="Conclusão" subtitle={`${totalDia} pedidos`} color={T.accent} />
+            <MonitorGauge value={pedidosSaida.length} max={Math.max(totalDia, 10)} label="Aguardando Saída" subtitle="Na portaria" icon="🚪" color={T.warning} />
+            <MonitorGauge value={pedidosAndamento.length} max={Math.max(totalDia, 10)} label="Em Andamento" subtitle="Fora da unidade" icon="🚶" color={T.info} />
+            <MonitorGauge value={pedidosFinalizados.length} max={Math.max(totalDia, 10)} label="Retornaram" subtitle="Concluídos" icon="✅" color={T.success} />
+            <MonitorGauge value={taxaConclusao} max={100} label="Taxa Conclusão" subtitle={`${totalDia} pedidos`} icon="📈" color={T.accent} />
           </div>
 
-          {/* Secondary stats */}
+          {/* SECONDARY STATS with Donut */}
           <div style={{
             background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius,
-            padding: 20, boxShadow: T.shadow
+            padding: 24, boxShadow: T.shadow, display: 'flex', flexDirection: 'column', gap: 20,
+            transition: 'all .3s ease'
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
-              📊 Estatísticas do Dia
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-              <BarProgress value={pedidosSaida.length} max={Math.max(totalDia, 1)} label="Saídas pendentes" color={T.warning} />
-              <BarProgress value={pedidosAndamento.length} max={Math.max(totalDia, 1)} label="Em andamento" color={T.info} />
-              <BarProgress value={pedidosFinalizados.length} max={Math.max(totalDia, 1)} label="Concluídos" color={T.success} />
-              <BarProgress value={stats.atrasos_hoje || 0} max={Math.max(totalDia, 1)} label="Atrasos registrados" color={T.danger} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {/* Donut */}
+              <DonutChart data={[
+                { value: pedidosSaida.length, color: T.warning },
+                { value: pedidosAndamento.length, color: T.info },
+                { value: pedidosFinalizados.length, color: T.success },
+                { value: stats.atrasos_hoje || 0, color: T.danger },
+              ]} size={110} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+                  📊 Distribuição do Dia
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <LegendItem color={T.warning} label="Pendentes" value={pedidosSaida.length} T={T} />
+                  <LegendItem color={T.info} label="Em andamento" value={pedidosAndamento.length} T={T} />
+                  <LegendItem color={T.success} label="Finalizados" value={pedidosFinalizados.length} T={T} />
+                  <LegendItem color={T.danger} label="Atrasos" value={stats.atrasos_hoje || 0} T={T} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -781,20 +780,14 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           }}>
             <div className="ds-toolbar">
               <div className="ds-search" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-                <span style={{
-                  position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                  color: T.textMuted, fontSize: 14, pointerEvents: 'none'
-                }}>🔍</span>
+                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: T.textMuted, fontSize: 14, pointerEvents: 'none' }}>🔍</span>
                 <input
-                  type="text"
-                  placeholder="Buscar por nome ou curso..."
-                  value={filtroNome}
+                  type="text" placeholder="Buscar por nome ou curso..." value={filtroNome}
                   onChange={(e) => setFiltroNome(e.target.value)}
                   style={{
-                    width: '100%', padding: '12px 14px 12px 42px',
-                    background: T.surfaceAlt, border: `1px solid ${T.border}`,
-                    borderRadius: 12, fontSize: 14, color: T.text, fontFamily: 'inherit',
-                    outline: 'none', transition: 'all .2s ease'
+                    width: '100%', padding: '12px 14px 12px 42px', background: T.surfaceAlt,
+                    border: `1px solid ${T.border}`, borderRadius: 12, fontSize: 14, color: T.text,
+                    fontFamily: 'inherit', outline: 'none', transition: 'all .2s ease'
                   }}
                   onFocus={(e) => { e.currentTarget.borderColor = isDark ? '#555' : '#aaa'; }}
                   onBlur={(e) => { e.currentTarget.borderColor = T.border; }}
@@ -815,55 +808,32 @@ const DashboardSeguranca = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* LOADING */}
           {loading ? (
-            <div style={{
-              padding: 80, textAlign: 'center', background: T.surface, borderRadius: T.radius,
-              border: `1px solid ${T.border}`, boxShadow: T.shadow
-            }}>
-              <div style={{
-                width: 44, height: 44, border: `3px solid ${T.border}`, borderTopColor: T.accent,
-                borderRadius: '50%', margin: '0 auto 16px', animation: 'spin .8s linear infinite'
-              }} />
+            <div style={{ padding: 80, textAlign: 'center', background: T.surface, borderRadius: T.radius, border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
+              <div style={{ width: 44, height: 44, border: `3px solid ${T.border}`, borderTopColor: T.accent, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin .8s linear infinite' }} />
               <div style={{ color: T.textMuted, fontSize: 14, fontWeight: 500 }}>Carregando dados...</div>
             </div>
           ) : (
             <>
-              {/* ===== OVERVIEW ===== */}
               {abaAtiva === 'overview' && (
                 <div className="ds-fade" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-                  {/* Seção: próximas saídas */}
                   <SectionTitle T={T} title="🚪 Próximas Saídas" count={saidaFiltrada.length} onSeeAll={() => setAbaAtiva('saida')} />
                   <div className="ds-cards">
-                    {saidaFiltrada.length === 0
-                      ? <EmptyState icon="🎓" title="Nenhuma saída pendente" hint="Quando houver, eles aparecem aqui." />
-                      : saidaFiltrada.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="saida" />)}
+                    {saidaFiltrada.length === 0 ? <EmptyState icon="🎓" title="Nenhuma saída pendente" hint="Quando houver, eles aparecem aqui." /> : saidaFiltrada.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="saida" />)}
                   </div>
-
-                  {/* Seção: em andamento */}
                   <SectionTitle T={T} title="🚶 Em Andamento" count={andamentoFiltrado.length} onSeeAll={() => setAbaAtiva('andamento')} />
                   <div className="ds-cards">
-                    {andamentoFiltrado.length === 0
-                      ? <EmptyState icon="🚶" title="Ninguém em rota agora" hint="Saídas ativas aparecerão nesta aba." />
-                      : andamentoFiltrado.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="andamento" />)}
+                    {andamentoFiltrado.length === 0 ? <EmptyState icon="🚶" title="Ninguém em rota agora" hint="Saídas ativas aparecerão nesta aba." /> : andamentoFiltrado.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="andamento" />)}
                   </div>
-
-                  {/* Seção: finalizados */}
                   <SectionTitle T={T} title="✅ Finalizados Recentes" count={finalizadosFiltrado.length} onSeeAll={() => setAbaAtiva('finalizado')} />
                   <div className="ds-cards">
-                    {finalizadosFiltrado.length === 0
-                      ? <EmptyState icon="✅" title="Nenhum retorno finalizado" hint="Conforme registros forem feitos, surgem aqui." />
-                      : finalizadosFiltrado.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="finalizado" />)}
+                    {finalizadosFiltrado.length === 0 ? <EmptyState icon="✅" title="Nenhum retorno finalizado" hint="Conforme registros forem feitos, surgem aqui." /> : finalizadosFiltrado.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="finalizado" />)}
                   </div>
                 </div>
               )}
-
-              {/* ===== ABAS DE LISTA ===== */}
               {['saida', 'andamento', 'finalizado'].includes(abaAtiva) && (
                 <div className="ds-cards ds-fade">
-                  {listas[abaAtiva].dados.length === 0
-                    ? <EmptyState {...listas[abaAtiva].vazio} />
-                    : listas[abaAtiva].dados.map(p => <PedidoCard key={p.id} p={p} tipo={listas[abaAtiva].tipo} />)}
+                  {listas[abaAtiva].dados.length === 0 ? <EmptyState {...listas[abaAtiva].vazio} /> : listas[abaAtiva].dados.map(p => <PedidoCard key={p.id} p={p} tipo={listas[abaAtiva].tipo} />)}
                 </div>
               )}
             </>
@@ -871,16 +841,15 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         </div>
       </main>
 
-      {/* ==================== MODAL RELATÓRIO ==================== */}
+      {/* ==================== MODALS ==================== */}
       {mostrarModalData && (
         <Modal onClose={() => setMostrarModalData(false)} T={T} isDark={isDark}>
           <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>📄 Gerar Relatório</h3>
           <p style={{ color: T.textMuted, fontSize: 13, margin: '8px 0 20px' }}>Selecione a data para gerar o relatório completo do dia.</p>
           <label style={{ fontSize: 12, fontWeight: 700, color: T.text, display: 'block', marginBottom: 8 }}>Data</label>
           <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{
-            display: 'block', width: '100%', padding: 14,
-            border: `1px solid ${T.border}`, borderRadius: 12, fontSize: 14, fontFamily: 'inherit',
-            outline: 'none', background: T.surfaceAlt, color: T.text, transition: 'all .2s ease'
+            display: 'block', width: '100%', padding: 14, border: `1px solid ${T.border}`, borderRadius: 12,
+            fontSize: 14, fontFamily: 'inherit', outline: 'none', background: T.surfaceAlt, color: T.text, transition: 'all .2s ease'
           }}
           onFocus={(e) => { e.currentTarget.borderColor = isDark ? '#555' : '#aaa'; }}
           onBlur={(e) => { e.currentTarget.borderColor = T.border; }}
@@ -892,15 +861,13 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         </Modal>
       )}
 
-      {/* ==================== MODAL VISUALIZAR RELATÓRIO ==================== */}
       {relatorio && (
         <Modal onClose={() => setRelatorio(null)} T={T} wide isDark={isDark}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
             <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>📋 Relatório - {relatorio.data}</h3>
             <button onClick={() => setRelatorio(null)} style={{
-              background: 'none', border: 'none', fontSize: 24, cursor: 'pointer',
-              color: T.textMuted, width: 36, height: 36, display: 'grid', placeItems: 'center',
-              borderRadius: 10, transition: 'background .15s ease'
+              background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textMuted,
+              width: 36, height: 36, display: 'grid', placeItems: 'center', borderRadius: 10, transition: 'background .15s ease'
             }}
             onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
@@ -925,7 +892,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   );
 };
 
-// ==================== AUX COMPONENTS (FORA) ====================
+// ==================== AUX ====================
 const SectionTitle = ({ T, title, count, onSeeAll }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
     <div style={{ fontSize: 16, fontWeight: 800, color: T.text, letterSpacing: -.3 }}>
@@ -941,6 +908,16 @@ const SectionTitle = ({ T, title, count, onSeeAll }) => (
       onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
       >Ver todos →</button>
     )}
+  </div>
+);
+
+const LegendItem = ({ color, label, value, T }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div style={{ width: 10, height: 10, borderRadius: 3, background: color, flexShrink: 0 }} />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    </div>
   </div>
 );
 
@@ -961,13 +938,11 @@ const Modal = ({ children, onClose, T, wide, isDark }) => (
 const btnPrimary = (T, isDark) => ({
   padding: '12px 22px', background: T.accent, color: isDark ? '#000' : '#fff', border: 'none',
   borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
-  boxShadow: `0 4px 12px ${isDark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.15)'}`,
-  transition: 'all .2s ease'
+  boxShadow: `0 4px 12px ${isDark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.15)'}`, transition: 'all .2s ease'
 });
 const btnSecondary = (T) => ({
   padding: '12px 22px', background: T.surfaceAlt, color: T.text, border: `1px solid ${T.border}`,
-  borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit',
-  transition: 'all .2s ease'
+  borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit', transition: 'all .2s ease'
 });
 
 export default DashboardSeguranca;
