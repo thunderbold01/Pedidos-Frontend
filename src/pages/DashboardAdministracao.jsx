@@ -21,6 +21,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [selectedPedido, setSelectedPedido] = useState(null);
+  const [showMobileActions, setShowMobileActions] = useState(false);
   const [horaAtual, setHoraAtual] = useState('');
   const [lastSync, setLastSync] = useState('');
   
@@ -49,12 +51,25 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       setIsMobile(mobile);
       if (!mobile) {
         setMobileMenuOpen(false);
+        setShowMobileActions(false);
       }
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Fechar mobile actions ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showMobileActions && !e.target.closest('.mobile-actions-card')) {
+        setShowMobileActions(false);
+        setSelectedPedido(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showMobileActions]);
 
   // ==================== THEME ENGINE ====================
   const getInitialTheme = () => {
@@ -109,7 +124,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Carregar dados quando filtros mudarem
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -120,7 +134,6 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     fetchData();
   }, [filtroEstado, filtroData]);
 
-  // Auto-refresh a cada 30 segundos
   useEffect(() => {
     const interval = setInterval(() => {
       carregarDados();
@@ -186,6 +199,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     const hoje = new Date().toISOString().split('T')[0];
     setDadosAprovacao({ data_saida: hoje, hora_saida: '07:00', data_volta: hoje, hora_volta: '19:00' });
     setModalAprovacao(pedidoId);
+    setShowMobileActions(false);
+    setSelectedPedido(null);
   };
 
   const confirmarAprovacao = async () => {
@@ -204,6 +219,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       await api.post(`/pedidos/${id}/rejeitar/`, { comentario: motivo });
       alert('✅ Pedido rejeitado.');
       carregarDados();
+      setShowMobileActions(false);
+      setSelectedPedido(null);
     } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Falha na rejeição')); }
   };
 
@@ -213,6 +230,8 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       await api.post(`/pedidos/${id}/passar/`);
       alert('✅ Pedido encaminhado para Direção.');
       carregarDados();
+      setShowMobileActions(false);
+      setSelectedPedido(null);
     } catch (err) { alert('❌ Erro ao encaminhar'); }
   };
 
@@ -251,6 +270,15 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   ), [pedidos, searchTerm]);
 
   const sidebarWidth = sidebarCollapsed ? 80 : 260;
+
+  // Mobile Action Handler
+  const handleMobilePedidoClick = (pedido, e) => {
+    e.stopPropagation();
+    if (isMobile) {
+      setSelectedPedido(pedido);
+      setShowMobileActions(true);
+    }
+  };
 
   // ==================== SUB-COMPONENTS ====================
   const StatusBadge = ({ status }) => {
@@ -301,10 +329,12 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         body { margin: 0; background: ${T.bgMain}; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${T.border}; borderRadius: 3px; }
+        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
         @media (max-width: 1024px) { 
           .grid-stats { grid-template-columns: repeat(2, 1fr) !important; } 
@@ -319,11 +349,11 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           table { min-width: 650px; width: 100%; }
           .content-padding { padding: 16px !important; }
           .header-padding { padding: 0 16px !important; }
-          .action-buttons { flex-wrap: wrap; gap: 6px !important; }
-          .action-buttons button { min-width: 32px !important; }
           .filter-container { flex-direction: column; align-items: stretch !important; }
           .filter-container > div { width: 100%; }
           .filter-container select, .filter-container input { width: 100% !important; }
+          .mobile-row-clickable { cursor: pointer; transition: background 0.2s; }
+          .mobile-row-clickable:active { background: ${T.gold}15 !important; }
         }
         @media (max-width: 480px) {
           .grid-stats { grid-template-columns: 1fr !important; }
@@ -481,14 +511,12 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 5
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Mobile Toggle Button */}
             <button onClick={() => setMobileMenuOpen(true)} style={{
               display: isMobile ? 'flex' : 'none',
               background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textPrimary
             }}>
               ☰
             </button>
-
             <div>
               <h1 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
                 {abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva === 'coletivas' ? 'SAÍDAS COLETIVAS' : 'RELATÓRIOS'}
@@ -549,36 +577,15 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           {/* PEDIDOS VIEW */}
           {abaAtiva === 'pedidos' && (
             <div className="fade-in">
-              {/* Stats Grid - Atualiza corretamente */}
+              {/* Stats Grid */}
               <div className="grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 30 }}>
-                <StatCard 
-                  title="Pendentes" 
-                  value={pedidos.filter(p => p.estado === 'PENDENTE_DIRECAO').length || 0} 
-                  sub="Aguardando Ação" 
-                  icon="◷" 
-                />
-                <StatCard 
-                  title="Aprovados" 
-                  value={pedidos.filter(p => p.estado === 'APROVADO').length || 0} 
-                  sub="Autorizados" 
-                  icon="✓" 
-                />
-                <StatCard 
-                  title="Rejeitados" 
-                  value={pedidos.filter(p => p.estado === 'REJEITADO').length || 0} 
-                  sub="Negados" 
-                  icon="✕" 
-                />
-                <StatCard 
-                  title="Total Geral" 
-                  value={pedidos.length || 0} 
-                  sub="Volume Acumulado" 
-                  icon="◈" 
-                  isGold 
-                />
+                <StatCard title="Pendentes" value={pedidos.filter(p => p.estado === 'PENDENTE_DIRECAO').length || 0} sub="Aguardando Ação" icon="◷" />
+                <StatCard title="Aprovados" value={pedidos.filter(p => p.estado === 'APROVADO').length || 0} sub="Autorizados" icon="✓" />
+                <StatCard title="Rejeitados" value={pedidos.filter(p => p.estado === 'REJEITADO').length || 0} sub="Negados" icon="✕" />
+                <StatCard title="Total Geral" value={pedidos.length || 0} sub="Volume Acumulado" icon="◈" isGold />
               </div>
 
-              {/* Filter Toolbar - Mobile Friendly */}
+              {/* Filter Toolbar */}
               <div className="filter-container" style={{ 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
                 flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
@@ -610,7 +617,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 }}>GERAR RELATÓRIO</button>
               </div>
 
-              {/* Data Table - Responsive */}
+              {/* Data Table - Responsive com Mobile Actions */}
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
               ) : (
@@ -628,13 +635,16 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                     </thead>
                     <tbody>
                       {pedidosFiltrados.map((p, i) => (
-                        <tr key={p.id} style={{ 
-                          borderBottom: `1px solid ${T.border}`, 
-                          background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`),
-                          transition: 'background 0.1s'
-                        }}
-                        onMouseEnter={() => setHoveredRow(p.id)}
-                        onMouseLeave={() => setHoveredRow(null)}
+                        <tr key={p.id} 
+                          className={isMobile ? 'mobile-row-clickable' : ''}
+                          onClick={(e) => handleMobilePedidoClick(p, e)}
+                          style={{ 
+                            borderBottom: `1px solid ${T.border}`, 
+                            background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`),
+                            transition: 'background 0.1s'
+                          }}
+                          onMouseEnter={() => !isMobile && setHoveredRow(p.id)}
+                          onMouseLeave={() => !isMobile && setHoveredRow(null)}
                         >
                           <td style={{ padding: '12px 16px', fontWeight: 700, color: T.gold, whiteSpace: 'nowrap' }}>#{p.id}</td>
                           <td style={{ padding: '12px 16px' }}>
@@ -648,41 +658,47 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                           </td>
                           <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}><StatusBadge status={p.estado} /></td>
                           <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                            <div className="action-buttons" style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                              <button onClick={() => setModalDetalhes(p)} style={{
-                                width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary,
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                              }} title="Ver detalhes">👁</button>
-                              
-                              {p.acoes_disponiveis?.includes('aprovar') && (
-                                <button onClick={() => abrirModalAprovacao(p.id)} style={{
-                                  width: 32, height: 32, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer',
+                            {!isMobile ? (
+                              <div className="action-buttons" style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button onClick={() => setModalDetalhes(p)} style={{
+                                  width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary,
                                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                }} title="Aprovar">✓</button>
-                              )}
-                              
-                              {p.acoes_disponiveis?.includes('rejeitar') && (
-                                <button onClick={() => rejeitarPedido(p.id)} style={{
-                                  width: 32, height: 32, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer',
-                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                }} title="Rejeitar">✕</button>
-                              )}
-
-                              {p.estado === 'PENDENTE_DIRECAO' && (
-                                <button onClick={() => encaminharPedido(p.id)} style={{
-                                  width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer',
-                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                                }} title="Encaminhar">➜</button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                                }} title="Ver detalhes">👁</button>
+                                {p.acoes_disponiveis?.includes('aprovar') && (
+                                  <button onClick={() => abrirModalAprovacao(p.id)} style={{
+                                    width: 32, height: 32, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                  }} title="Aprovar">✓</button>
+                                )}
+                                {p.acoes_disponiveis?.includes('rejeitar') && (
+                                  <button onClick={() => rejeitarPedido(p.id)} style={{
+                                    width: 32, height: 32, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                  }} title="Rejeitar">✕</button>
+                                )}
+                                {p.estado === 'PENDENTE_DIRECAO' && (
+                                  <button onClick={() => encaminharPedido(p.id)} style={{
+                                    width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                  }} title="Encaminhar">➜</button>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ textAlign: 'center' }}>
+                                <button style={{
+                                  padding: '6px 12px', background: T.gold, color: '#000', border: 'none',
+                                  borderRadius: 2, fontSize: 10, fontWeight: 600, cursor: 'pointer'
+                                }}>⚡ Ações</button>
+                              </div>
+                            )}
+                           </td>
+                         </tr>
                       ))}
                       {pedidosFiltrados.length === 0 && (
                         <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
                       )}
                     </tbody>
-                  </table>
+                   </table>
                 </div>
               )}
             </div>
@@ -751,6 +767,70 @@ const DashboardAdministracao = ({ user, onLogout }) => {
 
         </div>
       </main>
+
+      {/* Mobile Actions Modal */}
+      {isMobile && showMobileActions && selectedPedido && (
+        <>
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            zIndex: 1000, backdropFilter: 'blur(4px)'
+          }} onClick={() => { setShowMobileActions(false); setSelectedPedido(null); }} />
+          <div className="slide-up mobile-actions-card" style={{
+            position: 'fixed', bottom: 20, left: 20, right: 20,
+            background: T.bgSurface, borderRadius: 16, padding: 20,
+            zIndex: 1001, boxShadow: T.shadowHover,
+            border: `1px solid ${T.gold}`
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ fontWeight: 700, fontSize: 18, color: T.gold }}>{selectedPedido.estudante_nome}</div>
+              <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>#{selectedPedido.id} • {selectedPedido.tipo_display}</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button onClick={() => setModalDetalhes(selectedPedido)} style={{
+                padding: 14, background: T.bgAlt, border: `1px solid ${T.border}`,
+                borderRadius: 10, fontSize: 14, fontWeight: 600, color: T.textPrimary,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+              }}>
+                👁 Ver Detalhes
+              </button>
+              {selectedPedido.acoes_disponiveis?.includes('aprovar') && (
+                <button onClick={() => abrirModalAprovacao(selectedPedido.id)} style={{
+                  padding: 14, background: T.success, color: '#FFF', border: 'none',
+                  borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}>
+                  ✅ Aprovar Pedido
+                </button>
+              )}
+              {selectedPedido.acoes_disponiveis?.includes('rejeitar') && (
+                <button onClick={() => rejeitarPedido(selectedPedido.id)} style={{
+                  padding: 14, background: T.danger, color: '#FFF', border: 'none',
+                  borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}>
+                  ❌ Rejeitar Pedido
+                </button>
+              )}
+              {selectedPedido.estado === 'PENDENTE_DIRECAO' && (
+                <button onClick={() => encaminharPedido(selectedPedido.id)} style={{
+                  padding: 14, background: T.gold, color: '#000', border: 'none',
+                  borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}>
+                  📤 Encaminhar para Direção
+                </button>
+              )}
+              <button onClick={() => { setShowMobileActions(false); setSelectedPedido(null); }} style={{
+                padding: 12, background: 'transparent', border: `1px solid ${T.border}`,
+                borderRadius: 10, fontSize: 13, color: T.textSecondary, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+              }}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Approval Modal */}
       {modalAprovacao && (
