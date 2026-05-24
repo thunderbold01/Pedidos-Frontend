@@ -1,15 +1,15 @@
-// src/api.js - VERSÃO SEGURA (SEM LOGS EM PRODUÇÃO)
+// src/api.js - VERSÃO COMPLETA COM TODAS AS EXPORTAÇÕES
 import axios from 'axios';
 
 // ==================== CONFIGURAÇÃO DE AMBIENTE ====================
 const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
 const isProduction = !isDevelopment;
 
-// URLs da API (ocultadas em produção)
+// URLs da API
 const LOCAL_API_URL = 'http://localhost:8000/api';
 const PROD_API_URL = 'https://pedidos-backend-fium.onrender.com/api';
 
-// Escolhe a URL baseada no ambiente - SEM LOGS EM PRODUÇÃO
+// Escolhe a URL baseada no ambiente
 const API_URL = isDevelopment ? LOCAL_API_URL : PROD_API_URL;
 
 // Só mostra logs em desenvolvimento
@@ -28,7 +28,7 @@ const api = axios.create({
     withCredentials: false,
 });
 
-// ==================== INTERCEPTOR DE REQUEST (SEM LOGS EM PRODUÇÃO) ====================
+// ==================== INTERCEPTOR DE REQUEST ====================
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token');
@@ -36,7 +36,6 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
         
-        // Adicionar timestamp para evitar cache (apenas em desenvolvimento)
         if (isDevelopment && config.method === 'get') {
             config.params = {
                 ...config.params,
@@ -44,7 +43,6 @@ api.interceptors.request.use(
             };
         }
         
-        // LOG APENAS EM DESENVOLVIMENTO
         if (isDevelopment) {
             console.log(`📤 ${config.method?.toUpperCase()} ${config.url}`);
         }
@@ -52,7 +50,6 @@ api.interceptors.request.use(
         return config;
     },
     (error) => {
-        // Erro silencioso em produção
         if (isDevelopment) {
             console.error('❌ Erro no request:', error);
         }
@@ -60,10 +57,9 @@ api.interceptors.request.use(
     }
 );
 
-// ==================== INTERCEPTOR DE RESPONSE (SEM LOGS EM PRODUÇÃO) ====================
+// ==================== INTERCEPTOR DE RESPONSE ====================
 api.interceptors.response.use(
     (response) => {
-        // LOG APENAS EM DESENVOLVIMENTO
         if (isDevelopment) {
             console.log(`📥 ${response.status} ${response.config.url}`);
         }
@@ -72,30 +68,23 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
         
-        // Erro de rede - mensagem genérica em produção
         if (!error.response) {
             if (isDevelopment) {
                 console.error('🌐 Erro de conexão:', error.message);
             }
             return Promise.reject({
                 message: isDevelopment 
-                    ? 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.'
+                    ? 'Não foi possível conectar ao servidor.'
                     : 'Erro de conexão. Tente novamente.',
-                type: 'NETWORK_ERROR',
-                original: isDevelopment ? error : undefined
+                type: 'NETWORK_ERROR'
             });
         }
         
-        // Erro 403 - Sem permissão
         if (error.response.status === 403) {
-            if (isDevelopment) {
-                console.error('🔒 Erro 403:', error.response.data);
-            }
             return Promise.reject({
-                message: error.response.data?.error || 'Acesso negado. Verifique suas credenciais.',
+                message: error.response.data?.error || 'Acesso negado.',
                 type: 'FORBIDDEN',
-                status: 403,
-                original: isDevelopment ? error : undefined
+                status: 403
             });
         }
         
@@ -123,16 +112,15 @@ api.interceptors.response.use(
                     if (isDevelopment) {
                         console.error('❌ Falha ao renovar token');
                     }
-                    clearAuthData();
+                    clearTokens();
                     redirectToLogin();
                     return Promise.reject({
                         message: 'Sessão expirada. Faça login novamente.',
-                        type: 'SESSION_EXPIRED',
-                        original: isDevelopment ? refreshError : undefined
+                        type: 'SESSION_EXPIRED'
                     });
                 }
             } else {
-                clearAuthData();
+                clearTokens();
                 redirectToLogin();
                 return Promise.reject({
                     message: 'Sessão inválida. Faça login novamente.',
@@ -141,32 +129,29 @@ api.interceptors.response.use(
             }
         }
         
-        // Mensagem de erro genérica para produção
         const errorMessage = isDevelopment
-            ? (error.response?.data?.error || error.response?.data?.message || error.message || 'Erro desconhecido')
-            : 'Ocorreu um erro. Tente novamente mais tarde.';
+            ? (error.response?.data?.error || error.message || 'Erro desconhecido')
+            : 'Ocorreu um erro. Tente novamente.';
         
         return Promise.reject({
             message: errorMessage,
             type: 'UNKNOWN_ERROR',
-            status: error.response?.status,
-            data: isDevelopment ? error.response?.data : undefined,
-            original: isDevelopment ? error : undefined
+            status: error.response?.status
         });
     }
 );
 
-// ==================== FUNÇÕES AUXILIARES ====================
+// ==================== FUNÇÕES AUXILIARES (EXPORTADAS) ====================
 
-// Limpar dados de autenticação
-export const clearAuthData = () => {
+// ✅ EXPORTADA - Limpar tokens
+export const clearTokens = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
     sessionStorage.clear();
 };
 
-// Verificar se está autenticado
+// ✅ EXPORTADA - Verificar autenticação
 export const isAuthenticated = () => {
     const token = localStorage.getItem('access_token');
     if (!token) return false;
@@ -180,7 +165,7 @@ export const isAuthenticated = () => {
     }
 };
 
-// Redirecionar para login (sem logs)
+// ✅ EXPORTADA - Redirecionar para login
 export const redirectToLogin = () => {
     const publicPaths = ['/login', '/register', '/2fa'];
     if (!publicPaths.includes(window.location.pathname)) {
@@ -188,12 +173,12 @@ export const redirectToLogin = () => {
     }
 };
 
-// Salvar dados do usuário
+// ✅ EXPORTADA - Salvar dados do usuário
 export const saveUserData = (user) => {
     localStorage.setItem('user_data', JSON.stringify(user));
 };
 
-// Obter dados do usuário
+// ✅ EXPORTADA - Obter dados do usuário
 export const getUserData = () => {
     try {
         const data = localStorage.getItem('user_data');
@@ -205,7 +190,7 @@ export const getUserData = () => {
 
 // ==================== FUNÇÕES DE AUTENTICAÇÃO ====================
 
-// Login
+// ✅ EXPORTADA - Login
 export const login = async (email, password) => {
     try {
         const response = await api.post('/auth/login/', { email, password });
@@ -225,7 +210,7 @@ export const login = async (email, password) => {
     }
 };
 
-// Logout
+// ✅ EXPORTADA - Logout
 export const logout = async () => {
     try {
         const refreshToken = localStorage.getItem('refresh_token');
@@ -233,16 +218,15 @@ export const logout = async () => {
             await api.post('/auth/logout/', { refresh: refreshToken });
         }
     } catch (error) {
-        // Silencioso em produção
         if (isDevelopment) {
             console.error('Erro no logout:', error);
         }
     } finally {
-        clearAuthData();
+        clearTokens();
     }
 };
 
-// Obter usuário atual
+// ✅ EXPORTADA - Obter usuário atual
 export const getUser = async () => {
     try {
         const response = await api.get('/user/me/');
@@ -329,7 +313,7 @@ export const passarPedidoDITE = async (pedidoId, destino) => {
 export const getSegurancaDashboard = async () => {
     try {
         const response = await api.get('/seguranca/dashboard/');
-        return { success: true, saidas: response.data.saidas_hoje || [], stats: response.data };
+        return { success: true, stats: response.data };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -355,26 +339,6 @@ export const marcarRetorno = async (pedidoId, horaRetorno = null) => {
             atrasado: response.data.atrasado, 
             tempo_atraso: response.data.tempo_atraso
         };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const getRelatorioSaidas = async (data = null) => {
-    try {
-        const url = data ? `/seguranca/relatorio-saidas/?data=${data}` : '/seguranca/relatorio-saidas/';
-        const response = await api.get(url);
-        return { success: true, relatorio: response.data };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const enviarRelatorioSaidas = async (data = null) => {
-    try {
-        const requestData = data ? { data } : {};
-        const response = await api.post('/seguranca/enviar-relatorio/', requestData);
-        return { success: true, message: response.data.message };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -421,73 +385,9 @@ export const listarColetivas = async (status = null) => {
     try {
         const url = status ? `/coletivas/listar/?status=${status}` : '/coletivas/listar/';
         const response = await api.get(url);
-        return { success: true, coletivas: response.data.coletivas || [], total: response.data.total };
+        return { success: true, coletivas: response.data.coletivas || [] };
     } catch (error) {
         return { success: false, error: error.message };
-    }
-};
-
-export const getDetalheColetiva = async (coletivaId) => {
-    try {
-        const response = await api.get(`/coletivas/${coletivaId}/`);
-        return { success: true, coletiva: response.data };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const encerrarColetiva = async (coletivaId) => {
-    try {
-        const response = await api.post(`/coletivas/${coletivaId}/encerrar/`);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-export const confirmarSaidaColetiva = async (coletivaId) => {
-    try {
-        const response = await api.post(`/coletivas/${coletivaId}/confirmar-saida/`);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
-    }
-};
-
-// ==================== FUNÇÕES DE RELATÓRIOS ====================
-export const getRelatorios = async () => {
-    try {
-        const response = await api.get('/relatorios/');
-        return { success: true, relatorios: response.data.relatorios || [] };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const getRelatorioColetivasDITE = async () => {
-    try {
-        const response = await api.get('/relatorios/dite/coletivas/');
-        return { success: true, conteudo: response.data.conteudo };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const downloadRelatorio = async (relatorioId) => {
-    try {
-        const response = await api.get(`/relatorios/download-texto/${relatorioId}/`, { responseType: 'blob' });
-        return { success: true, blob: response.data };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
-export const deleteRelatorio = async (relatorioId) => {
-    try {
-        const response = await api.delete(`/relatorios/${relatorioId}/delete/`);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        return { success: false, error: error.response?.data?.error || error.message };
     }
 };
 
@@ -510,20 +410,21 @@ export const marcarNotificacaoLida = async (notificacaoId) => {
     }
 };
 
-export const marcarTodasNotificacoesLidas = async () => {
-    try {
-        await api.post('/notificacoes/ler-todas/');
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-};
-
 // ==================== FUNÇÕES DE DASHBOARD ====================
 export const getDashboard = async () => {
     try {
         const response = await api.get('/dashboard/');
         return { success: true, stats: response.data };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// ==================== FUNÇÕES DE RELATÓRIOS ====================
+export const getRelatorios = async () => {
+    try {
+        const response = await api.get('/relatorios/');
+        return { success: true, relatorios: response.data.relatorios || [] };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -539,4 +440,5 @@ export const getAlertasAtraso = async () => {
     }
 };
 
+// ==================== EXPORTAÇÃO PADRÃO ====================
 export default api;
