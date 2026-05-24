@@ -2,11 +2,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-// ============================================================
-// DASHBOARD ADMINISTRACAO — Enterprise Edition
-// Design Premium: Gold Accents, Black Typography
-// Fully Responsive, Collapsible Sidebar, Auto-Refresh
-// ============================================================
 const DashboardAdministracao = ({ user, onLogout }) => {
   // ==================== STATE MANAGEMENT ====================
   const [pedidos, setPedidos] = useState([]);
@@ -114,6 +109,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Carregar dados quando filtros mudarem
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -122,8 +118,16 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       } catch (e) { console.error(e); }
     };
     fetchData();
-    const interval = setInterval(fetchData, 30000);
-    const handleVis = () => !document.hidden && fetchData();
+  }, [filtroEstado, filtroData]);
+
+  // Auto-refresh a cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      carregarDados();
+      carregarNotificacoes();
+      setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    }, 30000);
+    const handleVis = () => !document.hidden && carregarDados();
     document.addEventListener('visibilitychange', handleVis);
     return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVis); };
   }, [filtroEstado, filtroData]);
@@ -297,7 +301,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
         body { margin: 0; background: ${T.bgMain}; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: ${T.border}; borderRadius: 3px; }
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -311,14 +315,19 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           .overlay-mobile { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; backdrop-filter: blur(2px); }
           .overlay-mobile.show { display: block; }
           .main-content { margin-left: 0 !important; width: 100% !important; }
-          .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-          table { min-width: 600px; }
+          .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; }
+          table { min-width: 650px; width: 100%; }
           .content-padding { padding: 16px !important; }
           .header-padding { padding: 0 16px !important; }
-          .stats-grid-custom { gap: 12px !important; }
+          .action-buttons { flex-wrap: wrap; gap: 6px !important; }
+          .action-buttons button { min-width: 32px !important; }
+          .filter-container { flex-direction: column; align-items: stretch !important; }
+          .filter-container > div { width: 100%; }
+          .filter-container select, .filter-container input { width: 100% !important; }
         }
         @media (max-width: 480px) {
           .grid-stats { grid-template-columns: 1fr !important; }
+          .stats-card { padding: 16px !important; }
         }
       `}</style>
 
@@ -540,19 +549,42 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           {/* PEDIDOS VIEW */}
           {abaAtiva === 'pedidos' && (
             <div className="fade-in">
+              {/* Stats Grid - Atualiza corretamente */}
               <div className="grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 30 }}>
-                <StatCard title="Pendentes" value={stats.meus_pedidos_pendentes || 0} sub="Aguardando Ação" icon="◷" />
-                <StatCard title="Aprovados" value={stats.pedidos_aprovados || 0} sub="Autorizados Hoje" icon="✓" />
-                <StatCard title="Rejeitados" value={stats.pedidos_rejeitados || 0} sub="Negados" icon="✕" />
-                <StatCard title="Total Geral" value={stats.total_pedidos || 0} sub="Volume Acumulado" icon="◈" isGold />
+                <StatCard 
+                  title="Pendentes" 
+                  value={pedidos.filter(p => p.estado === 'PENDENTE_DIRECAO').length || 0} 
+                  sub="Aguardando Ação" 
+                  icon="◷" 
+                />
+                <StatCard 
+                  title="Aprovados" 
+                  value={pedidos.filter(p => p.estado === 'APROVADO').length || 0} 
+                  sub="Autorizados" 
+                  icon="✓" 
+                />
+                <StatCard 
+                  title="Rejeitados" 
+                  value={pedidos.filter(p => p.estado === 'REJEITADO').length || 0} 
+                  sub="Negados" 
+                  icon="✕" 
+                />
+                <StatCard 
+                  title="Total Geral" 
+                  value={pedidos.length || 0} 
+                  sub="Volume Acumulado" 
+                  icon="◈" 
+                  isGold 
+                />
               </div>
 
-              <div style={{ 
+              {/* Filter Toolbar - Mobile Friendly */}
+              <div className="filter-container" style={{ 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
                 flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
               }}>
                 <div style={{ display: 'flex', gap: 10, flex: 1, flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
                     <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
                       width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
                       background: T.bgAlt, color: T.textPrimary, fontSize: 13
@@ -560,12 +592,15 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                   </div>
                   <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={{
                     padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
-                    background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer'
+                    background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer',
+                    minWidth: 140
                   }}>
                     <option value="todos">Todos os Status</option>
                     <option value="PENDENTE_DIRECAO">Pendentes</option>
                     <option value="APROVADO">Aprovados</option>
                     <option value="REJEITADO">Rejeitados</option>
+                    <option value="EM_ANDAMENTO">Em Andamento</option>
+                    <option value="FINALIZADO">Finalizados</option>
                   </select>
                 </div>
                 <button onClick={() => setModalRelatorio(true)} style={{
@@ -575,16 +610,20 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                 }}>GERAR RELATÓRIO</button>
               </div>
 
+              {/* Data Table - Responsive */}
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
               ) : (
-                <div className="table-wrap" style={{ background: T.bgSurface, borderRadius: 2, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                <div className="table-responsive" style={{ background: T.bgSurface, borderRadius: 2, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: T.bgAlt, borderBottom: `2px solid ${T.border}` }}>
-                        {['ID', 'ESTUDANTE', 'CURSO', 'DATA SAÍDA', 'STATUS', 'AÇÕES'].map(h => (
-                          <th key={h} style={{ padding: '15px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: T.textSecondary, letterSpacing: 1 }}>{h}</th>
-                        ))}
+                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.textSecondary }}>ID</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.textSecondary }}>Estudante</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.textSecondary }}>Curso</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.textSecondary }}>Data Saída</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.textSecondary }}>Status</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: T.textSecondary }}>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -597,36 +636,43 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                         onMouseEnter={() => setHoveredRow(p.id)}
                         onMouseLeave={() => setHoveredRow(null)}
                         >
-                          <td style={{ padding: '15px 20px', fontWeight: 700, color: T.gold }}>#{p.id}</td>
-                          <td style={{ padding: '15px 20px' }}>
+                          <td style={{ padding: '12px 16px', fontWeight: 700, color: T.gold, whiteSpace: 'nowrap' }}>#{p.id}</td>
+                          <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontWeight: 600, color: T.textPrimary }}>{p.estudante_nome}</div>
-                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.estudante_email}</div>
+                            <div style={{ fontSize: 10, color: T.textSecondary }}>{p.estudante_email}</div>
                           </td>
-                          <td style={{ padding: '15px 20px', color: T.textSecondary }}>{p.estudante_curso || '-'}</td>
-                          <td style={{ padding: '15px 20px' }}>
-                            <div style={{ fontWeight: 500 }}>{formatarData(p.data_saida)}</div>
-                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.hora_saida}</div>
+                          <td style={{ padding: '12px 16px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{p.estudante_curso || '-'}</td>
+                          <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                            <div>{formatarData(p.data_saida)}</div>
+                            <div style={{ fontSize: 10, color: T.textSecondary }}>{p.hora_saida}</div>
                           </td>
-                          <td style={{ padding: '15px 20px' }}><StatusBadge status={p.estado} /></td>
-                          <td style={{ padding: '15px 20px' }}>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}><StatusBadge status={p.estado} /></td>
+                          <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                            <div className="action-buttons" style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                               <button onClick={() => setModalDetalhes(p)} style={{
-                                width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary
-                              }}>👁</button>
+                                width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                              }} title="Ver detalhes">👁</button>
+                              
                               {p.acoes_disponiveis?.includes('aprovar') && (
                                 <button onClick={() => abrirModalAprovacao(p.id)} style={{
-                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer', fontWeight: 700
-                                }}>✓</button>
+                                  width: 32, height: 32, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                }} title="Aprovar">✓</button>
                               )}
+                              
                               {p.acoes_disponiveis?.includes('rejeitar') && (
                                 <button onClick={() => rejeitarPedido(p.id)} style={{
-                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer', fontWeight: 700
-                                }}>✕</button>
+                                  width: 32, height: 32, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                }} title="Rejeitar">✕</button>
                               )}
+
                               {p.estado === 'PENDENTE_DIRECAO' && (
                                 <button onClick={() => encaminharPedido(p.id)} style={{
-                                  width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer'
-                                }}>➜</button>
+                                  width: 32, height: 32, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                }} title="Encaminhar">➜</button>
                               )}
                             </div>
                           </td>
@@ -645,7 +691,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
           {/* COLETIVAS VIEW */}
           {abaAtiva === 'coletivas' && (
             <div className="fade-in">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
                 {coletivas.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>Nenhuma saída coletiva criada</div>
                 ) : (
@@ -659,7 +705,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
                       <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.gold }} />
                       </div>
-                      <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12 }}>
+                      <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12, flexWrap: 'wrap' }}>
                         <span><strong>{c.total_convidados || 0}</strong> Convidados</span>
                         <span><strong style={{ color: T.success }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
                         <span><strong style={{ color: T.danger }}>{c.total_recusados || 0}</strong> Recusaram</span>
@@ -709,7 +755,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       {/* Approval Modal */}
       {modalAprovacao && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalAprovacao(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '90%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>APROVAR PEDIDO #{modalAprovacao}</h2>
             <div style={{ display: 'grid', gap: 15 }}>
               <div><label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA</label><input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} /></div>
@@ -730,7 +776,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       {/* Report Modal */}
       {modalRelatorio && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalRelatorio(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '90%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>GERAR RELATÓRIO</h2>
             <div style={{ display: 'grid', gap: 15 }}>
               <input type="date" value={dadosRelatorio.data_inicio} onChange={e => setDadosRelatorio({...dadosRelatorio, data_inicio: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
@@ -747,7 +793,7 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       {/* Details Modal */}
       {modalDetalhes && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalDetalhes(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 500, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '90%', maxWidth: 500, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>Detalhes do Pedido #{modalDetalhes.id}</h2>
             <div style={{ display: 'grid', gap: 12 }}>
               <p><strong>Estudante:</strong> {modalDetalhes.estudante_nome}</p>
