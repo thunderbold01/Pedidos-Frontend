@@ -1,17 +1,21 @@
-// src/api.js - COMPLETO E CORRIGIDO
+// src/api.js - VERSÃO SEGURA (SEM LOGS EM PRODUÇÃO)
 import axios from 'axios';
 
 // ==================== CONFIGURAÇÃO DE AMBIENTE ====================
 const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
+const isProduction = !isDevelopment;
 
-// URLs da API
+// URLs da API (ocultadas em produção)
 const LOCAL_API_URL = 'http://localhost:8000/api';
 const PROD_API_URL = 'https://pedidos-backend-fium.onrender.com/api';
 
-// Escolhe a URL baseada no ambiente
+// Escolhe a URL baseada no ambiente - SEM LOGS EM PRODUÇÃO
 const API_URL = isDevelopment ? LOCAL_API_URL : PROD_API_URL;
 
-console.log(`🔧 API configurada para: ${API_URL} (${isDevelopment ? 'Desenvolvimento Local' : 'Produção'})`);
+// Só mostra logs em desenvolvimento
+if (isDevelopment) {
+    console.log(`🔧 API configurada para: ${API_URL}`);
+}
 
 // ==================== CRIAÇÃO DA INSTÂNCIA ====================
 const api = axios.create({
@@ -24,7 +28,7 @@ const api = axios.create({
     withCredentials: false,
 });
 
-// ==================== INTERCEPTOR DE REQUEST ====================
+// ==================== INTERCEPTOR DE REQUEST (SEM LOGS EM PRODUÇÃO) ====================
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token');
@@ -32,6 +36,15 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
         
+        // Adicionar timestamp para evitar cache (apenas em desenvolvimento)
+        if (isDevelopment && config.method === 'get') {
+            config.params = {
+                ...config.params,
+                _t: Date.now()
+            };
+        }
+        
+        // LOG APENAS EM DESENVOLVIMENTO
         if (isDevelopment) {
             console.log(`📤 ${config.method?.toUpperCase()} ${config.url}`);
         }
@@ -39,14 +52,18 @@ api.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('❌ Erro no request:', error);
+        // Erro silencioso em produção
+        if (isDevelopment) {
+            console.error('❌ Erro no request:', error);
+        }
         return Promise.reject(error);
     }
 );
 
-// ==================== INTERCEPTOR DE RESPONSE ====================
+// ==================== INTERCEPTOR DE RESPONSE (SEM LOGS EM PRODUÇÃO) ====================
 api.interceptors.response.use(
     (response) => {
+        // LOG APENAS EM DESENVOLVIMENTO
         if (isDevelopment) {
             console.log(`📥 ${response.status} ${response.config.url}`);
         }
@@ -55,61 +72,101 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
         
+        // Erro de rede - mensagem genérica em produção
         if (!error.response) {
-            console.error('🌐 Erro de conexão:', error.message);
+            if (isDevelopment) {
+                console.error('🌐 Erro de conexão:', error.message);
+            }
             return Promise.reject({
-                message: 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
+                message: isDevelopment 
+                    ? 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.'
+                    : 'Erro de conexão. Tente novamente.',
                 type: 'NETWORK_ERROR',
-                original: error
+                original: isDevelopment ? error : undefined
             });
         }
         
+        // Erro 403 - Sem permissão
         if (error.response.status === 403) {
-            console.error('🔒 Erro 403:', error.response.data);
+            if (isDevelopment) {
+                console.error('🔒 Erro 403:', error.response.data);
+            }
             return Promise.reject({
                 message: error.response.data?.error || 'Acesso negado. Verifique suas credenciais.',
                 type: 'FORBIDDEN',
                 status: 403,
-                original: error
+                original: isDevelopment ? error : undefined
             });
         }
         
+        // Token expirado (401) - tentar renovar
         if (error.response.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             
             const refreshToken = localStorage.getItem('refresh_token');
             if (refreshToken) {
                 try {
-                    const res = await axios.post(`${API_URL}/token/refresh/`, {
+                    if (isDevelopment) {
+                        console.log('🔄 Tentando renovar token...');
+                    }
+                    
+                    const response = await axios.post(`${API_URL}/token/refresh/`, {
                         refresh: refreshToken
                     });
                     
-                    const newToken = res.data.access;
+                    const newToken = response.data.access;
                     localStorage.setItem('access_token', newToken);
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
                     
                     return api(originalRequest);
                 } catch (refreshError) {
-                    console.error('❌ Falha ao renovar token');
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    if (window.location.pathname !== '/login') {
-                        window.location.href = '/login';
+                    if (isDevelopment) {
+                        console.error('❌ Falha ao renovar token');
                     }
+                    clearAuthData();
+                    redirectToLogin();
+                    return Promise.reject({
+                        message: 'Sessão expirada. Faça login novamente.',
+                        type: 'SESSION_EXPIRED',
+                        original: isDevelopment ? refreshError : undefined
+                    });
                 }
             } else {
-                localStorage.clear();
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
-                }
+                clearAuthData();
+                redirectToLogin();
+                return Promise.reject({
+                    message: 'Sessão inválida. Faça login novamente.',
+                    type: 'NO_TOKEN'
+                });
             }
         }
         
-        return Promise.reject(error);
+        // Mensagem de erro genérica para produção
+        const errorMessage = isDevelopment
+            ? (error.response?.data?.error || error.response?.data?.message || error.message || 'Erro desconhecido')
+            : 'Ocorreu um erro. Tente novamente mais tarde.';
+        
+        return Promise.reject({
+            message: errorMessage,
+            type: 'UNKNOWN_ERROR',
+            status: error.response?.status,
+            data: isDevelopment ? error.response?.data : undefined,
+            original: isDevelopment ? error : undefined
+        });
     }
 );
 
 // ==================== FUNÇÕES AUXILIARES ====================
+
+// Limpar dados de autenticação
+export const clearAuthData = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_data');
+    sessionStorage.clear();
+};
+
+// Verificar se está autenticado
 export const isAuthenticated = () => {
     const token = localStorage.getItem('access_token');
     if (!token) return false;
@@ -123,17 +180,20 @@ export const isAuthenticated = () => {
     }
 };
 
-export const clearTokens = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_data');
-    sessionStorage.clear();
+// Redirecionar para login (sem logs)
+export const redirectToLogin = () => {
+    const publicPaths = ['/login', '/register', '/2fa'];
+    if (!publicPaths.includes(window.location.pathname)) {
+        window.location.href = '/login';
+    }
 };
 
+// Salvar dados do usuário
 export const saveUserData = (user) => {
     localStorage.setItem('user_data', JSON.stringify(user));
 };
 
+// Obter dados do usuário
 export const getUserData = () => {
     try {
         const data = localStorage.getItem('user_data');
@@ -144,6 +204,8 @@ export const getUserData = () => {
 };
 
 // ==================== FUNÇÕES DE AUTENTICAÇÃO ====================
+
+// Login
 export const login = async (email, password) => {
     try {
         const response = await api.post('/auth/login/', { email, password });
@@ -157,12 +219,13 @@ export const login = async (email, password) => {
     } catch (error) {
         return {
             success: false,
-            error: error.response?.data?.error || error.message || 'Erro ao fazer login',
-            status: error.response?.status
+            error: error.message || 'Erro ao fazer login',
+            status: error.status
         };
     }
 };
 
+// Logout
 export const logout = async () => {
     try {
         const refreshToken = localStorage.getItem('refresh_token');
@@ -170,12 +233,16 @@ export const logout = async () => {
             await api.post('/auth/logout/', { refresh: refreshToken });
         }
     } catch (error) {
-        console.error('Erro no logout:', error);
+        // Silencioso em produção
+        if (isDevelopment) {
+            console.error('Erro no logout:', error);
+        }
     } finally {
-        clearTokens();
+        clearAuthData();
     }
 };
 
+// Obter usuário atual
 export const getUser = async () => {
     try {
         const response = await api.get('/user/me/');
@@ -272,7 +339,7 @@ export const marcarSaida = async (pedidoId, horaSaida = null) => {
     try {
         const data = horaSaida ? { hora_saida: horaSaida } : {};
         const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`, data);
-        return { success: true, message: response.data.message, hora: response.data.hora, ajustado: response.data.ajustado };
+        return { success: true, message: response.data.message, hora: response.data.hora };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -286,8 +353,7 @@ export const marcarRetorno = async (pedidoId, horaRetorno = null) => {
             success: true, 
             message: response.data.message, 
             atrasado: response.data.atrasado, 
-            tempo_atraso: response.data.tempo_atraso,
-            ajustado: response.data.ajustado
+            tempo_atraso: response.data.tempo_atraso
         };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
@@ -308,7 +374,7 @@ export const enviarRelatorioSaidas = async (data = null) => {
     try {
         const requestData = data ? { data } : {};
         const response = await api.post('/seguranca/enviar-relatorio/', requestData);
-        return { success: true, message: response.data.message, relatorio_id: response.data.relatorio_id, conteudo: response.data.conteudo };
+        return { success: true, message: response.data.message };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -327,7 +393,7 @@ export const getMinhasColetivas = async () => {
 export const aceitarColetiva = async (conviteId) => {
     try {
         const response = await api.post(`/coletivas/${conviteId}/aceitar/`);
-        return { success: true, message: response.data.message, pedido_id: response.data.pedido_id };
+        return { success: true, message: response.data.message };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -345,7 +411,7 @@ export const recusarColetiva = async (conviteId) => {
 export const criarSaidaColetiva = async (dados) => {
     try {
         const response = await api.post('/coletivas/criar/', dados);
-        return { success: true, message: response.data.message, id: response.data.id, convidados: response.data.convidados };
+        return { success: true, message: response.data.message, id: response.data.id };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -382,7 +448,7 @@ export const encerrarColetiva = async (coletivaId) => {
 export const confirmarSaidaColetiva = async (coletivaId) => {
     try {
         const response = await api.post(`/coletivas/${coletivaId}/confirmar-saida/`);
-        return { success: true, message: response.data.message, total: response.data.total_confirmados };
+        return { success: true, message: response.data.message };
     } catch (error) {
         return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -392,7 +458,7 @@ export const confirmarSaidaColetiva = async (coletivaId) => {
 export const getRelatorios = async () => {
     try {
         const response = await api.get('/relatorios/');
-        return { success: true, relatorios: response.data.relatorios || [], total: response.data.total };
+        return { success: true, relatorios: response.data.relatorios || [] };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -401,7 +467,7 @@ export const getRelatorios = async () => {
 export const getRelatorioColetivasDITE = async () => {
     try {
         const response = await api.get('/relatorios/dite/coletivas/');
-        return { success: true, conteudo: response.data.conteudo, relatorio_id: response.data.relatorio_id };
+        return { success: true, conteudo: response.data.conteudo };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -429,7 +495,7 @@ export const deleteRelatorio = async (relatorioId) => {
 export const getNotificacoes = async () => {
     try {
         const response = await api.get('/notificacoes/');
-        return { success: true, notificacoes: response.data.notificacoes || [], nao_lidas: response.data.nao_lidas || 0, total: response.data.total };
+        return { success: true, notificacoes: response.data.notificacoes || [], nao_lidas: response.data.nao_lidas || 0 };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -464,11 +530,10 @@ export const getDashboard = async () => {
 };
 
 // ==================== FUNÇÕES DE ALERTAS ====================
-export const getAlertasAtraso = async (marcarLidos = false) => {
+export const getAlertasAtraso = async () => {
     try {
-        const url = marcarLidos ? '/seguranca/alertas-atraso/?marcar_lidos=true' : '/seguranca/alertas-atraso/';
-        const response = await api.get(url);
-        return { success: true, alertas: response.data.alertas || [], total: response.data.total };
+        const response = await api.get('/seguranca/alertas-atraso/');
+        return { success: true, alertas: response.data.alertas || [] };
     } catch (error) {
         return { success: false, error: error.message };
     }
