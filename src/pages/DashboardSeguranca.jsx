@@ -1,973 +1,856 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-const DashboardSeguranca = ({ user, onLogout }) => {
-  // ==================== ESTADOS (100% MANTIDOS) ====================
-  const [pedidosSaida, setPedidosSaida] = useState([]);
-  const [pedidosAndamento, setPedidosAndamento] = useState([]);
-  const [pedidosFinalizados, setPedidosFinalizados] = useState([]);
+// ============================================================
+// DASHBOARD ADMINISTRACAO — Enterprise Edition (Mobile Optimized)
+// Design Premium: Gold Accents, Black Typography, Red/Black Gradients
+// Fully Responsive, Dark Mode Detection, Auto-Refresh
+// ============================================================
+const DashboardAdministracao = ({ user, onLogout }) => {
+  // ==================== STATE MANAGEMENT ====================
+  const [pedidos, setPedidos] = useState([]);
+  const [stats, setStats] = useState({});
+  const [coletivas, setColetivas] = useState([]);
+  const [relatorios, setRelatorios] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [abaAtiva, setAbaAtiva] = useState('overview');
-  const [dataSelecionada, setDataSelecionada] = useState(() => new Date().toISOString().split('T')[0]);
-  const [relatorio, setRelatorio] = useState(null);
-  const [mostrarModalData, setMostrarModalData] = useState(false);
-  const [dataRelatorio, setDataRelatorio] = useState(() => new Date().toISOString().split('T')[0]);
-  const [enviando, setEnviando] = useState(false);
+  
+  // Filters & Navigation
+  const [filtroEstado, setFiltroEstado] = useState('PENDENTE_DIRECAO');
+  const [filtroData, setFiltroData] = useState(() => new Date().toISOString().split('T')[0]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [abaAtiva, setAbaAtiva] = useState('pedidos');
+  
+  // UI States
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState(null);
   const [horaAtual, setHoraAtual] = useState('');
+  const [lastSync, setLastSync] = useState('');
+  
+  // Modals & Overlays
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [modalAprovacao, setModalAprovacao] = useState(null);
+  const [modalRelatorio, setModalRelatorio] = useState(false);
+  const [modalDetalhes, setModalDetalhes] = useState(null);
+  const [modalColetiva, setModalColetiva] = useState(false);
+  
+  // Form Data
+  const [dadosAprovacao, setDadosAprovacao] = useState({ data_saida: '', hora_saida: '07:00', data_volta: '', hora_volta: '19:00' });
+  const [dadosRelatorio, setDadosRelatorio] = useState({ data_inicio: '', data_fim: '' });
+  const [dadosColetiva, setDadosColetiva] = useState({ titulo: '', descricao: '', data_saida: '', data_volta: '', prazo_horas: '24' });
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
+  const [criandoColetiva, setCriandoColetiva] = useState(false);
+  
+  // Notifications
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
-  const [showNotificacoes, setShowNotificacoes] = useState(false);
-  const [stats, setStats] = useState({ saidas_hoje: 0, em_andamento: 0, atrasos_hoje: 0 });
-  const [filtroNome, setFiltroNome] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Tema: auto-detect + toggle
-  const [themeMode, setThemeMode] = useState(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-    return 'light';
-  });
-  const isDark = themeMode === 'dark';
-
+  const navigate = useNavigate();
   const notifRef = useRef(null);
 
-  // ==================== RELÓGIO ====================
-  useEffect(() => {
-    const atualizar = () => setHoraAtual(new Date().toLocaleTimeString('pt-BR'));
-    atualizar();
-    const t = setInterval(atualizar, 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  // Auto-detect system theme changes
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e) => setThemeMode(e.matches ? 'dark' : 'light');
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  // Fecha popover de notificações clicando fora
-  useEffect(() => {
-    const h = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotificacoes(false);
-    };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  // ==================== CARREGAR DADOS (100% MANTIDO) ====================
-  useEffect(() => {
-    carregarDashboard();
-    carregarDados();
-    carregarNotificacoes();
-    // eslint-disable-next-line
-  }, [dataSelecionada]);
-
-  const carregarDashboard = async () => {
-    try {
-      const res = await api.get('/seguranca/dashboard/');
-      setStats(res.data);
-    } catch (err) { console.error('Erro dashboard:', err); }
+  // ==================== THEME ENGINE (Persistent + System Detect) ====================
+  const getInitialTheme = () => {
+    if (typeof window === 'undefined') return 'light';
+    const saved = localStorage.getItem('admin-enterprise-theme');
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   };
 
-  const carregarNotificacoes = async () => {
+  const [themeMode, setThemeMode] = useState(getInitialTheme);
+  const isDark = themeMode === 'dark';
+
+  const toggleTheme = useCallback((mode) => {
+    setThemeMode(mode);
+    localStorage.setItem('admin-enterprise-theme', mode);
+  }, []);
+
+  // ==================== DESIGN TOKENS (Premium Palette) ====================
+  const T = useMemo(() => {
+    const gold = '#C5A028';
+    const goldLight = '#E6C86E';
+    const goldDark = '#8F7010';
+    const red = '#8B0000';
+    const black = '#0A0A0A';
+    const white = '#FFFFFF';
+    
+    const bgMain = isDark ? '#050505' : '#F4F4F0';
+    const bgSurface = isDark ? '#121212' : '#FFFFFF';
+    const textPrimary = isDark ? '#EAEAEA' : '#000000';
+    const textSecondary = isDark ? '#A0A0A0' : '#555555';
+    const border = isDark ? '#333333' : '#E0E0E0';
+    
+    const gradientGold = `linear-gradient(135deg, ${gold}, ${goldDark})`;
+    const gradientRedBlack = `linear-gradient(135deg, ${red}, #000000)`;
+    const shadowSoft = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.05)';
+    const shadowHover = isDark ? '0 8px 30px rgba(0,0,0,0.7)' : '0 8px 30px rgba(0,0,0,0.1)';
+    const glowGold = isDark ? `0 0 15px rgba(197, 160, 40, 0.15)` : `0 0 10px rgba(197, 160, 40, 0.1)`;
+
+    return {
+      gold, goldLight, goldDark, red, black, white,
+      bgMain, bgSurface,
+      bgAlt: isDark ? '#1A1A1A' : '#FAFAFA',
+      textPrimary, textSecondary,
+      border, borderStrong: isDark ? '#444' : '#CCC',
+      gradientGold, gradientRedBlack,
+      shadowSoft, shadowHover, glowGold,
+      success: '#2E7D32',
+      warning: '#F9A825',
+      danger: '#C62828',
+      glass: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.9)',
+    };
+  }, [isDark]);
+
+  // ==================== EFFECTS & DATA LOADING ====================
+  
+  useEffect(() => {
+    const timer = setInterval(() => setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        await Promise.all([carregarDados(), carregarNotificacoes()]);
+        setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+      } catch (e) { console.error(e); }
+    };
+
+    fetchData();
+    
+    const interval = setInterval(fetchData, 30000);
+    const handleVis = () => !document.hidden && fetchData();
+    
+    document.addEventListener('visibilitychange', handleVis);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVis); };
+  }, [filtroEstado, filtroData]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) setShowNotifDropdown(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const carregarDados = useCallback(async () => {
+    setLoading(true);
+    try {
+      let url = '/pedidos/';
+      const params = new URLSearchParams();
+      if (filtroEstado !== 'todos') params.append('estado', filtroEstado);
+      if (filtroData) params.append('data_saida', filtroData);
+      if (params.toString()) url += `?${params.toString()}`;
+      
+      const [pedRes, statsRes] = await Promise.all([api.get(url), api.get('/dashboard/')]);
+      setPedidos(pedRes.data.pedidos || []);
+      setStats(statsRes.data);
+    } catch (err) { console.error('Error loading data:', err); }
+    finally { setLoading(false); }
+  }, [filtroEstado, filtroData]);
+
+  const carregarNotificacoes = useCallback(async () => {
     try {
       const res = await api.get('/notificacoes/');
       setNotificacoes(res.data.notificacoes || []);
       setNotificacoesNaoLidas(res.data.nao_lidas || 0);
-    } catch (err) { console.error('Erro notificações:', err); }
-  };
-
-  const marcarNotificacaoLida = async (id) => {
-    try {
-      await api.post(`/notificacoes/${id}/ler/`);
-      carregarNotificacoes();
     } catch (err) {}
+  }, []);
+
+  const carregarColetivas = useCallback(async () => {
+    try { const res = await api.get('/coletivas/listar/'); setColetivas(res.data.coletivas || []); } catch (err) {}
+  }, []);
+
+  const carregarRelatorios = useCallback(async () => {
+    try { const res = await api.get('/relatorios/'); setRelatorios(res.data.relatorios || []); } catch (err) {}
+  }, []);
+
+  useEffect(() => {
+    carregarColetivas();
+    carregarRelatorios();
+  }, []);
+
+  // Actions
+  const marcarNotificacaoLida = async (id) => {
+    try { await api.post(`/notificacoes/${id}/ler/`); carregarNotificacoes(); } catch (err) {}
   };
 
-  const carregarDados = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get(`/seguranca/saidas-data/?data=${dataSelecionada}`);
-      const dados = response.data.saidas || [];
-      setPedidosSaida(dados.filter(p => p.estado === 'APROVADO'));
-      setPedidosAndamento(dados.filter(p => p.estado === 'EM_ANDAMENTO'));
-      setPedidosFinalizados(dados.filter(p => p.estado === 'FINALIZADO'));
-    } catch (err) {
-      console.error('Erro carregar dados:', err);
-      try {
-        const res = await api.get('/pedidos/');
-        const todos = res.data.pedidos || [];
-        const filtrados = todos.filter(p => {
-          const dataPedido = p.data_saida_confirmada?.split(' ')[0] || p.data_saida?.split(' ')[0];
-          return dataPedido === dataSelecionada &&
-            ['APROVADO', 'EM_ANDAMENTO', 'FINALIZADO'].includes(p.estado);
-        });
-        setPedidosSaida(filtrados.filter(p => p.estado === 'APROVADO'));
-        setPedidosAndamento(filtrados.filter(p => p.estado === 'EM_ANDAMENTO'));
-        setPedidosFinalizados(filtrados.filter(p => p.estado === 'FINALIZADO'));
-      } catch (err2) { console.error('Fallback erro:', err2); }
-    } finally { setLoading(false); }
+  const abrirModalAprovacao = (pedidoId) => {
+    const hoje = new Date().toISOString().split('T')[0];
+    setDadosAprovacao({ data_saida: hoje, hora_saida: '07:00', data_volta: hoje, hora_volta: '19:00' });
+    setModalAprovacao(pedidoId);
   };
 
-  // ==================== AÇÕES (100% MANTIDAS) ====================
-  const marcarSaida = async (pedidoId) => {
-    if (!window.confirm('✅ Confirmar SAÍDA?')) return;
+  const confirmarAprovacao = async () => {
     try {
-      const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`);
-      alert(`✅ Saída registrada às ${response.data.hora}`);
-      carregarDados(); carregarDashboard();
+      await api.post(`/pedidos/${modalAprovacao}/aprovar/`, dadosAprovacao);
+      alert('✅ Pedido aprovado com sucesso.');
+      setModalAprovacao(null);
+      carregarDados();
+    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Falha na aprovação')); }
+  };
+
+  const rejeitarPedido = async (id) => {
+    const motivo = prompt('📝 Motivo da rejeição:');
+    if (!motivo) return;
+    try {
+      await api.post(`/pedidos/${id}/rejeitar/`, { comentario: motivo });
+      alert('✅ Pedido rejeitado.');
+      carregarDados();
+    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Falha na rejeição')); }
+  };
+
+  const encaminharPedido = async (id) => {
+    if (!confirm('📤 Encaminhar para Direção?')) return;
+    try {
+      await api.post(`/pedidos/${id}/passar/`);
+      alert('✅ Pedido encaminhado para Direção.');
+      carregarDados();
+    } catch (err) { alert('❌ Erro ao encaminhar'); }
+  };
+
+  const criarColetiva = async () => {
+    if (!dadosColetiva.titulo || !dadosColetiva.data_saida || !dadosColetiva.data_volta) {
+      alert('⚠️ Preencha todos os campos obrigatórios');
+      return;
+    }
+    setCriandoColetiva(true);
+    try {
+      await api.post('/coletivas/criar/', dadosColetiva);
+      alert('✅ Saída coletiva criada com sucesso!');
+      setModalColetiva(false);
+      setDadosColetiva({ titulo: '', descricao: '', data_saida: '', data_volta: '', prazo_horas: '24' });
+      carregarColetivas();
     } catch (err) {
-      alert('❌ Erro: ' + (err.response?.data?.error || 'Erro ao marcar saída'));
+      alert('❌ Erro ao criar saída coletiva: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setCriandoColetiva(false);
     }
   };
 
-  const marcarSaidaAjustada = async (pedidoId) => {
-    const hora = window.prompt('⏰ Hora da SAÍDA (HH:MM):', '07:00');
-    if (!hora) return;
-    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hora)) { alert('❌ Formato inválido! Use HH:MM'); return; }
+  const gerarRelatorio = async () => {
+    if (!dadosRelatorio.data_inicio || !dadosRelatorio.data_fim) return alert('Preencha as datas');
+    setGerandoRelatorio(true);
     try {
-      const response = await api.post(`/pedidos/${pedidoId}/marcar-saida/`, { hora_saida: hora });
-      alert(`✅ Saída registrada: ${response.data.hora}`);
-      carregarDados();
-    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Erro')); }
+      await api.post('/relatorios/criar/', {
+        titulo: `Relatório Admin - ${new Date().toLocaleDateString()}`,
+        tipo: 'PERSONALIZADO', descricao: 'Gerado via Painel Admin',
+        data_inicio: dadosRelatorio.data_inicio, data_fim: dadosRelatorio.data_fim
+      });
+      alert('✅ Relatório gerado com sucesso.');
+      carregarRelatorios();
+      setModalRelatorio(false);
+      setDadosRelatorio({ data_inicio: '', data_fim: '' });
+    } catch (err) { alert('❌ Erro ao gerar relatório'); }
+    finally { setGerandoRelatorio(false); }
   };
 
-  const marcarRetorno = async (pedidoId) => {
-    if (!window.confirm('🔴 Confirmar RETORNO?')) return;
+  const baixarRelatorio = async (id) => {
     try {
-      const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`);
-      let msg = `✅ Retorno às ${response.data.hora}`;
-      if (response.data.atrasado) msg += `\n⚠️ ATRASO: ${response.data.tempo_atraso} minutos!`;
-      alert(msg);
-      carregarDados(); carregarDashboard();
-    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Erro')); }
+      const res = await api.get(`/relatorios/download/${id}/`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url; a.download = `relatorio_${id}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) { alert('❌ Erro no download'); }
   };
 
-  const marcarRetornoAjustado = async (pedidoId) => {
-    const hora = window.prompt('⏰ Hora do RETORNO (HH:MM):', '19:00');
-    if (!hora) return;
-    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(hora)) { alert('❌ Formato inválido! Use HH:MM'); return; }
-    try {
-      const response = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`, { hora_retorno: hora });
-      alert(`✅ Retorno registrado: ${response.data.hora}`);
-      carregarDados();
-    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Erro')); }
-  };
+  const formatarData = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-';
+  
+  const pedidosFiltrados = useMemo(() => pedidos.filter(p => 
+    p.estudante_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.id.toString().includes(searchTerm)
+  ), [pedidos, searchTerm]);
 
-  const gerarRelatorioCompleto = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get(`/seguranca/relatorio-completo/?data=${dataRelatorio}`);
-      setRelatorio(response.data);
-      setMostrarModalData(false);
-      alert('✅ Relatório completo gerado com sucesso!');
-    } catch (err) {
-      alert('❌ Erro ao gerar relatório: ' + (err.response?.data?.error || err.message));
-    } finally { setLoading(false); }
-  };
+  const StatusBadge = ({ status }) => {
+    let color = T.textSecondary;
+    let bg = T.bgAlt;
+    
+    if (status.includes('APROVADO')) { color = T.success; bg = `${T.success}15`; }
+    else if (status.includes('REJEITADO')) { color = T.danger; bg = `${T.danger}15`; }
+    else if (status.includes('PENDENTE')) { color = T.gold; bg = `${T.gold}15`; }
+    else if (status.includes('ANDAMENTO')) { color = '#1976D2'; bg = '#1976D215'; }
 
-  const enviarRelatorio = async () => {
-    if (!relatorio) return;
-    setEnviando(true);
-    try {
-      await api.post('/seguranca/enviar-relatorio/', { data: relatorio.data, conteudo: relatorio.texto_relatorio });
-      alert('✅ Relatório enviado para DITE!');
-      setRelatorio(null);
-    } catch (err) {
-      alert('❌ Erro ao enviar: ' + (err.response?.data?.error || err.message));
-    } finally { setEnviando(false); }
-  };
-
-  // ==================== HELPERS ====================
-  const formatarData = (dataStr) => {
-    if (!dataStr) return '-';
-    const d = new Date(dataStr + 'T00:00:00');
-    return d.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
-  const filtrarPorNome = (lista) => {
-    if (!filtroNome.trim()) return lista;
-    const termo = filtroNome.toLowerCase();
-    return lista.filter(p =>
-      p.estudante_nome?.toLowerCase().includes(termo) ||
-      p.estudante_curso?.toLowerCase().includes(termo)
-    );
-  };
-
-  const saidaFiltrada = useMemo(() => filtrarPorNome(pedidosSaida), [pedidosSaida, filtroNome]);
-  const andamentoFiltrado = useMemo(() => filtrarPorNome(pedidosAndamento), [pedidosAndamento, filtroNome]);
-  const finalizadosFiltrado = useMemo(() => filtrarPorNome(pedidosFinalizados), [pedidosFinalizados, filtroNome]);
-
-  const totalDia = pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length;
-  const taxaConclusao = totalDia > 0 ? Math.round((pedidosFinalizados.length / totalDia) * 100) : 0;
-
-  // ==================== DESIGN TOKENS (B&W) ====================
-  const T = {
-    bg: isDark ? '#0a0a0a' : '#ffffff',
-    bgSecondary: isDark ? '#111111' : '#f5f5f5',
-    bgTertiary: isDark ? '#1a1a1a' : '#fafafa',
-    surface: isDark ? '#141414' : '#ffffff',
-    surfaceAlt: isDark ? '#1c1c1c' : '#f0f0f0',
-    surfaceHover: isDark ? '#222222' : '#e8e8e8',
-    border: isDark ? '#2a2a2a' : '#e5e5e5',
-    borderStrong: isDark ? '#3a3a3a' : '#d4d4d4',
-    text: isDark ? '#f0f0f0' : '#0a0a0a',
-    textMuted: isDark ? '#888888' : '#666666',
-    textSoft: isDark ? '#555555' : '#999999',
-    accent: isDark ? '#ffffff' : '#0a0a0a',
-    accentSoft: isDark ? '#ffffff12' : '#0a0a0a08',
-    success: isDark ? '#4ade80' : '#16a34a',
-    warning: isDark ? '#fbbf24' : '#d97706',
-    danger: isDark ? '#f87171' : '#dc2626',
-    info: isDark ? '#60a5fa' : '#2563eb',
-    radius: 16,
-    radiusSm: 10,
-    shadow: isDark
-      ? '0 1px 3px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.3)'
-      : '0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06)',
-    shadowHover: isDark
-      ? '0 4px 12px rgba(0,0,0,.6), 0 16px 40px rgba(0,0,0,.4)'
-      : '0 4px 12px rgba(0,0,0,.1), 0 16px 40px rgba(0,0,0,.08)',
-    shadowInner: isDark ? 'inset 0 1px 3px rgba(0,0,0,.5)' : 'inset 0 1px 3px rgba(0,0,0,.08)',
-    glass: isDark ? 'rgba(20,20,20,.8)' : 'rgba(255,255,255,.8)',
-    glassBorder: isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)',
-  };
-
-  // ==================== SUB COMPONENTES ====================
-
-  // Speedometer / Gauge Component
-  const SpeedGauge = ({ value, max, label, subtitle, color }) => {
-    const pct = Math.min(value / Math.max(max, 1), 1);
-    const startAngle = -225;
-    const endAngle = 45;
-    const totalArc = endAngle - startAngle;
-    const currentAngle = startAngle + totalArc * pct;
-    const cx = 70, cy = 70, r = 55;
-
-    const polarToCartesian = (angle) => {
-      const rad = (angle * Math.PI) / 180;
-      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-    };
-
-    const describeArc = (startA, endA) => {
-      const s = polarToCartesian(startA);
-      const e = polarToCartesian(endA);
-      const largeArc = Math.abs(endA - startA) > 180 ? 1 : 0;
-      return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
-    };
-
-    const needleEnd = polarToCartesian(currentAngle);
-
-    return (
-      <div style={{
-        background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius,
-        padding: '20px 16px 16px', boxShadow: T.shadow, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', gap: 8, position: 'relative', overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-          background: `linear-gradient(90deg, transparent, ${color || T.accent}, transparent)`,
-          opacity: .6
-        }} />
-        <svg width="140" height="140" viewBox="0 0 140 140" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.1))' }}>
-          {/* Background arc */}
-          <path d={describeArc(startAngle, endAngle)} fill="none" stroke={T.border} strokeWidth="8" strokeLinecap="round" />
-          {/* Value arc */}
-          {pct > 0 && (
-            <path d={describeArc(startAngle, currentAngle)} fill="none" stroke={color || T.accent} strokeWidth="8" strokeLinecap="round"
-              style={{ transition: 'all .6s cubic-bezier(.4,0,.2,1)' }} />
-          )}
-          {/* Needle */}
-          <line x1={cx} y1={cy} x2={needleEnd.x} y2={needleEnd.y} stroke={color || T.accent} strokeWidth="2.5" strokeLinecap="round"
-            style={{ transition: 'all .6s cubic-bezier(.4,0,.2,1)' }} />
-          <circle cx={cx} cy={cy} r="4" fill={color || T.accent} />
-          <circle cx={cx} cy={cy} r="2" fill={T.bg} />
-          {/* Tick marks */}
-          {Array.from({ length: 11 }).map((_, i) => {
-            const a = startAngle + (totalArc / 10) * i;
-            const inner = polarToCartesian(a);
-            const outer = polarToCartesian(a);
-            const ri = r - 12;
-            const ro = r - 8;
-            return (
-              <line key={i}
-                x1={cx + ri * Math.cos(a * Math.PI / 180)} y1={cy + ri * Math.sin(a * Math.PI / 180)}
-                x2={cx + ro * Math.cos(a * Math.PI / 180)} y2={cy + ro * Math.sin(a * Math.PI / 180)}
-                stroke={T.textSoft} strokeWidth="1" opacity=".4" />
-            );
-          })}
-        </svg>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.text, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-          <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: .5, marginTop: 2 }}>{label}</div>
-          {subtitle && <div style={{ fontSize: 10, color: T.textSoft, marginTop: 2 }}>{subtitle}</div>}
-        </div>
-      </div>
-    );
-  };
-
-  // Horizontal bar progress
-  const BarProgress = ({ value, max, label, color }) => {
-    const pct = Math.min((value / Math.max(max, 1)) * 100, 100);
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: T.textMuted }}>{label}</span>
-          <span style={{ fontSize: 14, fontWeight: 800, color: T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-        </div>
-        <div style={{ height: 6, background: T.surfaceAlt, borderRadius: 3, overflow: 'hidden', border: `1px solid ${T.border}` }}>
-          <div style={{
-            height: '100%', width: `${pct}%`, background: color || T.accent, borderRadius: 3,
-            transition: 'width .6s cubic-bezier(.4,0,.2,1)'
-          }} />
-        </div>
-      </div>
-    );
-  };
-
-  const Badge = ({ children, tone = 'primary' }) => {
-    const map = {
-      primary: [T.accentSoft, T.text],
-      success: [isDark ? '#4ade8018' : '#16a34a15', T.success],
-      warning: [isDark ? '#fbbf2418' : '#d9770615', T.warning],
-      danger:  [isDark ? '#f8717118' : '#dc262615', T.danger],
-      info:    [isDark ? '#60a5fa18' : '#2563eb15', T.info],
-      muted:   [T.surfaceAlt, T.textMuted],
-    };
-    const [bg, fg] = map[tone] || map.primary;
     return (
       <span style={{
-        background: bg, color: fg, padding: '3px 10px', borderRadius: 999,
-        fontSize: 10, fontWeight: 700, letterSpacing: .5, textTransform: 'uppercase',
-        border: `1px solid ${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)'}`
-      }}>{children}</span>
+        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+        borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+        backgroundColor: bg, color: color, border: `1px solid ${color}30`,
+        textTransform: 'uppercase'
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
+        {status.replace(/_/g, ' ')}
+      </span>
     );
   };
 
-  const TabBtn = ({ id, icon, label, count, tone }) => {
-    const active = abaAtiva === id;
-    return (
-      <button
-        onClick={() => { setAbaAtiva(id); setSidebarOpen(false); }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-          padding: '12px 16px', border: 'none',
-          background: active ? T.accentSoft : 'transparent',
-          color: active ? T.text : T.textMuted,
-          fontWeight: active ? 700 : 500, fontSize: 13, borderRadius: 10,
-          cursor: 'pointer', textAlign: 'left', transition: 'all .2s ease',
-          position: 'relative', fontFamily: 'inherit'
-        }}
-      >
-        {active && <span style={{
-          position: 'absolute', left: 0, top: 12, bottom: 12, width: 3,
-          background: T.accent, borderRadius: 0,
-          boxShadow: `0 0 8px ${T.accent}40`
-        }} />}
-        <span style={{ fontSize: 16, width: 22, textAlign: 'center', filter: active ? 'none' : 'grayscale(1)' }}>{icon}</span>
-        <span style={{ flex: 1 }}>{label}</span>
-        {count > 0 && <Badge tone={tone || 'primary'}>{count}</Badge>}
-      </button>
-    );
-  };
-
-  const PedidoCard = ({ p, tipo }) => {
-    const cfg = {
-      saida: { tone: 'warning', emoji: '🎓', tag: 'Aguardando', primaryAct: { color: T.success, label: 'Registrar Saída', icon: '✅', fn: () => marcarSaida(p.id) }, adjustFn: () => marcarSaidaAjustada(p.id) },
-      andamento: { tone: 'info', emoji: '🚶', tag: 'Em rota', primaryAct: { color: T.danger, label: 'Registrar Retorno', icon: '🔴', fn: () => marcarRetorno(p.id) }, adjustFn: () => marcarRetornoAjustado(p.id) },
-      finalizado: { tone: 'success', emoji: '✅', tag: 'Concluído' },
-    }[tipo];
-
-    return (
-      <div style={{
-        background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius,
-        padding: 20, boxShadow: T.shadow, display: 'flex', flexDirection: 'column', gap: 14,
-        transition: 'all .25s cubic-bezier(.4,0,.2,1)', position: 'relative', overflow: 'hidden'
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = T.shadowHover; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = isDark ? '#3a3a3a' : '#ccc'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = T.shadow; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = T.border; }}
-      >
-        {/* Top accent line */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-          background: `linear-gradient(90deg, ${cfg.tone === 'warning' ? T.warning : cfg.tone === 'info' ? T.info : T.success}, transparent)`,
-          opacity: .5
-        }} />
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 14,
-            background: T.surfaceAlt, border: `1px solid ${T.border}`,
-            display: 'grid', placeItems: 'center', fontSize: 24, flexShrink: 0,
-            boxShadow: T.shadowInner
-          }}>{cfg.emoji}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {p.estudante_nome}
-            </div>
-            <div style={{ fontSize: 12, color: T.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
-              {p.estudante_curso || 'Curso não informado'}
-            </div>
-          </div>
-          <Badge tone={cfg.tone}>{cfg.tag}</Badge>
+  const StatCard = ({ title, value, sub, icon, isGold }) => (
+    <div style={{
+      background: isGold ? T.gradientGold : T.bgSurface,
+      borderRadius: 2,
+      padding: 24,
+      boxShadow: T.shadowSoft,
+      border: isGold ? 'none' : `1px solid ${T.border}`,
+      position: 'relative', overflow: 'hidden',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      minHeight: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+    }}
+    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = T.shadowHover; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = T.shadowSoft; }}
+    >
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: isGold ? 'rgba(255,255,255,0.3)' : T.gradientRedBlack }} />
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h3 style={{ fontSize: 11, fontWeight: 700, color: isGold ? 'rgba(0,0,0,0.6)' : T.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>{title}</h3>
+          <div style={{ fontSize: 36, fontWeight: 300, color: isGold ? '#000' : T.textPrimary, lineHeight: 1 }}>{value}</div>
         </div>
-
-        {/* Info grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <InfoBox label={tipo === 'saida' ? '🚪 Saída prev.' : '✅ Saiu às'} value={tipo === 'saida' ? (p.hora_saida_prevista || '-') : (p.hora_saida_real || '-')} T={T} />
-          <InfoBox label={tipo === 'finalizado' ? '🔙 Voltou às' : '⏰ Retorno prev.'} value={tipo === 'finalizado' ? (p.hora_volta_real || '-') : (p.hora_volta_prevista || '-')} T={T} />
-        </div>
-
-        {tipo === 'finalizado' && p.atrasado && (
-          <div style={{
-            background: isDark ? '#f8717112' : '#dc262610', color: T.danger, padding: '8px 12px',
-            borderRadius: 10, fontSize: 12, fontWeight: 600, border: `1px solid ${isDark ? 'rgba(248,113,113,.15)' : 'rgba(220,38,38,.12)'}`
-          }}>
-            ⚠️ Atraso de {p.tempo_atraso} min
-          </div>
-        )}
-
-        {/* Ações */}
-        {cfg.primaryAct && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={cfg.primaryAct.fn}
-              style={{
-                flex: 1, padding: '12px 14px', background: cfg.primaryAct.color, color: isDark ? '#000' : '#fff',
-                border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                fontFamily: 'inherit',
-                boxShadow: `0 4px 12px ${cfg.primaryAct.color}33`,
-                transition: 'all .2s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.filter = 'brightness(1.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.filter = 'none'; }}
-            >
-              <span>{cfg.primaryAct.icon}</span> {cfg.primaryAct.label}
-            </button>
-            <button
-              onClick={cfg.adjustFn}
-              title="Ajustar horário"
-              style={{
-                padding: '12px 14px', background: T.surfaceAlt, border: `1px solid ${T.border}`,
-                borderRadius: 10, cursor: 'pointer', color: T.text, fontSize: 16,
-                fontFamily: 'inherit', transition: 'all .2s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceHover; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
-            >⏱️</button>
-          </div>
-        )}
+        <div style={{ fontSize: 24, color: isGold ? 'rgba(0,0,0,0.2)' : T.gold, opacity: 0.8 }}>{icon}</div>
       </div>
-    );
-  };
-
-  const InfoBox = ({ label, value, T }) => (
-    <div style={{
-      background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px',
-      boxShadow: T.shadowInner
-    }}>
-      <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: .3 }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      
+      <div style={{ fontSize: 11, color: isGold ? 'rgba(0,0,0,0.5)' : T.textSecondary, marginTop: 12, borderTop: `1px solid ${isGold ? 'rgba(0,0,0,0.1)' : T.border}`, paddingTop: 12 }}>
+        {sub}
+      </div>
     </div>
   );
 
-  const EmptyState = ({ icon, title, hint }) => (
-    <div style={{
-      gridColumn: '1/-1', textAlign: 'center', padding: '60px 20px',
-      background: T.surface, border: `2px dashed ${T.borderStrong}`, borderRadius: T.radius,
-      position: 'relative'
-    }}>
-      <div style={{ fontSize: 56, marginBottom: 12, opacity: .4, filter: 'grayscale(1)' }}>{icon}</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{title}</div>
-      {hint && <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>{hint}</div>}
-    </div>
-  );
-
-  const listas = {
-    saida: { dados: saidaFiltrada, tipo: 'saida', vazio: { icon: '🎓', title: 'Nenhum estudante aguardando saída', hint: 'Quando houver, eles aparecem aqui.' } },
-    andamento: { dados: andamentoFiltrado, tipo: 'andamento', vazio: { icon: '🚶', title: 'Ninguém em andamento', hint: 'Saídas ativas aparecerão nesta aba.' } },
-    finalizado: { dados: finalizadosFiltrado, tipo: 'finalizado', vazio: { icon: '✅', title: 'Nenhum retorno finalizado ainda', hint: 'Conforme registros forem feitos, surgem aqui.' } },
-  };
-
-  // ==================== RENDER ====================
   return (
-    <div style={{
-      minHeight: '100vh', background: T.bg, color: T.text,
-      fontFamily: "'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif",
-      display: 'flex', transition: 'background .3s ease, color .3s ease'
+    <div style={{ 
+      display: 'flex', minHeight: '100vh', fontFamily: "'Inter', sans-serif", 
+      backgroundColor: T.bgMain, color: T.textPrimary, transition: 'background 0.3s ease' 
     }}>
-      {/* CSS GLOBAL */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        *{box-sizing:border-box}
-        body{margin:0; -webkit-font-smoothing:antialiased; background:${T.bg}; color:${T.text}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes fadeInScale{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-        @keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-        @keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-        .ds-fade{animation:fadeIn .3s cubic-bezier(.4,0,.2,1) both}
-        .ds-fade-scale{animation:fadeInScale .3s cubic-bezier(.4,0,.2,1) both}
-        ::-webkit-scrollbar{width:6px;height:6px}
-        ::-webkit-scrollbar-thumb{background:${isDark ? '#333' : '#ccc'};border-radius:3px}
-        ::-webkit-scrollbar-track{background:transparent}
-        input:focus,button:focus,select:focus{outline:none}
-        input:focus,button:focus{box-shadow:0 0 0 2px ${isDark ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.15)'}}
-
-        /* GRID RESPONSIVO */
-        .ds-gauges{display:grid;gap:16px;grid-template-columns:repeat(4,1fr);}
-        .ds-cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));}
-        .ds-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
-
-        @media(max-width:1200px){.ds-gauges{grid-template-columns:repeat(2,1fr);}}
-        @media(max-width:768px){
-          .ds-sidebar{position:fixed!important;left:-300px!important;top:0!important;bottom:0!important;transition:left .35s cubic-bezier(.4,0,.2,1);z-index:1000;width:280px!important;}
-          .ds-sidebar.open{left:0!important;box-shadow:0 0 80px rgba(0,0,0,.5);}
-          .ds-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;backdrop-filter:blur(4px);animation:fadeIn .2s ease;}
-          .ds-overlay.show{display:block;}
-          .ds-mobile-toggle{display:flex!important;}
-          .ds-main{margin-left:0!important;}
-          .ds-gauges{grid-template-columns:repeat(2,1fr);gap:10px;}
-          .ds-cards{grid-template-columns:1fr;}
-          .ds-content{padding:16px!important;}
-          .ds-report-btn-text{display:none}
-          .ds-header-title{font-size:16px!important;}
-          .ds-header-sub{font-size:11px!important;}
-          .ds-stat-value{font-size:24px!important;}
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { box-sizing: border-box; outline: none; }
+        body { margin: 0; background: ${T.bgMain}; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: ${T.gold}; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* Mobile Fixes */
+        @media (max-width: 1024px) { 
+          .grid-stats { grid-template-columns: repeat(2, 1fr) !important; } 
         }
-        @media(max-width:420px){
-          .ds-gauges{grid-template-columns:1fr 1fr;gap:8px;}
-          .ds-toolbar{gap:8px;}
-          .ds-search{min-width:100%!important;}
+        @media (max-width: 768px) {
+          .sidebar { 
+            position: fixed !important; 
+            left: -100% !important; 
+            width: 85% !important;
+            max-width: 300px !important;
+            z-index: 1000 !important; 
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; 
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5) !important;
+          }
+          .sidebar.open { left: 0 !important; }
+          
+          .overlay { 
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.7); 
+            z-index: 999; 
+            backdrop-filter: blur(2px); 
+          }
+          .overlay.show { display: block; }
+          
+          .toggle-btn { display: flex !important; }
+          .main-content { margin-left: 0 !important; width: 100% !important; }
+          
+          .table-wrap { 
+            overflow-x: auto; 
+            -webkit-overflow-scrolling: touch;
+            border-radius: 0;
+            margin: 0 -16px;
+            width: calc(100% + 32px);
+          }
+          table { min-width: 600px; }
+          
+          .header-title { font-size: 16px !important; }
+          .content-padding { padding: 16px !important; }
+          .stats-card-mobile { margin-bottom: 12px; }
+        }
+        @media (max-width: 480px) {
+          .grid-stats { grid-template-columns: 1fr !important; }
+          .header-actions { gap: 8px !important; }
         }
       `}</style>
 
-      {/* OVERLAY MOBILE */}
-      <div className={`ds-overlay ${sidebarOpen ? 'show' : ''}`} onClick={() => setSidebarOpen(false)} />
+      <div className={`overlay ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
 
-      {/* ==================== SIDEBAR ==================== */}
-      <aside className={`ds-sidebar ${sidebarOpen ? 'open' : ''}`} style={{
-        width: 270, background: T.surface, borderRight: `1px solid ${T.border}`,
-        padding: 0, display: 'flex', flexDirection: 'column', height: '100vh',
-        position: 'sticky', top: 0, transition: 'background .3s ease, border .3s ease',
-        zIndex: 1001, flexShrink: 0, overflowY: 'auto'
+      {/* Sidebar */}
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{
+        width: 260, background: T.bgSurface, borderRight: `1px solid ${T.border}`,
+        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0, zIndex: 10
       }}>
-        {/* Brand */}
-        <div style={{
-          padding: '24px 20px 20px', borderBottom: `1px solid ${T.border}`,
-          display: 'flex', alignItems: 'center', gap: 14
-        }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 14, background: T.accent,
-            display: 'grid', placeItems: 'center', color: isDark ? '#000' : '#fff',
-            fontWeight: 900, fontSize: 20, boxShadow: `0 4px 12px ${isDark ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.2)'}`
-          }}>S</div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: T.text, letterSpacing: -.3 }}>Segurança</div>
-            <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>Controle de Portão</div>
+        <div style={{ padding: 30, borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ 
+              width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, 
+              display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18,
+              boxShadow: '0 4px 10px rgba(139,0,0,0.3)'
+            }}>A</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
+              <div style={{ fontSize: 10, color: T.gold, fontWeight: 600, letterSpacing: 1 }}>ENTERPRISE PORTAL</div>
+            </div>
           </div>
         </div>
 
-        {/* User chip */}
-        <div style={{
-          margin: '16px 14px 0', padding: 14, background: T.surfaceAlt,
-          borderRadius: 14, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12
-        }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%', background: T.accent, color: isDark ? '#000' : '#fff',
-            display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 15, flexShrink: 0
+        <div style={{ padding: 20, background: T.bgAlt }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ 
+              width: 36, height: 36, borderRadius: '50%', background: T.textPrimary, color: T.bgSurface,
+              display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 
+            }}>{user?.nome?.[0] || 'U'}</div>
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nome || 'Usuário'}</div>
+              <div style={{ fontSize: 10, color: T.gold }}>Gestor Senior</div>
+            </div>
+          </div>
+        </div>
+
+        <nav style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>GESTÃO DE PEDIDOS</div>
+          
+          {[
+            { id: 'PENDENTE_DIRECAO', label: 'Pendentes', icon: '◷' },
+            { id: 'APROVADO', label: 'Aprovados', icon: '✓' },
+            { id: 'REJEITADO', label: 'Rejeitados', icon: '✕' },
+            { id: 'EM_ANDAMENTO', label: 'Em Andamento', icon: '→' },
+            { id: 'FINALIZADO', label: 'Finalizados', icon: '▣' },
+          ].map(item => {
+            const active = abaAtiva === 'pedidos' && filtroEstado === item.id;
+            return (
+              <button key={item.id} onClick={() => { setAbaAtiva('pedidos'); setFiltroEstado(item.id); setMobileMenuOpen(false); }} style={{
+                width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+                background: active ? `${T.gold}15` : 'transparent',
+                color: active ? T.gold : T.textSecondary,
+                fontWeight: active ? 600 : 500, fontSize: 13, textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
+                borderLeft: active ? `3px solid ${T.gold}` : '3px solid transparent'
+              }}>
+                <span style={{ width: 20, textAlign: 'center' }}>{item.icon}</span>
+                {item.label}
+              </button>
+            );
+          })}
+
+          <div style={{ height: 1, background: T.border, margin: '20px 0' }} />
+          
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>MÓDULOS</div>
+          
+          <button onClick={() => { setAbaAtiva('coletivas'); setMobileMenuOpen(false); }} style={{
+            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+            background: abaAtiva === 'coletivas' ? `${T.gold}15` : 'transparent',
+            color: abaAtiva === 'coletivas' ? T.gold : T.textSecondary,
+            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12
           }}>
-            {(user?.nome || user?.username || 'S').charAt(0).toUpperCase()}
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.nome || user?.username || 'Usuário'}
-            </div>
-            <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: '50%', background: T.success,
-                animation: 'pulse 2s infinite'
-              }} /> Online
-            </div>
-          </div>
-        </div>
+            <span style={{ width: 20, textAlign: 'center' }}>👥</span> Coletivas
+          </button>
+          
+          <button onClick={() => { setAbaAtiva('relatorios'); setMobileMenuOpen(false); }} style={{
+            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+            background: abaAtiva === 'relatorios' ? `${T.gold}15` : 'transparent',
+            color: abaAtiva === 'relatorios' ? T.gold : T.textSecondary,
+            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12
+          }}>
+            <span style={{ width: 20, textAlign: 'center' }}>📊</span> Relatórios
+          </button>
 
-        {/* Nav */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '20px 10px', flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: T.textSoft, letterSpacing: 1.5, padding: '0 10px 10px', textTransform: 'uppercase' }}>Menu</div>
-          <TabBtn id="overview" icon="📊" label="Visão Geral" />
-          <TabBtn id="saida" icon="🚪" label="Aguardando" count={pedidosSaida.length} tone="warning" />
-          <TabBtn id="andamento" icon="🚶" label="Em Andamento" count={pedidosAndamento.length} tone="info" />
-          <TabBtn id="finalizado" icon="✅" label="Finalizados" count={pedidosFinalizados.length} tone="success" />
+          {/* Botão Nova Coletiva */}
+          <div style={{ height: 1, background: T.border, margin: '20px 0' }} />
+          
+          <button onClick={() => { setModalColetiva(true); setMobileMenuOpen(false); }} style={{
+            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+            background: T.gradientGold, color: '#000', fontWeight: 700, fontSize: 13,
+            textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, marginTop: 10
+          }}>
+            <span style={{ width: 20, textAlign: 'center' }}>➕</span> Nova Coletiva
+          </button>
         </nav>
 
-        {/* Theme Toggle */}
-        <div style={{ padding: '0 14px 10px' }}>
-          <button onClick={() => setThemeMode(m => m === 'dark' ? 'light' : 'dark')} style={{
-            width: '100%', padding: '10px 14px', background: T.surfaceAlt, color: T.text,
-            border: `1px solid ${T.border}`, borderRadius: 10, cursor: 'pointer',
-            fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 10,
-            fontFamily: 'inherit', transition: 'all .2s ease'
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceHover; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
-          >
-            <span style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</span>
-            <span style={{ flex: 1 }}>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
-            <div style={{
-              width: 36, height: 20, borderRadius: 10, background: isDark ? T.accent : T.border,
-              position: 'relative', transition: 'background .2s ease'
-            }}>
-              <div style={{
-                width: 16, height: 16, borderRadius: '50%', background: isDark ? '#000' : '#fff',
-                position: 'absolute', top: 2, left: isDark ? 18 : 2, transition: 'left .2s ease',
-                boxShadow: '0 1px 3px rgba(0,0,0,.3)'
-              }} />
-            </div>
+        <div style={{ padding: 20, borderTop: `1px solid ${T.border}` }}>
+          <button onClick={() => toggleTheme(isDark ? 'light' : 'dark')} style={{
+            width: '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
+            borderRadius: 2, color: T.textSecondary, cursor: 'pointer', fontSize: 12, marginBottom: 10,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          }}>
+            <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
+            <span style={{ fontSize: 16 }}>{isDark ? '☀' : '☾'}</span>
           </button>
-        </div>
-
-        {/* Logout */}
-        <div style={{ padding: '10px 14px 20px' }}>
           <button onClick={onLogout} style={{
-            width: '100%', padding: '12px 14px', background: isDark ? '#dc262615' : '#dc262610',
-            color: T.danger, border: `1px solid ${isDark ? 'rgba(220,38,38,.15)' : 'rgba(220,38,38,.1)'}`,
-            borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13,
-            display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit',
-            transition: 'all .2s ease'
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
-          >
-            <span>🚪</span> Sair
-          </button>
+            width: '100%', padding: 10, background: T.danger, color: '#FFF', border: 'none',
+            borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12
+          }}>ENCERRAR SESSÃO</button>
         </div>
       </aside>
 
-      {/* ==================== MAIN ==================== */}
-      <main className="ds-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* HEADER */}
+      {/* Main Content */}
+      <main className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        
         <header style={{
-          background: T.glass, borderBottom: `1px solid ${T.glassBorder}`,
-          padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)', transition: 'all .3s ease'
+          height: 70, background: T.glass, borderBottom: `1px solid ${T.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px',
+          backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 5
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="ds-mobile-toggle" style={{
-              display: 'none', width: 40, height: 40, borderRadius: 12, background: T.surfaceAlt,
-              border: `1px solid ${T.border}`, cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, flexShrink: 0, color: T.text, fontFamily: 'inherit'
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <button className="toggle-btn" onClick={() => setMobileMenuOpen(true)} style={{
+              display: 'none', background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textPrimary
             }}>☰</button>
-            <div style={{ minWidth: 0 }}>
-              <div className="ds-header-title" style={{ fontSize: 20, fontWeight: 800, color: T.text, lineHeight: 1.1, letterSpacing: -.3 }}>
-                {abaAtiva === 'overview' ? 'Visão Geral' :
-                 abaAtiva === 'saida' ? 'Aguardando Saída' :
-                 abaAtiva === 'andamento' ? 'Em Andamento' : 'Finalizados'}
-              </div>
-              <div className="ds-header-sub" style={{ fontSize: 12, color: T.textMuted, marginTop: 3, fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>🕒</span> {horaAtual} <span style={{ opacity: .4 }}>·</span> {formatarData(dataSelecionada)}
+            <div>
+              <h1 className="header-title" style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
+                {abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva === 'coletivas' ? 'SAÍDAS COLETIVAS' : 'RELATÓRIOS'}
+              </h1>
+              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
+                {horaAtual} <span style={{margin:'0 5px'}}>•</span> {lastSync && `Sync: ${lastSync}`}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Date picker */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
-              background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 12,
-              transition: 'all .2s ease', cursor: 'pointer'
-            }}>
-              <span style={{ fontSize: 14, filter: 'grayscale(.5)' }}>📅</span>
-              <input type="date" value={dataSelecionada} onChange={(e) => setDataSelecionada(e.target.value)} style={{
-                border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: T.text,
-                fontFamily: 'inherit', outline: 'none', width: 140, cursor: 'pointer'
-              }} />
-            </div>
-
-            {/* Notificações */}
+          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={{
+              padding: '8px 12px', borderRadius: 2, border: `1px solid ${T.border}`,
+              background: T.bgSurface, color: T.textPrimary, fontSize: 12, fontFamily: 'inherit'
+            }} />
+            
             <div ref={notifRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowNotificacoes(s => !s)} style={{
-                width: 42, height: 42, borderRadius: 12, background: T.surfaceAlt, border: `1px solid ${T.border}`,
-                cursor: 'pointer', fontSize: 17, position: 'relative', display: 'grid', placeItems: 'center',
-                transition: 'all .2s ease', color: T.text
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceHover; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
-              >
+              <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} style={{
+                width: 36, height: 36, borderRadius: '50%', border: `1px solid ${T.border}`,
+                background: T.bgSurface, cursor: 'pointer', position: 'relative', color: T.textPrimary
+              }}>
                 🔔
                 {notificacoesNaoLidas > 0 && (
                   <span style={{
-                    position: 'absolute', top: 2, right: 2, minWidth: 20, height: 20, padding: '0 6px',
-                    background: T.danger, color: '#fff', borderRadius: 10, fontSize: 10, fontWeight: 800,
-                    display: 'grid', placeItems: 'center', border: `2px solid ${T.surface}`,
-                    animation: 'pulse 2s infinite'
+                    position: 'absolute', top: -2, right: -2, width: 16, height: 16,
+                    background: T.red, color: '#FFF', borderRadius: '50%', fontSize: 9,
+                    display: 'grid', placeItems: 'center', border: `2px solid ${T.bgSurface}`
                   }}>{notificacoesNaoLidas}</span>
                 )}
               </button>
-              {showNotificacoes && (
-                <div className="ds-fade-scale" style={{
-                  position: 'absolute', right: 0, top: 50, width: 340, maxHeight: 420, overflowY: 'auto',
-                  background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16,
-                  boxShadow: T.shadowHover, zIndex: 50, overflow: 'hidden'
+              
+              {showNotifDropdown && (
+                <div className="fade-in" style={{
+                  position: 'absolute', right: 0, top: 45, width: 320, background: T.bgSurface,
+                  border: `1px solid ${T.border}`, boxShadow: T.shadowHover, borderRadius: 4, zIndex: 50,
+                  maxWidth: '90vw'
                 }}>
-                  <div style={{
-                    padding: 16, borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 14,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: T.surfaceAlt
-                  }}>
-                    <span>Notificações</span>
-                    {notificacoesNaoLidas > 0 && <Badge tone="danger">{notificacoesNaoLidas} novas</Badge>}
+                  <div style={{ padding: 12, borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 12 }}>NOTIFICAÇÕES</div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {notificacoes.length === 0 ? <div style={{padding:20, textAlign:'center', color:T.textSecondary}}>Vazio</div> :
+                      notificacoes.map(n => (
+                        <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
+                          padding: 12, borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
+                          background: n.lida ? 'transparent' : `${T.gold}08`
+                        }}>
+                          <div style={{fontSize:12, fontWeight:600}}>{n.mensagem}</div>
+                        </div>
+                      ))
+                    }
                   </div>
-                  {notificacoes.length === 0 ? (
-                    <div style={{ padding: 32, textAlign: 'center', color: T.textMuted, fontSize: 13 }}>
-                      <div style={{ fontSize: 36, marginBottom: 8, opacity: .3 }}>🔔</div>
-                      Sem notificações
-                    </div>
-                  ) : notificacoes.map(n => (
-                    <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
-                      padding: 14, borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
-                      background: n.lida ? 'transparent' : T.accentSoft,
-                      transition: 'background .15s ease'
-                    }}
-                    onMouseEnter={(e) => { if (!n.lida) e.currentTarget.style.background = T.surfaceHover; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = n.lida ? 'transparent' : T.accentSoft; }}
-                    >
-                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{n.titulo || n.mensagem}</div>
-                      {n.titulo && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>{n.mensagem}</div>}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* CONTENT */}
-        <div className="ds-content" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* GAUGES / STATS */}
-          <div className="ds-gauges">
-            <SpeedGauge value={pedidosSaida.length} max={Math.max(pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length, 10)} label="Aguardando" subtitle="Na portaria" color={T.warning} />
-            <SpeedGauge value={pedidosAndamento.length} max={Math.max(pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length, 10)} label="Em Andamento" subtitle="Fora da unidade" color={T.info} />
-            <SpeedGauge value={pedidosFinalizados.length} max={Math.max(pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length, 10)} label="Finalizados" subtitle="Retornaram" color={T.success} />
-            <SpeedGauge value={taxaConclusao} max={100} label="Conclusão" subtitle={`${totalDia} pedidos`} color={T.accent} />
-          </div>
-
-          {/* Secondary stats */}
-          <div style={{
-            background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius,
-            padding: 20, boxShadow: T.shadow
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
-              📊 Estatísticas do Dia
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-              <BarProgress value={pedidosSaida.length} max={Math.max(totalDia, 1)} label="Saídas pendentes" color={T.warning} />
-              <BarProgress value={pedidosAndamento.length} max={Math.max(totalDia, 1)} label="Em andamento" color={T.info} />
-              <BarProgress value={pedidosFinalizados.length} max={Math.max(totalDia, 1)} label="Concluídos" color={T.success} />
-              <BarProgress value={stats.atrasos_hoje || 0} max={Math.max(totalDia, 1)} label="Atrasos registrados" color={T.danger} />
-            </div>
-          </div>
-
-          {/* TOOLBAR */}
-          <div style={{
-            background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 14,
-            boxShadow: T.shadow, transition: 'all .3s ease'
-          }}>
-            <div className="ds-toolbar">
-              <div className="ds-search" style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-                <span style={{
-                  position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                  color: T.textMuted, fontSize: 14, pointerEvents: 'none'
-                }}>🔍</span>
-                <input
-                  type="text"
-                  placeholder="Buscar por nome ou curso..."
-                  value={filtroNome}
-                  onChange={(e) => setFiltroNome(e.target.value)}
-                  style={{
-                    width: '100%', padding: '12px 14px 12px 42px',
-                    background: T.surfaceAlt, border: `1px solid ${T.border}`,
-                    borderRadius: 12, fontSize: 14, color: T.text, fontFamily: 'inherit',
-                    outline: 'none', transition: 'all .2s ease'
-                  }}
-                  onFocus={(e) => { e.currentTarget.borderColor = isDark ? '#555' : '#aaa'; }}
-                  onBlur={(e) => { e.currentTarget.borderColor = T.border; }}
-                />
+        <div className="content-padding" style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
+          
+          {/* PEDIDOS VIEW */}
+          {abaAtiva === 'pedidos' && (
+            <div className="fade-in">
+              <div className="grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 30 }}>
+                <StatCard title="Pendentes" value={stats.meus_pedidos_pendentes || 0} sub="Aguardando Ação" icon="◷" />
+                <StatCard title="Aprovados" value={stats.pedidos_aprovados || 0} sub="Autorizados Hoje" icon="✓" />
+                <StatCard title="Rejeitados" value={stats.pedidos_rejeitados || 0} sub="Negados" icon="✕" />
+                <StatCard title="Total Geral" value={stats.total_pedidos || 0} sub="Volume Acumulado" icon="◈" isGold />
               </div>
-              <button onClick={() => setMostrarModalData(true)} style={{
-                padding: '12px 20px', background: T.accent, color: isDark ? '#000' : '#fff', border: 'none',
-                borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit',
-                boxShadow: `0 4px 12px ${isDark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.15)'}`,
-                transition: 'all .2s ease', whiteSpace: 'nowrap'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.filter = 'brightness(1.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.filter = 'none'; }}
-              >
-                📄 <span className="ds-report-btn-text">Gerar Relatório</span>
-              </button>
-            </div>
-          </div>
 
-          {/* LOADING */}
-          {loading ? (
-            <div style={{
-              padding: 80, textAlign: 'center', background: T.surface, borderRadius: T.radius,
-              border: `1px solid ${T.border}`, boxShadow: T.shadow
-            }}>
-              <div style={{
-                width: 44, height: 44, border: `3px solid ${T.border}`, borderTopColor: T.accent,
-                borderRadius: '50%', margin: '0 auto 16px', animation: 'spin .8s linear infinite'
-              }} />
-              <div style={{ color: T.textMuted, fontSize: 14, fontWeight: 500 }}>Carregando dados...</div>
-            </div>
-          ) : (
-            <>
-              {/* ===== OVERVIEW ===== */}
-              {abaAtiva === 'overview' && (
-                <div className="ds-fade" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-                  {/* Seção: próximas saídas */}
-                  <SectionTitle T={T} title="🚪 Próximas Saídas" count={saidaFiltrada.length} onSeeAll={() => setAbaAtiva('saida')} />
-                  <div className="ds-cards">
-                    {saidaFiltrada.length === 0
-                      ? <EmptyState icon="🎓" title="Nenhuma saída pendente" hint="Quando houver, eles aparecem aqui." />
-                      : saidaFiltrada.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="saida" />)}
+              <div style={{ 
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
+                flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
+              }}>
+                <div style={{ display: 'flex', gap: 10, flex: 1, width: '100%' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                    <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
+                      width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
+                      background: T.bgAlt, color: T.textPrimary, fontSize: 13
+                    }} />
                   </div>
+                  <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={{
+                    padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
+                    background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer'
+                  }}>
+                    <option value="todos">Todos os Status</option>
+                    <option value="PENDENTE_DIRECAO">Pendentes</option>
+                    <option value="APROVADO">Aprovados</option>
+                    <option value="REJEITADO">Rejeitados</option>
+                  </select>
+                </div>
+                <button onClick={() => setModalRelatorio(true)} style={{
+                  padding: '10px 20px', background: T.gradientRedBlack, color: '#FFF', border: 'none',
+                  borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12, letterSpacing: 0.5,
+                  boxShadow: '0 4px 10px rgba(139,0,0,0.2)', whiteSpace: 'nowrap'
+                }}>GERAR RELATÓRIO</button>
+              </div>
 
-                  {/* Seção: em andamento */}
-                  <SectionTitle T={T} title="🚶 Em Andamento" count={andamentoFiltrado.length} onSeeAll={() => setAbaAtiva('andamento')} />
-                  <div className="ds-cards">
-                    {andamentoFiltrado.length === 0
-                      ? <EmptyState icon="🚶" title="Ninguém em rota agora" hint="Saídas ativas aparecerão nesta aba." />
-                      : andamentoFiltrado.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="andamento" />)}
-                  </div>
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
+              ) : (
+                <div className="table-wrap" style={{ background: T.bgSurface, borderRadius: 2, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: T.bgAlt, borderBottom: `2px solid ${T.border}` }}>
+                        {['ID', 'ESTUDANTE', 'CURSO', 'DATA SAÍDA', 'STATUS', 'AÇÕES'].map(h => (
+                          <th key={h} style={{ padding: '15px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: T.textSecondary, letterSpacing: 1 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pedidosFiltrados.map((p, i) => (
+                        <tr key={p.id} style={{ 
+                          borderBottom: `1px solid ${T.border}`, 
+                          background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`),
+                          transition: 'background 0.1s'
+                        }}
+                        onMouseEnter={() => setHoveredRow(p.id)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                        >
+                          <td style={{ padding: '15px 20px', fontWeight: 700, color: T.gold }}>#{p.id}</td>
+                          <td style={{ padding: '15px 20px' }}>
+                            <div style={{ fontWeight: 600, color: T.textPrimary }}>{p.estudante_nome}</div>
+                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.estudante_email}</div>
+                          </td>
+                          <td style={{ padding: '15px 20px', color: T.textSecondary }}>{p.estudante_curso || '-'}</td>
+                          <td style={{ padding: '15px 20px' }}>
+                            <div style={{ fontWeight: 500 }}>{formatarData(p.data_saida)}</div>
+                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.hora_saida}</div>
+                          </td>
+                          <td style={{ padding: '15px 20px' }}><StatusBadge status={p.estado} /></td>
+                          <td style={{ padding: '15px 20px' }}>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => setModalDetalhes(p)} style={{
+                                width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary
+                              }}>👁</button>
+                              
+                              {p.acoes_disponiveis?.includes('aprovar') && (
+                                <button onClick={() => abrirModalAprovacao(p.id)} style={{
+                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer', fontWeight: 700
+                                }}>✓</button>
+                              )}
+                              
+                              {p.acoes_disponiveis?.includes('rejeitar') && (
+                                <button onClick={() => rejeitarPedido(p.id)} style={{
+                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer', fontWeight: 700
+                                }}>✕</button>
+                              )}
 
-                  {/* Seção: finalizados */}
-                  <SectionTitle T={T} title="✅ Finalizados Recentes" count={finalizadosFiltrado.length} onSeeAll={() => setAbaAtiva('finalizado')} />
-                  <div className="ds-cards">
-                    {finalizadosFiltrado.length === 0
-                      ? <EmptyState icon="✅" title="Nenhum retorno finalizado" hint="Conforme registros forem feitos, surgem aqui." />
-                      : finalizadosFiltrado.slice(0, 3).map(p => <PedidoCard key={p.id} p={p} tipo="finalizado" />)}
-                  </div>
+                              {p.estado === 'PENDENTE_DIRECAO' && (
+                                <button onClick={() => encaminharPedido(p.id)} style={{
+                                  width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer'
+                                }}>➜</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {pedidosFiltrados.length === 0 && (
+                        <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
+            </div>
+          )}
 
-              {/* ===== ABAS DE LISTA ===== */}
-              {['saida', 'andamento', 'finalizado'].includes(abaAtiva) && (
-                <div className="ds-cards ds-fade">
-                  {listas[abaAtiva].dados.length === 0
-                    ? <EmptyState {...listas[abaAtiva].vazio} />
-                    : listas[abaAtiva].dados.map(p => <PedidoCard key={p.id} p={p} tipo={listas[abaAtiva].tipo} />)}
-                </div>
-              )}
-            </>
+          {/* COLETIVAS VIEW */}
+          {abaAtiva === 'coletivas' && (
+            <div className="fade-in">
+              <div style={{ 
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                marginBottom: 20, flexWrap: 'wrap', gap: 15
+              }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>Saídas Coletivas</h2>
+                <button onClick={() => setModalColetiva(true)} style={{
+                  padding: '10px 20px', background: T.gradientGold, color: '#000', border: 'none',
+                  borderRadius: 2, cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                  display: 'flex', alignItems: 'center', gap: 8
+                }}>
+                  <span>➕</span> NOVA COLETIVA
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+                {coletivas.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>
+                    Nenhuma saída coletiva criada
+                  </div>
+                ) : (
+                  coletivas.map(c => (
+                    <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2, transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>{c.titulo}</h3>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>
+                          {c.encerrada ? 'ENCERRADA' : 'ATIVA'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>
+                        📅 {c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}
+                      </div>
+                      <div style={{ marginBottom: 15 }}>
+                        <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.gold }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: T.textSecondary }}>
+                          <span><strong style={{ color: T.textPrimary }}>{c.total_convidados || 0}</strong> Convidados</span>
+                          <span><strong style={{ color: T.success }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
+                          <span><strong style={{ color: T.danger }}>{c.total_recusados || 0}</strong> Recusaram</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: T.textSecondary, borderTop: `1px solid ${T.border}`, paddingTop: 12, marginTop: 5 }}>
+                        Criado por: {c.criador_nome || c.criador}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* RELATORIOS VIEW */}
+          {abaAtiva === 'relatorios' && (
+            <div className="fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>Histórico de Relatórios</h2>
+                <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 16px', background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>NOVO RELATÓRIO</button>
+              </div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {relatorios.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>
+                    Nenhum relatório gerado
+                  </div>
+                ) : (
+                  relatorios.map(r => (
+                    <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
+                      background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: T.textPrimary }}>{r.titulo}</div>
+                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div>
+                      </div>
+                      <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           )}
         </div>
       </main>
 
-      {/* ==================== MODAL RELATÓRIO ==================== */}
-      {mostrarModalData && (
-        <Modal onClose={() => setMostrarModalData(false)} T={T} isDark={isDark}>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>📄 Gerar Relatório</h3>
-          <p style={{ color: T.textMuted, fontSize: 13, margin: '8px 0 20px' }}>Selecione a data para gerar o relatório completo do dia.</p>
-          <label style={{ fontSize: 12, fontWeight: 700, color: T.text, display: 'block', marginBottom: 8 }}>Data</label>
-          <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{
-            display: 'block', width: '100%', padding: 14,
-            border: `1px solid ${T.border}`, borderRadius: 12, fontSize: 14, fontFamily: 'inherit',
-            outline: 'none', background: T.surfaceAlt, color: T.text, transition: 'all .2s ease'
-          }}
-          onFocus={(e) => { e.currentTarget.borderColor = isDark ? '#555' : '#aaa'; }}
-          onBlur={(e) => { e.currentTarget.borderColor = T.border; }}
-          />
-          <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
-            <button onClick={() => setMostrarModalData(false)} style={btnSecondary(T)}>Cancelar</button>
-            <button onClick={gerarRelatorioCompleto} style={btnPrimary(T, isDark)}>Gerar</button>
+      {/* Modal Aprovação */}
+      {modalAprovacao && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalAprovacao(null)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>APROVAR PEDIDO #{modalAprovacao}</h2>
+            
+            <div style={{ display: 'grid', gap: 15 }}>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA</label>
+                <input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA SAÍDA</label>
+                <input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA</label>
+                  <input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA VOLTA</label>
+                  <input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 25 }}>
+              <button onClick={() => setModalAprovacao(null)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, cursor: 'pointer', fontWeight: 600 }}>CANCELAR</button>
+              <button onClick={confirmarAprovacao} style={{ flex: 1, padding: 12, background: T.success, color: '#FFF', border: 'none', cursor: 'pointer', fontWeight: 600 }}>CONFIRMAR</button>
+            </div>
           </div>
-        </Modal>
+        </div>
       )}
 
-      {/* ==================== MODAL VISUALIZAR RELATÓRIO ==================== */}
-      {relatorio && (
-        <Modal onClose={() => setRelatorio(null)} T={T} wide isDark={isDark}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>📋 Relatório - {relatorio.data}</h3>
-            <button onClick={() => setRelatorio(null)} style={{
-              background: 'none', border: 'none', fontSize: 24, cursor: 'pointer',
-              color: T.textMuted, width: 36, height: 36, display: 'grid', placeItems: 'center',
-              borderRadius: 10, transition: 'background .15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-            >×</button>
+      {/* Modal Relatório */}
+      {modalRelatorio && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalRelatorio(null)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>GERAR RELATÓRIO</h2>
+            <div style={{ display: 'grid', gap: 15 }}>
+              <input type="date" value={dadosRelatorio.data_inicio} onChange={e => setDadosRelatorio({...dadosRelatorio, data_inicio: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+              <input type="date" value={dadosRelatorio.data_fim} onChange={e => setDadosRelatorio({...dadosRelatorio, data_fim: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setModalRelatorio(null)} style={{ flex: 1, padding: 10, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer' }}>FECHAR</button>
+              <button onClick={gerarRelatorio} disabled={gerandoRelatorio} style={{ flex: 1, padding: 10, background: T.gold, border: 'none', cursor: 'pointer', fontWeight: 600 }}>{gerandoRelatorio ? 'GERANDO...' : 'GERAR'}</button>
+            </div>
           </div>
-          <pre style={{
-            background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20,
-            fontSize: 12, color: T.text, maxHeight: 400, overflow: 'auto', whiteSpace: 'pre-wrap',
-            fontFamily: "'JetBrains Mono', 'Fira Code', monospace", lineHeight: 1.7
-          }}>
-            {relatorio.texto_relatorio}
-          </pre>
-          <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
-            <button onClick={() => setRelatorio(null)} style={btnSecondary(T)}>Fechar</button>
-            <button onClick={enviarRelatorio} disabled={enviando} style={{ ...btnPrimary(T, isDark), opacity: enviando ? .6 : 1 }}>
-              {enviando ? 'Enviando...' : '📤 Enviar para DITE'}
-            </button>
+        </div>
+      )}
+
+      {/* Modal Nova Coletiva */}
+      {modalColetiva && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalColetiva(false)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 480, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>NOVA SAÍDA COLETIVA</h2>
+            
+            <div style={{ display: 'grid', gap: 15 }}>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>TÍTULO *</label>
+                <input type="text" placeholder="Ex: Visita ao Museu" value={dadosColetiva.titulo} onChange={e => setDadosColetiva({...dadosColetiva, titulo: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DESCRIÇÃO</label>
+                <textarea placeholder="Detalhes da saída..." rows={3} value={dadosColetiva.descricao} onChange={e => setDadosColetiva({...dadosColetiva, descricao: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary, resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA *</label>
+                  <input type="datetime-local" value={dadosColetiva.data_saida} onChange={e => setDadosColetiva({...dadosColetiva, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA *</label>
+                  <input type="datetime-local" value={dadosColetiva.data_volta} onChange={e => setDadosColetiva({...dadosColetiva, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>PRAZO PARA RESPOSTA (horas)</label>
+                <input type="number" min="1" max="72" value={dadosColetiva.prazo_horas} onChange={e => setDadosColetiva({...dadosColetiva, prazo_horas: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                <small style={{ fontSize: 10, color: T.textSecondary }}>Padrão: 24 horas</small>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 25 }}>
+              <button onClick={() => setModalColetiva(false)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, cursor: 'pointer', fontWeight: 600 }}>CANCELAR</button>
+              <button onClick={criarColetiva} disabled={criandoColetiva} style={{ flex: 1, padding: 12, background: T.gradientGold, color: '#000', border: 'none', cursor: 'pointer', fontWeight: 600 }}>{criandoColetiva ? 'CRIANDO...' : 'CRIAR COLETIVA'}</button>
+            </div>
           </div>
-        </Modal>
+        </div>
       )}
     </div>
   );
 };
 
-// ==================== AUX COMPONENTS (FORA) ====================
-const SectionTitle = ({ T, title, count, onSeeAll }) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-    <div style={{ fontSize: 16, fontWeight: 800, color: T.text, letterSpacing: -.3 }}>
-      {title} <span style={{ color: T.textMuted, fontWeight: 600, fontSize: 14 }}>· {count}</span>
-    </div>
-    {count > 3 && (
-      <button onClick={onSeeAll} style={{
-        background: 'none', border: 'none', color: T.text, fontWeight: 700, fontSize: 13,
-        cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
-        padding: '6px 12px', borderRadius: 8, transition: 'background .15s ease'
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = T.surfaceAlt; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-      >Ver todos →</button>
-    )}
-  </div>
-);
-
-const Modal = ({ children, onClose, T, wide, isDark }) => (
-  <div onClick={onClose} style={{
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)', display: 'grid', placeItems: 'center', zIndex: 2000,
-    padding: 20, animation: 'fadeIn .25s cubic-bezier(.4,0,.2,1) both'
-  }}>
-    <div onClick={(e) => e.stopPropagation()} className="ds-fade-scale" style={{
-      background: T.surface, borderRadius: 20, padding: 28, width: '100%', maxWidth: wide ? 760 : 440,
-      boxShadow: '0 24px 80px rgba(0,0,0,.4)', border: `1px solid ${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)'}`,
-      maxHeight: '90vh', overflowY: 'auto'
-    }}>{children}</div>
-  </div>
-);
-
-const btnPrimary = (T, isDark) => ({
-  padding: '12px 22px', background: T.accent, color: isDark ? '#000' : '#fff', border: 'none',
-  borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
-  boxShadow: `0 4px 12px ${isDark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.15)'}`,
-  transition: 'all .2s ease'
-});
-const btnSecondary = (T) => ({
-  padding: '12px 22px', background: T.surfaceAlt, color: T.text, border: `1px solid ${T.border}`,
-  borderRadius: 12, cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit',
-  transition: 'all .2s ease'
-});
-
-export default DashboardSeguranca;
+export default DashboardAdministracao;
