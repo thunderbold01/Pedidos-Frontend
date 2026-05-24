@@ -3,128 +3,139 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 // ============================================================
-// DASHBOARD ADMINISTRACAO — Painel Administrativo
-// Tema dourado com toques vermelhos, modo escuro/claro,
-// auto-refresh, design premium sem emojis coloridos
+// DASHBOARD ADMINISTRACAO — Enterprise Edition
+// Design Premium: Gold Accents, Black Typography, Red/Black Gradients
+// Fully Responsive, Dark Mode Detection, Auto-Refresh
 // ============================================================
 const DashboardAdministracao = ({ user, onLogout }) => {
-  // ==================== ESTADOS ====================
+  // ==================== STATE MANAGEMENT ====================
   const [pedidos, setPedidos] = useState([]);
   const [stats, setStats] = useState({});
   const [coletivas, setColetivas] = useState([]);
   const [relatorios, setRelatorios] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filters & Navigation
   const [filtroEstado, setFiltroEstado] = useState('PENDENTE_DIRECAO');
-  const [filtroData, setFiltroData] = useState('');
+  const [filtroData, setFiltroData] = useState(() => new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [notificacoes, setNotificacoes] = useState([]);
-  const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
+  const [abaAtiva, setAbaAtiva] = useState('pedidos');
+  
+  // UI States
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState(null);
+  const [horaAtual, setHoraAtual] = useState('');
+  const [lastSync, setLastSync] = useState('');
+  
+  // Modals & Overlays
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [modalAprovacao, setModalAprovacao] = useState(null);
   const [modalRelatorio, setModalRelatorio] = useState(false);
+  const [modalDetalhes, setModalDetalhes] = useState(null);
+  
+  // Form Data
+  const [dadosAprovacao, setDadosAprovacao] = useState({ data_saida: '', hora_saida: '07:00', data_volta: '', hora_volta: '19:00' });
   const [dadosRelatorio, setDadosRelatorio] = useState({ data_inicio: '', data_fim: '' });
   const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
-  const [modalAprovacao, setModalAprovacao] = useState(null);
-  const [dadosAprovacao, setDadosAprovacao] = useState({
-    data_saida: '', hora_saida: '07:00', data_volta: '', hora_volta: '19:00'
-  });
-  const [abaAtiva, setAbaAtiva] = useState('pedidos');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [horaAtual, setHoraAtual] = useState('');
-  const [hoveredRow, setHoveredRow] = useState(null);
-  const [lastUpdate, setLastUpdate] = useState('');
+  
+  // Notifications
+  const [notificacoes, setNotificacoes] = useState([]);
+  const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
 
   const navigate = useNavigate();
   const notifRef = useRef(null);
 
-  // ==================== THEME ENGINE COM PERSISTENCIA ====================
+  // ==================== THEME ENGINE (Persistent + System Detect) ====================
   const getInitialTheme = () => {
-    if (typeof window === 'undefined') return 'dark';
-    const saved = localStorage.getItem('admin-theme');
-    if (saved === 'light' || saved === 'dark') return saved;
+    if (typeof window === 'undefined') return 'light'; // Default to light/premium white for enterprise
+    const saved = localStorage.getItem('admin-enterprise-theme');
+    if (saved) return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   };
 
   const [themeMode, setThemeMode] = useState(getInitialTheme);
   const isDark = themeMode === 'dark';
 
-  const toggleTheme = useCallback((newMode) => {
-    setThemeMode(newMode);
-    localStorage.setItem('admin-theme', newMode);
+  const toggleTheme = useCallback((mode) => {
+    setThemeMode(mode);
+    localStorage.setItem('admin-enterprise-theme', mode);
   }, []);
 
-  // ==================== DESIGN TOKENS ====================
-  const C = useMemo(() => ({
-    gold: '#D4A017',
-    goldLight: '#F0D060',
-    goldDark: '#A67C00',
-    goldSoft: isDark ? 'rgba(212,160,23,0.12)' : 'rgba(212,160,23,0.06)',
-    goldGlow: isDark ? '0 0 16px rgba(212,160,23,0.2)' : '0 0 8px rgba(212,160,23,0.1)',
-    red: isDark ? '#F87171' : '#DC2626',
-    redSoft: isDark ? 'rgba(248,113,113,0.12)' : 'rgba(220,38,38,0.06)',
-    redGlow: isDark ? '0 0 16px rgba(248,113,113,0.15)' : '0 0 8px rgba(220,38,38,0.08)',
-    green: isDark ? '#4ADE80' : '#15803D',
-    greenSoft: isDark ? 'rgba(74,222,128,0.12)' : 'rgba(21,128,61,0.06)',
-    bg: isDark ? '#0A0908' : '#FFFBF5',
-    bgGradient: isDark
-      ? 'linear-gradient(180deg, #0F0D0B 0%, #0A0908 50%, #0C0B09 100%)'
-      : 'linear-gradient(180deg, #FFFBF5 0%, #FAF6ED 50%, #F8F3E8 100%)',
-    surface: isDark ? '#141210' : '#FFFFFF',
-    surfaceAlt: isDark ? '#1E1B18' : '#F9F7F2',
-    surfaceHover: isDark ? '#282522' : '#F0EDE5',
-    border: isDark ? '#2A2622' : '#E8E2D8',
-    borderStrong: isDark ? '#3A3530' : '#D4CFC4',
-    text: isDark ? '#F5F2ED' : '#1A1814',
-    textMuted: isDark ? '#8A8278' : '#78716C',
-    textSoft: isDark ? '#5A564E' : '#A8A29E',
-    shadow: isDark
-      ? '0 1px 3px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4)'
-      : '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05)',
-    shadowHover: isDark
-      ? '0 4px 12px rgba(0,0,0,0.7), 0 16px 40px rgba(0,0,0,0.5)'
-      : '0 4px 12px rgba(0,0,0,0.06), 0 16px 40px rgba(0,0,0,0.06)',
-    glass: isDark ? 'rgba(20,18,16,0.9)' : 'rgba(255,255,255,0.9)',
-    glassBorder: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-  }), [isDark]);
+  // ==================== DESIGN TOKENS (Premium Palette) ====================
+  const T = useMemo(() => {
+    // Base Colors
+    const gold = '#C5A028'; // Elegant Gold
+    const goldLight = '#E6C86E';
+    const goldDark = '#8F7010';
+    const red = '#8B0000'; // Deep Crimson
+    const black = '#0A0A0A';
+    const white = '#FFFFFF';
+    
+    // Theme Specifics
+    const bgMain = isDark ? '#050505' : '#F4F4F0'; // Off-white for premium paper feel
+    const bgSurface = isDark ? '#121212' : '#FFFFFF';
+    const textPrimary = isDark ? '#EAEAEA' : '#000000'; // Pure Black for Light Mode
+    const textSecondary = isDark ? '#A0A0A0' : '#555555';
+    const border = isDark ? '#333333' : '#E0E0E0';
+    
+    // Gradients & Glows
+    const gradientGold = `linear-gradient(135deg, ${gold}, ${goldDark})`;
+    const gradientRedBlack = `linear-gradient(135deg, ${red}, #000000)`;
+    const shadowSoft = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.05)';
+    const shadowHover = isDark ? '0 8px 30px rgba(0,0,0,0.7)' : '0 8px 30px rgba(0,0,0,0.1)';
+    const glowGold = isDark ? `0 0 15px rgba(197, 160, 40, 0.15)` : `0 0 10px rgba(197, 160, 40, 0.1)`;
 
-  // ==================== RELOGIO ====================
+    return {
+      gold, goldLight, goldDark, red, black, white,
+      bgMain, bgSurface,
+      bgAlt: isDark ? '#1A1A1A' : '#FAFAFA',
+      textPrimary, textSecondary,
+      border, borderStrong: isDark ? '#444' : '#CCC',
+      gradientGold, gradientRedBlack,
+      shadowSoft, shadowHover, glowGold,
+      success: '#2E7D32',
+      warning: '#F9A825',
+      danger: '#C62828',
+      glass: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.9)',
+    };
+  }, [isDark]);
+
+  // ==================== EFFECTS & DATA LOADING ====================
+  
+  // Clock
   useEffect(() => {
-    const t = setInterval(() => {
-      setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-    }, 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })), 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  // ==================== AUTO-REFRESH ====================
+  // Auto-Refresh Logic
   useEffect(() => {
-    const interval = setInterval(() => {
-      carregarDados();
-      carregarNotificacoes();
-    }, 30000);
-
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        carregarDados();
-        carregarNotificacoes();
-      }
+    const fetchData = async () => {
+      try {
+        await Promise.all([carregarDados(), carregarNotificacoes()]);
+        setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+      } catch (e) { console.error(e); }
     };
-    document.addEventListener('visibilitychange', handleVisibility);
 
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
+    fetchData(); // Initial load
+    
+    const interval = setInterval(fetchData, 30000); // Poll every 30s
+    const handleVis = () => !document.hidden && fetchData();
+    
+    document.addEventListener('visibilitychange', handleVis);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVis); };
   }, [filtroEstado, filtroData]);
 
-  // ==================== FECHAR DROPDOWN AO CLICAR FORA ====================
+  // Close dropdowns on click outside
   useEffect(() => {
-    const h = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifDropdown(false);
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) setShowNotifDropdown(false);
     };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ==================== API CALLS ====================
+  // API Functions
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
@@ -133,22 +144,13 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       if (filtroEstado !== 'todos') params.append('estado', filtroEstado);
       if (filtroData) params.append('data_saida', filtroData);
       if (params.toString()) url += `?${params.toString()}`;
-
+      
       const [pedRes, statsRes] = await Promise.all([api.get(url), api.get('/dashboard/')]);
       setPedidos(pedRes.data.pedidos || []);
       setStats(statsRes.data);
-      setLastUpdate(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    } catch (err) { console.error('Erro:', err); }
+    } catch (err) { console.error('Error loading data:', err); }
     finally { setLoading(false); }
   }, [filtroEstado, filtroData]);
-
-  const carregarColetivas = useCallback(async () => {
-    try { const res = await api.get('/coletivas/listar/'); setColetivas(res.data.coletivas || []); } catch (err) {}
-  }, []);
-
-  const carregarRelatorios = useCallback(async () => {
-    try { const res = await api.get('/relatorios/'); setRelatorios(res.data.relatorios || []); } catch (err) {}
-  }, []);
 
   const carregarNotificacoes = useCallback(async () => {
     try {
@@ -158,13 +160,21 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     } catch (err) {}
   }, []);
 
+  const carregarColetivas = useCallback(async () => {
+    try { const res = await api.get('/coletivas/listar/'); setColetivas(res.data.coletivas || []); } catch (err) {}
+  }, []);
+
+  const carregarRelatorios = useCallback(async () => {
+    try { const res = await api.get('/relatorios/'); setRelatorios(res.data.relatorios || []); } catch (err) {}
+  }, []);
+
+  // Initial Load for non-filtered data
   useEffect(() => {
-    carregarDados();
-    carregarNotificacoes();
     carregarColetivas();
     carregarRelatorios();
   }, []);
 
+  // Actions
   const marcarNotificacaoLida = async (id) => {
     try { await api.post(`/notificacoes/${id}/ler/`); carregarNotificacoes(); } catch (err) {}
   };
@@ -177,53 +187,43 @@ const DashboardAdministracao = ({ user, onLogout }) => {
 
   const confirmarAprovacao = async () => {
     try {
-      await api.post(`/pedidos/${modalAprovacao}/aprovar/`, {
-        data_saida: dadosAprovacao.data_saida, hora_saida: dadosAprovacao.hora_saida,
-        data_volta: dadosAprovacao.data_volta, hora_volta: dadosAprovacao.hora_volta
-      });
-      alert('Pedido aprovado com sucesso!');
+      await api.post(`/pedidos/${modalAprovacao}/aprovar/`, dadosAprovacao);
+      alert('Pedido aprovado com sucesso.');
       setModalAprovacao(null);
-      carregarDados(); carregarNotificacoes();
-    } catch (err) { alert('Erro: ' + (err.response?.data?.error || err.message)); }
+      carregarDados();
+    } catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Falha na aprovação')); }
   };
 
-  const handleAcao = async (pedidoId, acao, comentario = '') => {
+  const rejeitarPedido = async (id) => {
+    const motivo = prompt('Motivo da rejeição:');
+    if (!motivo) return;
     try {
-      if (acao === 'aprovar') { abrirModalAprovacao(pedidoId); return; }
-      await api.post(`/pedidos/${pedidoId}/${acao}/`, comentario ? { comentario } : {});
-      carregarDados(); carregarNotificacoes();
-      alert(`Pedido ${acao === 'rejeitar' ? 'rejeitado' : 'encaminhado'} com sucesso!`);
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Erro';
-      if (acao === 'rejeitar' && msg.includes('motivo')) {
-        const motivo = prompt('Motivo da rejeicao:');
-        if (motivo) handleAcao(pedidoId, acao, motivo);
-      } else { alert(`Erro: ${msg}`); }
-    }
+      await api.post(`/pedidos/${id}/rejeitar/`, { comentario: motivo });
+      carregarDados();
+    } catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Falha na rejeição')); }
   };
 
-  const handleEncaminhar = async (pedidoId) => {
-    if (!confirm('Encaminhar este pedido para a Direcao?')) return;
+  const encaminharPedido = async (id) => {
+    if (!confirm('Encaminhar para Direção?')) return;
     try {
-      await api.post(`/pedidos/${pedidoId}/passar/`);
-      carregarDados(); carregarNotificacoes();
-      alert('Pedido encaminhado para a Direcao!');
-    } catch (err) { alert('Erro: ' + (err.response?.data?.error || 'Erro')); }
+      await api.post(`/pedidos/${id}/passar/`);
+      carregarDados();
+    } catch (err) { alert('Erro ao encaminhar'); }
   };
 
   const gerarRelatorio = async () => {
-    if (!dadosRelatorio.data_inicio || !dadosRelatorio.data_fim) { alert('Selecione o periodo'); return; }
+    if (!dadosRelatorio.data_inicio || !dadosRelatorio.data_fim) return alert('Preencha as datas');
     setGerandoRelatorio(true);
     try {
       await api.post('/relatorios/criar/', {
-        titulo: `Relatorio Administracao - ${new Date().toLocaleDateString('pt-BR')}`,
-        tipo: 'PERSONALIZADO', descricao: 'Relatorio gerado pela Administracao',
+        titulo: `Relatório Admin - ${new Date().toLocaleDateString()}`,
+        tipo: 'PERSONALIZADO', descricao: 'Gerado via Painel Admin',
         data_inicio: dadosRelatorio.data_inicio, data_fim: dadosRelatorio.data_fim
       });
-      alert('Relatorio gerado com sucesso!');
-      carregarRelatorios(); setModalRelatorio(false);
-      setDadosRelatorio({ data_inicio: '', data_fim: '' });
-    } catch (err) { alert('Erro: ' + (err.response?.data?.error || err.message)); }
+      alert('Relatório gerado.');
+      carregarRelatorios();
+      setModalRelatorio(false);
+    } catch (err) { alert('Erro ao gerar relatório'); }
     finally { setGerandoRelatorio(false); }
   };
 
@@ -232,469 +232,385 @@ const DashboardAdministracao = ({ user, onLogout }) => {
       const res = await api.get(`/relatorios/download/${id}/`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url; a.download = `relatorio_${id}.csv`;
-      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
-    } catch (err) { alert('Erro ao baixar'); }
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (err) { alert('Erro no download'); }
   };
 
-  // ==================== HELPERS ====================
-  const formatarData = (d) => {
-    if (!d) return '-';
-    return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  const pedidosFiltrados = useMemo(() => {
-    return pedidos.filter(p =>
-      p.estudante_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toString().includes(searchTerm)
-    );
-  }, [pedidos, searchTerm]);
-
-  const totalAprovados = stats.pedidos_aprovados || 0;
-  const totalRejeitados = stats.pedidos_rejeitados || 0;
-  const totalPendentes = stats.meus_pedidos_pendentes || 0;
-  const totalGeral = stats.total_pedidos || 0;
-  const totalAndamento = stats.em_andamento || 0;
-  const totalFinalizados = stats.finalizados || pedidos.filter(p => p.estado === 'FINALIZADO').length;
+  // Helpers
+  const formatarData = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-';
+  
+  const pedidosFiltrados = useMemo(() => pedidos.filter(p => 
+    p.estudante_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.id.toString().includes(searchTerm)
+  ), [pedidos, searchTerm]);
 
   // ==================== SUB-COMPONENTS ====================
 
-  const StatusBadge = ({ estado }) => {
-    const config = {
-      'APROVADO': { bg: C.greenSoft, color: C.green, border: C.green + '20' },
-      'REJEITADO': { bg: C.redSoft, color: C.red, border: C.red + '20' },
-      'EM_ANDAMENTO': { bg: C.goldSoft, color: C.gold, border: C.gold + '20' },
-      'FINALIZADO': { bg: `${C.textSoft}12`, color: C.textMuted, border: `${C.textSoft}15` },
-      'PENDENTE_DITE': { bg: C.goldSoft, color: C.gold, border: C.gold + '20' },
-      'PENDENTE_DIRECAO': { bg: C.goldSoft, color: C.gold, border: C.gold + '20' },
-      'PENDENTE_ADMIN': { bg: C.goldSoft, color: C.gold, border: C.gold + '20' },
-    };
-    const s = config[estado] || { bg: C.surfaceAlt, color: C.textMuted, border: C.border };
+  const StatusBadge = ({ status }) => {
+    let color = T.textSecondary;
+    let bg = T.bgAlt;
+    
+    if (status.includes('APROVADO')) { color = T.success; bg = `${T.success}15`; }
+    else if (status.includes('REJEITADO')) { color = T.danger; bg = `${T.danger}15`; }
+    else if (status.includes('PENDENTE')) { color = T.gold; bg = `${T.gold}15`; }
+    else if (status.includes('ANDAMENTO')) { color = '#1976D2'; bg = '#1976D215'; }
+
     return (
       <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px',
-        borderRadius: 6, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-        background: s.bg, color: s.color, border: `1px solid ${s.border}`, textTransform: 'uppercase'
+        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+        borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+        backgroundColor: bg, color: color, border: `1px solid ${color}30`,
+        textTransform: 'uppercase'
       }}>
-        <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color }} />
-        {estado.replace(/_/g, ' ')}
+        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
+        {status.replace(/_/g, ' ')}
       </span>
     );
   };
 
-  const StatCard = ({ icon, label, value, subtitle, color, isAccent = false }) => (
+  const StatCard = ({ title, value, sub, icon, isGold }) => (
     <div style={{
-      background: isAccent ? `linear-gradient(135deg, ${C.gold}, ${C.goldDark})` : C.surface,
-      borderRadius: 16, padding: '20px 18px', position: 'relative', overflow: 'hidden',
-      boxShadow: isAccent ? C.goldGlow : C.shadow,
-      border: isAccent ? 'none' : `1px solid ${C.border}`,
-      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      minHeight: 115, transition: 'transform .2s ease, box-shadow .2s ease'
+      background: isGold ? T.gradientGold : T.bgSurface,
+      borderRadius: 2, // Sharp corporate corners or slight radius
+      padding: 24,
+      boxShadow: T.shadowSoft,
+      border: isGold ? 'none' : `1px solid ${T.border}`,
+      position: 'relative', overflow: 'hidden',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      minHeight: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
     }}
-    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = isAccent ? C.goldGlow : C.shadowHover; }}
-    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isAccent ? C.goldGlow : C.shadow; }}
+    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = T.shadowHover; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = T.shadowSoft; }}
     >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: isAccent ? 'rgba(255,255,255,0.25)' : `linear-gradient(90deg, transparent, ${color}, transparent)`, opacity: isAccent ? 0.5 : 0.4 }} />
-      <div style={{ position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: isAccent ? 'rgba(0,0,0,0.12)' : `${color}15`,
-            display: 'grid', placeItems: 'center', fontSize: 15, color: isAccent ? '#000' : color
-          }}>{icon}</div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: isAccent ? 'rgba(0,0,0,0.5)' : C.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+      {/* Decorative Gradient Line */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: isGold ? 'rgba(255,255,255,0.3)' : T.gradientRedBlack }} />
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h3 style={{ fontSize: 11, fontWeight: 700, color: isGold ? 'rgba(0,0,0,0.6)' : T.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>{title}</h3>
+          <div style={{ fontSize: 36, fontWeight: 300, color: isGold ? '#000' : T.textPrimary, lineHeight: 1 }}>{value}</div>
         </div>
-        <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1, letterSpacing: -1, color: isAccent ? '#000' : color }}>{value}</div>
-        {subtitle && <div style={{ fontSize: 11, color: isAccent ? 'rgba(0,0,0,0.45)' : C.textMuted, marginTop: 6, fontWeight: 500 }}>{subtitle}</div>}
+        <div style={{ 
+          fontSize: 24, color: isGold ? 'rgba(0,0,0,0.2)' : T.gold, opacity: 0.8 
+        }}>{icon}</div>
       </div>
-      {!isAccent && (
-        <div style={{ position: 'relative', marginTop: 10 }}>
-          <div style={{ height: 3, background: C.surfaceAlt, borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${totalGeral > 0 ? Math.min((parseInt(value) / totalGeral) * 100, 100) : 0}%`, background: color, borderRadius: 2, transition: 'width .5s ease' }} />
-          </div>
-        </div>
-      )}
+      
+      <div style={{ fontSize: 11, color: isGold ? 'rgba(0,0,0,0.5)' : T.textSecondary, marginTop: 12, borderTop: `1px solid ${isGold ? 'rgba(0,0,0,0.1)' : T.border}`, paddingTop: 12 }}>
+        {sub}
+      </div>
     </div>
-  );
-
-  const TabButton = ({ label, count, active, onClick }) => (
-    <button onClick={onClick} style={{
-      padding: '8px 16px', border: `1px solid ${active ? C.gold : C.border}`,
-      borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 500,
-      background: active ? C.goldSoft : 'transparent', color: active ? C.gold : C.textMuted,
-      fontFamily: 'inherit', letterSpacing: 0.3, transition: 'all .2s ease'
-    }}
-    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = C.surfaceAlt; }}
-    onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-    >{label} {count !== undefined && count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}</button>
   );
 
   // ==================== RENDER ====================
   return (
-    <div style={{
-      display: 'flex', minHeight: '100vh', background: C.bgGradient, color: C.text,
-      fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-      transition: 'background .3s ease, color .3s ease'
+    <div style={{ 
+      display: 'flex', minHeight: '100vh', fontFamily: "'Inter', sans-serif", 
+      backgroundColor: T.bgMain, color: T.textPrimary, transition: 'background 0.3s ease' 
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{background:${C.bg};-webkit-font-smoothing:antialiased}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes fadeInScale{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .ds-fade{animation:fadeIn .35s cubic-bezier(.4,0,.2,1) both}
-        .ds-fade-scale{animation:fadeInScale .3s cubic-bezier(.4,0,.2,1) both}
-        ::-webkit-scrollbar{width:5px;height:5px}
-        ::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px}
-        input,select,button{font-family:inherit}
-        @media(max-width:1024px){.ds-stats-grid{grid-template-columns:repeat(2,1fr)!important;}}
-        @media(max-width:768px){
-          .ds-sidebar{position:fixed!important;left:-300px!important;top:0!important;bottom:0!important;z-index:1000!important;transition:left .35s cubic-bezier(.4,0,.2,1)!important;width:280px!important;}
-          .ds-sidebar.open{left:0!important;}
-          .ds-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;backdrop-filter:blur(6px);}
-          .ds-overlay.show{display:block;animation:fadeIn .2s ease;}
-          .ds-toggle{display:grid!important;}
-          .ds-main{margin-left:0!important;}
-          .ds-content{padding:16px!important;}
-          .ds-header{padding:12px 16px!important;}
-          .ds-stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;}
-          .ds-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-          .ds-table{min-width:640px;}
-          .ds-toolbar{flex-direction:column!important;}
-          .ds-tabs{overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:4px;}
-          .ds-tabs button{white-space:nowrap;flex-shrink:0;}
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { box-sizing: border-box; outline: none; }
+        body { margin: 0; background: ${T.bgMain}; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: ${T.gold}; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @media (max-width: 1024px) { .grid-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 768px) {
+          .sidebar { position: fixed; left: -280px; z-index: 1000; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+          .sidebar.open { left: 0; box-shadow: 10px 0 30px rgba(0,0,0,0.2); }
+          .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); }
+          .overlay.show { display: block; }
+          .toggle-btn { display: flex !important; }
+          .main-content { margin-left: 0 !important; }
+          .table-wrap { overflow-x: auto; }
+          table { min-width: 700px; }
         }
-        @media(max-width:480px){.ds-stats-grid{grid-template-columns:1fr!important;}}
       `}</style>
 
-      {/* OVERLAY MOBILE */}
-      <div className={`ds-overlay ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
+      {/* Mobile Overlay */}
+      <div className={`overlay ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
 
       {/* ==================== SIDEBAR ==================== */}
-      <aside className={`ds-sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{
-        width: 260, background: C.surface, borderRight: `1px solid ${C.border}`,
-        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0,
-        zIndex: 10, flexShrink: 0, overflowY: 'auto', transition: 'all .3s ease'
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{
+        width: 260, background: T.bgSurface, borderRight: `1px solid ${T.border}`,
+        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0, zIndex: 10
       }}>
-        <div style={{ padding: '24px 20px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 24, borderBottom: `1px solid ${C.border}`, position: 'relative' }}>
-            <div style={{ position: 'absolute', bottom: -1, left: 20, right: 20, height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}, transparent)`, opacity: 0.3 }} />
-            <div style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: `linear-gradient(135deg, ${C.gold}, ${C.red})`,
-              display: 'grid', placeItems: 'center', color: '#000', fontWeight: 900, fontSize: 17,
-              boxShadow: C.goldGlow
+        {/* Brand */}
+        <div style={{ padding: 30, borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ 
+              width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, 
+              display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18,
+              boxShadow: '0 4px 10px rgba(139,0,0,0.3)'
             }}>A</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: C.text, letterSpacing: -.3 }}>ADMINISTRACAO</div>
-              <div style={{ fontSize: 10, color: C.gold, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase' }}>Gestao</div>
+              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
+              <div style={{ fontSize: 10, color: T.gold, fontWeight: 600, letterSpacing: 1 }}>ENTERPRISE PORTAL</div>
             </div>
           </div>
         </div>
 
-        {/* User */}
-        <div style={{ margin: '0 14px 16px', padding: 12, background: C.goldSoft, borderRadius: 12, border: `1px solid ${C.gold}12`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, display: 'grid', placeItems: 'center', color: '#000', fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
-            {(user?.nome || user?.username || 'A').charAt(0).toUpperCase()}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.nome || user?.username}</div>
-            <div style={{ fontSize: 10, color: C.gold, fontWeight: 600, marginTop: 1 }}>Administrador</div>
+        {/* User Profile Mini */}
+        <div style={{ padding: 20, background: T.bgAlt }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ 
+              width: 36, height: 36, borderRadius: '50%', background: T.textPrimary, color: T.bgSurface,
+              display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 
+            }}>{user?.nome?.[0] || 'U'}</div>
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nome || 'Usuário'}</div>
+              <div style={{ fontSize: 10, color: T.gold }}>Gestor Senior</div>
+            </div>
           </div>
         </div>
 
-        {/* Nav */}
-        <nav style={{ padding: '0 10px', flex: 1 }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: C.textSoft, letterSpacing: 2, padding: '0 12px 10px', textTransform: 'uppercase' }}>Pedidos</div>
+        {/* Navigation */}
+        <nav style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>GESTÃO DE PEDIDOS</div>
+          
           {[
-            { id: 'PENDENTE_DIRECAO', label: 'Pendentes', filter: 'PENDENTE_DIRECAO' },
-            { id: 'APROVADO', label: 'Aprovados', filter: 'APROVADO' },
-            { id: 'REJEITADO', label: 'Rejeitados', filter: 'REJEITADO' },
-            { id: 'EM_ANDAMENTO', label: 'Em Andamento', filter: 'EM_ANDAMENTO' },
-            { id: 'FINALIZADO', label: 'Finalizados', filter: 'FINALIZADO' },
+            { id: 'PENDENTE_DIRECAO', label: 'Pendentes', icon: '◷' },
+            { id: 'APROVADO', label: 'Aprovados', icon: '✓' },
+            { id: 'REJEITADO', label: 'Rejeitados', icon: '✕' },
+            { id: 'EM_ANDAMENTO', label: 'Em Andamento', icon: '→' },
+            { id: 'FINALIZADO', label: 'Finalizados', icon: '▣' },
           ].map(item => {
-            const isActive = abaAtiva === 'pedidos' && filtroEstado === item.filter;
+            const active = abaAtiva === 'pedidos' && filtroEstado === item.id;
             return (
-              <button key={item.id} onClick={() => { setAbaAtiva('pedidos'); setFiltroEstado(item.filter); setMobileMenuOpen(false); }} style={{
-                width: '100%', padding: '10px 14px', border: 'none', background: isActive ? C.goldSoft : 'transparent',
-                color: isActive ? C.gold : C.textMuted, fontWeight: isActive ? 700 : 500, fontSize: 13, borderRadius: 8,
-                cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2,
-                fontFamily: 'inherit', transition: 'all .2s ease'
-              }}
-              onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = C.surfaceAlt; e.currentTarget.style.color = C.text; } }}
-              onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textMuted; } }}
-              >
-                <span style={{ fontSize: 12, width: 20, textAlign: 'center', opacity: isActive ? 1 : 0.5 }}>■</span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {isActive && <span style={{ width: 4, height: 4, borderRadius: '50%', background: C.gold }} />}
+              <button key={item.id} onClick={() => { setAbaAtiva('pedidos'); setFiltroEstado(item.id); setMobileMenuOpen(false); }} style={{
+                width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+                background: active ? `${T.gold}15` : 'transparent',
+                color: active ? T.gold : T.textSecondary,
+                fontWeight: active ? 600 : 500, fontSize: 13, textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
+                borderLeft: active ? `3px solid ${T.gold}` : '3px solid transparent'
+              }}>
+                <span style={{ width: 20, textAlign: 'center' }}>{item.icon}</span>
+                {item.label}
               </button>
             );
           })}
 
-          <div style={{ borderTop: `1px solid ${C.border}`, margin: '14px 12px' }} />
-
-          <div style={{ fontSize: 9, fontWeight: 800, color: C.textSoft, letterSpacing: 2, padding: '10px 12px 10px', textTransform: 'uppercase' }}>Modulos</div>
-          {['coletivas', 'relatorios'].map(tab => (
-            <button key={tab} onClick={() => { setAbaAtiva(tab); setMobileMenuOpen(false); }} style={{
-              width: '100%', padding: '10px 14px', border: 'none', background: abaAtiva === tab ? C.goldSoft : 'transparent',
-              color: abaAtiva === tab ? C.gold : C.textMuted, fontWeight: abaAtiva === tab ? 700 : 500, fontSize: 13, borderRadius: 8,
-              cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2,
-              fontFamily: 'inherit', transition: 'all .2s ease'
-            }}
-            onMouseEnter={(e) => { if (abaAtiva !== tab) { e.currentTarget.style.background = C.surfaceAlt; e.currentTarget.style.color = C.text; } }}
-            onMouseLeave={(e) => { if (abaAtiva !== tab) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.textMuted; } }}
-            >
-              <span style={{ fontSize: 12, width: 20, textAlign: 'center', opacity: abaAtiva === tab ? 1 : 0.5 }}>◆</span>
-              <span style={{ flex: 1 }}>{tab === 'coletivas' ? 'Coletivas' : 'Relatorios'}</span>
-            </button>
-          ))}
+          <div style={{ height: 1, background: T.border, margin: '20px 0' }} />
+          
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>MÓDULOS</div>
+          
+          <button onClick={() => { setAbaAtiva('coletivas'); setMobileMenuOpen(false); }} style={{
+            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+            background: abaAtiva === 'coletivas' ? `${T.gold}15` : 'transparent',
+            color: abaAtiva === 'coletivas' ? T.gold : T.textSecondary,
+            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12
+          }}>
+            <span style={{ width: 20, textAlign: 'center' }}>👥</span> Coletivas
+          </button>
+          
+          <button onClick={() => { setAbaAtiva('relatorios'); setMobileMenuOpen(false); }} style={{
+            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
+            background: abaAtiva === 'relatorios' ? `${T.gold}15` : 'transparent',
+            color: abaAtiva === 'relatorios' ? T.gold : T.textSecondary,
+            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12
+          }}>
+            <span style={{ width: 20, textAlign: 'center' }}>📊</span> Relatórios
+          </button>
         </nav>
 
-        {/* Theme Toggle */}
-        <div style={{ padding: '0 14px' }}>
+        {/* Footer Actions */}
+        <div style={{ padding: 20, borderTop: `1px solid ${T.border}` }}>
           <button onClick={() => toggleTheme(isDark ? 'light' : 'dark')} style={{
-            width: '100%', padding: '10px 14px', background: C.surfaceAlt, border: `1px solid ${C.border}`,
-            borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            color: C.text, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', transition: 'all .2s ease', marginBottom: 8
+            width: '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
+            borderRadius: 2, color: T.textSecondary, cursor: 'pointer', fontSize: 12, marginBottom: 10,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14 }}>{isDark ? '☀' : '☾'}</span>
-              <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
-            </div>
-            <div style={{ width: 36, height: 20, borderRadius: 10, background: isDark ? C.gold : C.borderStrong, position: 'relative', transition: 'background .3s ease' }}>
-              <div style={{ width: 14, height: 14, borderRadius: '50%', background: isDark ? '#000' : '#fff', position: 'absolute', top: 3, left: isDark ? 19 : 3, transition: 'left .3s ease', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
-            </div>
+            <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
+            <span style={{ fontSize: 16 }}>{isDark ? '☀' : '☾'}</span>
           </button>
-        </div>
-
-        {/* Logout */}
-        <div style={{ padding: '10px 14px 20px' }}>
           <button onClick={onLogout} style={{
-            width: '100%', padding: '10px 14px',
-            background: isDark ? 'rgba(248,113,113,0.08)' : 'rgba(220,38,38,0.05)',
-            border: `1px solid ${isDark ? 'rgba(248,113,113,0.1)' : 'rgba(220,38,38,0.06)'}`,
-            borderRadius: 8, color: C.red, cursor: 'pointer', fontWeight: 700, fontSize: 11,
-            display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit', transition: 'all .2s ease'
-          }}>
-            <span style={{ fontSize: 13 }}>↗</span> Sair
-          </button>
+            width: '100%', padding: 10, background: T.danger, color: '#FFF', border: 'none',
+            borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12
+          }}>ENCERRAR SESSÃO</button>
         </div>
       </aside>
 
-      {/* ==================== MAIN ==================== */}
-      <main className="ds-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <header className="ds-header" style={{
-          background: C.glass, borderBottom: `1px solid ${C.glassBorder}`, padding: '14px 24px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-          position: 'sticky', top: 0, zIndex: 5, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)'
+      {/* ==================== MAIN CONTENT ==================== */}
+      <main className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        
+        {/* Top Header */}
+        <header style={{
+          height: 70, background: T.glass, borderBottom: `1px solid ${T.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px',
+          backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 5
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button onClick={() => setMobileMenuOpen(true)} className="ds-toggle" style={{
-              display: 'none', width: 36, height: 36, background: 'transparent', border: `1px solid ${C.border}`,
-              borderRadius: 8, cursor: 'pointer', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 15
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <button className="toggle-btn" onClick={() => setMobileMenuOpen(true)} style={{
+              display: 'none', background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textPrimary
             }}>☰</button>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: -.5 }}>
-                {abaAtiva === 'pedidos' ? 'Painel Administrativo' : abaAtiva === 'coletivas' ? 'Saidas Coletivas' : 'Relatorios'}
-              </div>
-              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: C.gold, fontWeight: 600 }}>{horaAtual}</span>
-                <span style={{ opacity: 0.3 }}>·</span>
-                {formatarData(filtroData)}
-                {lastUpdate && <><span style={{ opacity: 0.3 }}>·</span><span style={{ color: C.textSoft, fontSize: 10 }}>Sync {lastUpdate}</span></>}
+              <h1 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
+                {abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva.toUpperCase()}
+              </h1>
+              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
+                {horaAtual} <span style={{margin:'0 5px'}}>•</span> {lastSync && `Sync: ${lastSync}`}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-              <span style={{ fontSize: 12, opacity: .5 }}>◉</span>
-              <input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} style={{ border: 'none', background: 'transparent', fontSize: 11, fontWeight: 600, color: C.text, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={{
+              padding: '8px 12px', borderRadius: 2, border: `1px solid ${T.border}`,
+              background: T.bgSurface, color: T.textPrimary, fontSize: 12, fontFamily: 'inherit'
+            }} />
+            
             <div ref={notifRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowNotifDropdown(s => !s)} style={{
-                width: 36, height: 36, borderRadius: 8, background: C.surfaceAlt, border: `1px solid ${C.border}`,
-                cursor: 'pointer', display: 'grid', placeItems: 'center', color: C.text, position: 'relative', fontSize: 13
+              <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} style={{
+                width: 36, height: 36, borderRadius: '50%', border: `1px solid ${T.border}`,
+                background: T.bgSurface, cursor: 'pointer', position: 'relative', color: T.textPrimary
               }}>
-                ◉
+                🔔
                 {notificacoesNaoLidas > 0 && (
                   <span style={{
-                    position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, padding: '0 4px',
-                    background: C.red, color: '#fff', borderRadius: 8, fontSize: 8, fontWeight: 800,
-                    display: 'grid', placeItems: 'center', border: `2px solid ${isDark ? '#0A0908' : '#FFFBF5'}`
+                    position: 'absolute', top: -2, right: -2, width: 16, height: 16,
+                    background: T.red, color: '#FFF', borderRadius: '50%', fontSize: 9,
+                    display: 'grid', placeItems: 'center', border: `2px solid ${T.bgSurface}`
                   }}>{notificacoesNaoLidas}</span>
                 )}
               </button>
+              
               {showNotifDropdown && (
-                <div className="ds-fade-scale" style={{
-                  position: 'absolute', right: 0, top: 42, width: 320, background: C.surface,
-                  border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: C.shadowHover,
-                  zIndex: 50, maxHeight: 400, overflowY: 'auto'
+                <div className="fade-in" style={{
+                  position: 'absolute', right: 0, top: 45, width: 320, background: T.bgSurface,
+                  border: `1px solid ${T.border}`, boxShadow: T.shadowHover, borderRadius: 4, zIndex: 50
                 }}>
-                  <div style={{ padding: 14, borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 11, color: C.text, background: C.surfaceAlt }}>Notificacoes</div>
-                  {notificacoes.length === 0 ? <div style={{ padding: 24, textAlign: 'center', color: C.textMuted, fontSize: 12 }}>Nenhuma notificacao</div>
-                    : notificacoes.map(n => (
-                      <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
-                        padding: 12, borderBottom: `1px solid ${C.border}`, cursor: 'pointer',
-                        background: n.lida ? 'transparent' : C.goldSoft,
-                        borderLeft: n.lida ? '3px solid transparent' : `3px solid ${C.gold}`
-                      }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{n.mensagem}</div>
-                        {n.data && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 3 }}>{n.data}</div>}
-                      </div>
-                    ))}
+                  <div style={{ padding: 12, borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 12 }}>NOTIFICAÇÕES</div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {notificacoes.length === 0 ? <div style={{padding:20, textAlign:'center', color:T.textSecondary}}>Vazio</div> :
+                      notificacoes.map(n => (
+                        <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
+                          padding: 12, borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
+                          background: n.lida ? 'transparent' : `${T.gold}08`
+                        }}>
+                          <div style={{fontSize:12, fontWeight:600}}>{n.mensagem}</div>
+                        </div>
+                      ))
+                    }
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        <div className="ds-content" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24, flex: 1, overflowY: 'auto' }}>
-
-          {/* ==================== PEDIDOS ==================== */}
+        {/* Scrollable Content Area */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
+          
+          {/* DASHBOARD VIEW */}
           {abaAtiva === 'pedidos' && (
-            <div className="ds-fade" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* STATS */}
-              <div className="ds-stats-grid" style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(4, 1fr)' }}>
-                <StatCard icon="◷" label="Pendentes" value={totalPendentes} subtitle="Aguardando analise" color={C.gold} />
-                <StatCard icon="✓" label="Aprovados" value={totalAprovados} subtitle="Autorizados" color={C.green} />
-                <StatCard icon="✕" label="Rejeitados" value={totalRejeitados} subtitle="Negados" color={C.red} />
-                <StatCard icon="◈" label="Total Geral" value={totalGeral} subtitle="Pedidos no sistema" color="#000" isAccent />
+            <div className="fade-in">
+              {/* Stats Grid */}
+              <div className="grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 30 }}>
+                <StatCard title="Pendentes" value={stats.meus_pedidos_pendentes || 0} sub="Aguardando Ação" icon="◷" />
+                <StatCard title="Aprovados" value={stats.pedidos_aprovados || 0} sub="Autorizados Hoje" icon="✓" />
+                <StatCard title="Rejeitados" value={stats.pedidos_rejeitados || 0} sub="Negados" icon="✕" />
+                <StatCard title="Total Geral" value={stats.total_pedidos || 0} sub="Volume Acumulado" icon="◈" isGold />
               </div>
 
-              {/* SECONDARY STATS */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 16px', boxShadow: C.shadow, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>Em Andamento</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.gold, marginTop: 2, letterSpacing: -.5 }}>{totalAndamento}</div>
+              {/* Toolbar */}
+              <div style={{ 
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
+                flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
+              }}>
+                <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+                  <div style={{ position: 'relative', flex: 1, maxWidth: 300 }}>
+                    <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
+                      width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
+                      background: T.bgAlt, color: T.textPrimary, fontSize: 13
+                    }} />
                   </div>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.gold, boxShadow: `0 0 4px ${C.gold}` }} />
+                  <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={{
+                    padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
+                    background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer'
+                  }}>
+                    <option value="todos">Todos os Status</option>
+                    <option value="PENDENTE_DIRECAO">Pendentes</option>
+                    <option value="APROVADO">Aprovados</option>
+                    <option value="REJEITADO">Rejeitados</option>
+                  </select>
                 </div>
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 16px', boxShadow: C.shadow, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>Finalizados</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.textMuted, marginTop: 2, letterSpacing: -.5 }}>{totalFinalizados}</div>
-                  </div>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.textMuted }} />
-                </div>
-              </div>
-
-              {/* TOOLBAR */}
-              <div className="ds-toolbar" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, boxShadow: C.shadow, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.textMuted, fontSize: 12, pointerEvents: 'none' }}>⌕</span>
-                  <input type="text" placeholder="Buscar estudante ou ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{
-                    width: '100%', padding: '10px 12px 10px 34px', background: C.surfaceAlt, border: `1px solid ${C.border}`,
-                    borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 12, outline: 'none', transition: 'border-color .2s'
-                  }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = C.gold; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = C.border; }}
-                  />
-                </div>
-                <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} style={{
-                  padding: '10px 12px', background: C.surfaceAlt, border: `1px solid ${C.border}`,
-                  borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 11, outline: 'none', cursor: 'pointer', fontWeight: 600
-                }}>
-                  <option value="todos">Todos</option>
-                  <option value="PENDENTE_DIRECAO">Pendentes</option>
-                  <option value="APROVADO">Aprovados</option>
-                  <option value="REJEITADO">Rejeitados</option>
-                  <option value="EM_ANDAMENTO">Em Andamento</option>
-                  <option value="FINALIZADO">Finalizados</option>
-                </select>
                 <button onClick={() => setModalRelatorio(true)} style={{
-                  padding: '10px 18px', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
-                  color: '#000', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 11, fontFamily: 'inherit',
-                  boxShadow: C.goldGlow
-                }}>Relatorio</button>
+                  padding: '10px 20px', background: T.gradientRedBlack, color: '#FFF', border: 'none',
+                  borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12, letterSpacing: 0.5,
+                  boxShadow: '0 4px 10px rgba(139,0,0,0.2)'
+                }}>GERAR RELATÓRIO</button>
               </div>
 
-              {/* TABS */}
-              <div className="ds-tabs" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                <TabButton label="Todos" count={totalGeral} active={filtroEstado === 'todos'} onClick={() => setFiltroEstado('todos')} />
-                <TabButton label="Pendentes" count={totalPendentes} active={filtroEstado === 'PENDENTE_DIRECAO'} onClick={() => setFiltroEstado('PENDENTE_DIRECAO')} />
-                <TabButton label="Aprovados" count={totalAprovados} active={filtroEstado === 'APROVADO'} onClick={() => setFiltroEstado('APROVADO')} />
-                <TabButton label="Rejeitados" count={totalRejeitados} active={filtroEstado === 'REJEITADO'} onClick={() => setFiltroEstado('REJEITADO')} />
-              </div>
-
-              {/* TABLE */}
+              {/* Data Table */}
               {loading ? (
-                <div style={{ textAlign: 'center', padding: 60 }}>
-                  <div style={{ width: 32, height: 32, border: `3px solid ${C.border}`, borderTopColor: C.gold, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin .8s linear infinite' }} />
-                  <div style={{ color: C.textMuted, fontSize: 12 }}>Carregando...</div>
-                </div>
-              ) : pedidosFiltrados.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: C.textMuted, border: `1px dashed ${C.borderStrong}`, borderRadius: 14, background: C.surface }}>
-                  <div style={{ fontSize: 36, marginBottom: 12, opacity: .1 }}>◈</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Nenhum pedido encontrado</div>
-                </div>
+                <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
               ) : (
-                <div className="ds-table-wrap" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: C.shadow }}>
-                  <table className="ds-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <div className="table-wrap" style={{ background: T.bgSurface, borderRadius: 2, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
-                      <tr style={{ borderBottom: `2px solid ${C.border}` }}>
-                        {['ID', 'ESTUDANTE', 'CURSO', 'TIPO', 'DATA', 'STATUS', 'ACOES'].map(h => (
-                          <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 800, color: C.textMuted, fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, background: C.surfaceAlt }}>{h}</th>
+                      <tr style={{ background: T.bgAlt, borderBottom: `2px solid ${T.border}` }}>
+                        {['ID', 'ESTUDANTE', 'CURSO', 'DATA SAÍDA', 'STATUS', 'AÇÕES'].map(h => (
+                          <th key={h} style={{ padding: '15px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: T.textSecondary, letterSpacing: 1 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {pedidosFiltrados.map((pedido, idx) => (
-                        <tr key={pedido.id} style={{
-                          borderBottom: `1px solid ${C.border}`,
-                          background: hoveredRow === pedido.id ? C.goldSoft : (idx % 2 === 0 ? 'transparent' : C.surfaceAlt + '30'),
-                          transition: 'background .15s ease'
+                      {pedidosFiltrados.map((p, i) => (
+                        <tr key={p.id} style={{ 
+                          borderBottom: `1px solid ${T.border}`, 
+                          background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`),
+                          transition: 'background 0.1s'
                         }}
-                        onMouseEnter={() => setHoveredRow(pedido.id)}
+                        onMouseEnter={() => setHoveredRow(p.id)}
                         onMouseLeave={() => setHoveredRow(null)}
                         >
-                          <td style={{ padding: '12px 14px', fontWeight: 800, color: C.gold }}>#{pedido.id}</td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: 600, color: C.text }}>{pedido.estudante_nome}</div>
-                            <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>{pedido.estudante_email || '-'}</div>
+                          <td style={{ padding: '15px 20px', fontWeight: 700, color: T.gold }}>#{p.id}</td>
+                          <td style={{ padding: '15px 20px' }}>
+                            <div style={{ fontWeight: 600, color: T.textPrimary }}>{p.estudante_nome}</div>
+                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.estudante_email}</div>
                           </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ color: C.text, fontWeight: 500 }}>{pedido.estudante_curso || '-'}</div>
-                            <div style={{ fontSize: 10, color: C.textMuted }}>{pedido.estudante_classe || '-'}</div>
+                          <td style={{ padding: '15px 20px', color: T.textSecondary }}>{p.estudante_curso}</td>
+                          <td style={{ padding: '15px 20px' }}>
+                            <div style={{ fontWeight: 500 }}>{formatarData(p.data_saida)}</div>
+                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.hora_saida}</div>
                           </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <span style={{ display: 'inline-block', padding: '3px 8px', background: C.surfaceAlt, borderRadius: 5, fontSize: 10, fontWeight: 600, color: C.text, border: `1px solid ${C.border}` }}>{pedido.tipo_display}</span>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ color: C.text, fontWeight: 500 }}>{pedido.data_saida}</div>
-                            <div style={{ fontSize: 10, color: C.textMuted }}>{pedido.hora_saida}</div>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}><StatusBadge estado={pedido.estado} /></td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                              <button onClick={() => navigate(`/pedido/${pedido.id}`)} style={{
-                                width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.border}`, background: 'transparent',
-                                cursor: 'pointer', color: C.textMuted, fontSize: 10, display: 'grid', placeItems: 'center'
-                              }} title="Detalhes">◈</button>
-                              {pedido.acoes_disponiveis?.includes('aprovar') && (
-                                <button onClick={() => abrirModalAprovacao(pedido.id)} style={{
-                                  width: 28, height: 28, borderRadius: 6, border: 'none', background: C.green, color: '#fff',
-                                  cursor: 'pointer', fontSize: 10, display: 'grid', placeItems: 'center', fontWeight: 800
-                                }} title="Aprovar">✓</button>
+                          <td style={{ padding: '15px 20px' }}><StatusBadge status={p.estado} /></td>
+                          <td style={{ padding: '15px 20px' }}>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => setModalDetalhes(p)} style={{
+                                width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary
+                              }}>👁</button>
+                              
+                              {p.acoes_disponiveis?.includes('aprovar') && (
+                                <button onClick={() => abrirModalAprovacao(p.id)} style={{
+                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer', fontWeight: 700
+                                }}>✓</button>
                               )}
-                              {pedido.acoes_disponiveis?.includes('rejeitar') && (
-                                <button onClick={() => handleAcao(pedido.id, 'rejeitar')} style={{
-                                  width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.red}20`, background: `${C.red}08`,
-                                  color: C.red, cursor: 'pointer', fontSize: 10, display: 'grid', placeItems: 'center'
-                                }} title="Rejeitar">✕</button>
+                              
+                              {p.acoes_disponiveis?.includes('rejeitar') && (
+                                <button onClick={() => rejeitarPedido(p.id)} style={{
+                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer', fontWeight: 700
+                                }}>✕</button>
                               )}
-                              {pedido.estado === 'PENDENTE_DIRECAO' && (
-                                <button onClick={() => handleEncaminhar(pedido.id)} style={{
-                                  width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.gold}20`, background: C.goldSoft,
-                                  color: C.gold, cursor: 'pointer', fontSize: 10, display: 'grid', placeItems: 'center'
-                                }} title="Encaminhar">→</button>
+
+                              {p.estado === 'PENDENTE_DIRECAO' && (
+                                <button onClick={() => encaminharPedido(p.id)} style={{
+                                  width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer'
+                                }}>➜</button>
                               )}
                             </div>
                           </td>
                         </tr>
                       ))}
+                      {pedidosFiltrados.length === 0 && (
+                        <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -702,167 +618,113 @@ const DashboardAdministracao = ({ user, onLogout }) => {
             </div>
           )}
 
-          {/* ==================== COLETIVAS ==================== */}
+          {/* COLETIVAS VIEW */}
           {abaAtiva === 'coletivas' && (
-            <div className="ds-fade">
-              {coletivas.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: C.textMuted, border: `1px dashed ${C.borderStrong}`, borderRadius: 14, background: C.surface }}>
-                  <div style={{ fontSize: 36, marginBottom: 12, opacity: .1 }}>◆</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Nenhuma saida coletiva</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                  {coletivas.map(c => (
-                    <div key={c.id} style={{
-                      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
-                      overflow: 'hidden', boxShadow: C.shadow, transition: 'all .25s ease'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = C.shadowHover; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = C.shadow; }}
-                    >
-                      <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{c.titulo}</div>
-                        <span style={{
-                          padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                          background: c.encerrada ? `${C.textSoft}12` : C.greenSoft,
-                          color: c.encerrada ? C.textMuted : C.green,
-                          border: `1px solid ${c.encerrada ? `${C.textSoft}15` : C.green + '20'}`
-                        }}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</span>
-                      </div>
-                      <div style={{ padding: 16 }}>
-                        <div style={{ display: 'flex', gap: 14, fontSize: 11, color: C.textMuted, marginBottom: 10, flexWrap: 'wrap' }}>
-                          <span>Saida: {c.data_saida?.split('T')[0]}</span>
-                          <span>Volta: {c.data_volta?.split('T')[0]}</span>
-                          <span>Criador: {c.criador_nome || c.criador}</span>
-                        </div>
-                        <div style={{ height: 5, background: C.surfaceAlt, borderRadius: 3, marginBottom: 10, overflow: 'hidden' }}>
-                          <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: C.green, borderRadius: 3, transition: 'width .5s ease' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 14, fontSize: 11 }}>
-                          <span><strong style={{ color: C.text }}>{c.total_convidados || 0}</strong> convidados</span>
-                          <span><strong style={{ color: C.green }}>{c.total_aceitos || 0}</strong> aceitos</span>
-                          <span><strong style={{ color: C.red }}>{c.total_recusados || 0}</strong> recusados</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="fade-in">
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+                 {coletivas.map(c => (
+                   <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2 }}>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{c.titulo}</h3>
+                       <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>{c.encerrada ? 'ENCERRADA' : 'ATIVA'}</span>
+                     </div>
+                     <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>
+                       {c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}
+                     </div>
+                     <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
+                       <div style={{ width: '60%', height: '100%', background: T.gold }} />
+                     </div>
+                   </div>
+                 ))}
+               </div>
             </div>
           )}
 
-          {/* ==================== RELATORIOS ==================== */}
+          {/* RELATORIOS VIEW */}
           {abaAtiva === 'relatorios' && (
-            <div className="ds-fade" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Relatorios Gerados</div>
-                <button onClick={() => setModalRelatorio(true)} style={{
-                  padding: '8px 16px', background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`,
-                  color: '#000', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 11, fontFamily: 'inherit'
-                }}>+ Novo</button>
+            <div className="fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700 }}>Histórico de Relatórios</h2>
+                <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 16px', background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>NOVO</button>
               </div>
-              {relatorios.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: C.textMuted, border: `1px dashed ${C.borderStrong}`, borderRadius: 14, background: C.surface }}>
-                  <div style={{ fontSize: 36, marginBottom: 12, opacity: .1 }}>▥</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Nenhum relatorio gerado</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {relatorios.map(r => (
-                    <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
-                      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18,
-                      boxShadow: C.shadow, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      cursor: 'pointer', transition: 'all .2s ease', flexWrap: 'wrap', gap: 10
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = C.shadowHover; e.currentTarget.style.borderColor = `${C.gold}30`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = C.shadow; e.currentTarget.style.borderColor = C.border; }}
-                    >
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.titulo}</div>
-                        <div style={{ fontSize: 10, color: C.textMuted, marginTop: 3 }}>{r.created_at} · Por: {r.criado_por}</div>
-                      </div>
-                      <div style={{ padding: '6px 14px', background: C.goldSoft, border: `1px solid ${C.gold}15`, borderRadius: 6, color: C.gold, fontSize: 10, fontWeight: 700 }}>BAIXAR CSV</div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {relatorios.map(r => (
+                  <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
+                    background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{r.titulo}</div>
+                      <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
+
         </div>
       </main>
 
-      {/* ==================== MODAL APROVACAO ==================== */}
+      {/* ==================== MODALS ==================== */}
+      
+      {/* Approval Modal */}
       {modalAprovacao && (
-        <div onClick={() => setModalAprovacao(null)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(8px)',
-          zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20
-        }}>
-          <div onClick={e => e.stopPropagation()} className="ds-fade-scale" style={{
-            background: C.surface, borderRadius: 18, width: '100%', maxWidth: 480,
-            border: `1px solid ${C.border}`, boxShadow: C.shadowHover, maxHeight: '90vh', overflowY: 'auto'
-          }}>
-            <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center' }} onClick={() => setModalAprovacao(null)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>APROVAR PEDIDO #{modalAprovacao}</h2>
+            
+            <div style={{ display: 'grid', gap: 15 }}>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: C.gold, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>Aprovar Pedido</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>Pedido #{modalAprovacao}</div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA</label>
+                <input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
               </div>
-              <button onClick={() => setModalAprovacao(null)} style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', color: C.textMuted, fontSize: 13, display: 'grid', placeItems: 'center' }}>✕</button>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA SAÍDA</label>
+                <input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+                 <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA</label>
+                  <input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA VOLTA</label>
+                  <input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+                </div>
+              </div>
             </div>
-            <div style={{ padding: 24, display: 'grid', gap: 16 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Data de Saida</label>
-                <input type="date" value={dadosAprovacao.data_saida} onChange={(e) => setDadosAprovacao({ ...dadosAprovacao, data_saida: e.target.value })} style={{ width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Hora de Saida</label>
-                <input type="time" value={dadosAprovacao.hora_saida} onChange={(e) => setDadosAprovacao({ ...dadosAprovacao, hora_saida: e.target.value })} style={{ width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Data de Retorno</label>
-                <input type="date" value={dadosAprovacao.data_volta} onChange={(e) => setDadosAprovacao({ ...dadosAprovacao, data_volta: e.target.value })} style={{ width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Hora de Retorno</label>
-                <input type="time" value={dadosAprovacao.hora_volta} onChange={(e) => setDadosAprovacao({ ...dadosAprovacao, hora_volta: e.target.value })} style={{ width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                <button onClick={() => setModalAprovacao(null)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit' }}>Cancelar</button>
-                <button onClick={confirmarAprovacao} style={{ flex: 1, padding: 12, background: C.green, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit' }}>Confirmar</button>
-              </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 25 }}>
+              <button onClick={() => setModalAprovacao(null)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, cursor: 'pointer', fontWeight: 600 }}>CANCELAR</button>
+              <button onClick={confirmarAprovacao} style={{ flex: 1, padding: 12, background: T.success, color: '#FFF', border: 'none', cursor: 'pointer', fontWeight: 600 }}>CONFIRMAR</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================== MODAL RELATORIO ==================== */}
+      {/* Report Modal */}
       {modalRelatorio && (
-        <div onClick={() => setModalRelatorio(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(8px)',
-          zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20
-        }}>
-          <div onClick={e => e.stopPropagation()} className="ds-fade-scale" style={{
-            background: C.surface, borderRadius: 18, width: '100%', maxWidth: 420,
-            border: `1px solid ${C.border}`, boxShadow: C.shadowHover, padding: 24
-          }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 4 }}>
-              <span style={{ color: C.gold }}>▥</span> Gerar Relatorio
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center' }} onClick={() => setModalRelatorio(null)}>
+          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>GERAR RELATÓRIO</h2>
+            <div style={{ display: 'grid', gap: 15 }}>
+              <input type="date" value={dadosRelatorio.data_inicio} onChange={e => setDadosRelatorio({...dadosRelatorio, data_inicio: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
+              <input type="date" value={dadosRelatorio.data_fim} onChange={e => setDadosRelatorio({...dadosRelatorio, data_fim: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
             </div>
-            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 20 }}>Selecione o periodo para gerar o relatorio.</div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Data Inicio</label>
-              <input type="date" value={dadosRelatorio.data_inicio} onChange={(e) => setDadosRelatorio({ ...dadosRelatorio, data_inicio: e.target.value })} style={{ width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Data Fim</label>
-              <input type="date" value={dadosRelatorio.data_fim} onChange={(e) => setDadosRelatorio({ ...dadosRelatorio, data_fim: e.target.value })} style={{ width: '100%', padding: 12, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setModalRelatorio(false)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit' }}>Cancelar</button>
-              <button onClick={gerarRelatorio} disabled={gerandoRelatorio} style={{ flex: 1, padding: 12, background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: '#000', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', opacity: gerandoRelatorio ? 0.6 : 1 }}>{gerandoRelatorio ? 'Gerando...' : 'Gerar'}</button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setModalRelatorio(null)} style={{ flex: 1, padding: 10, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer' }}>FECHAR</button>
+              <button onClick={gerarRelatorio} disabled={gerandoRelatorio} style={{ flex: 1, padding: 10, background: T.gold, border: 'none', cursor: 'pointer', fontWeight: 600 }}>{gerandoRelatorio ? 'GERANDO...' : 'GERAR'}</button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };
