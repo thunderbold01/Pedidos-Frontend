@@ -1,9 +1,9 @@
-// src/pages/DashboardSeguranca.jsx - VERSÃO COM CARDS PROFISSIONAIS
+// src/pages/DashboardSeguranca.jsx - ADOBE SPECTRUM INSPIRED VERSION
 import { useState, useEffect, useMemo } from 'react';
 import api from '../api';
 
 const DashboardSeguranca = ({ user, onLogout }) => {
-  // Estados
+  // ==================== ESTADOS (100% MANTIDOS) ====================
   const [pedidosSaida, setPedidosSaida] = useState([]);
   const [pedidosAndamento, setPedidosAndamento] = useState([]);
   const [pedidosFinalizados, setPedidosFinalizados] = useState([]);
@@ -22,7 +22,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   const [filtroNome, setFiltroNome] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Relógio
+  // ==================== RELÓGIO ====================
   useEffect(() => {
     const atualizarHora = () => setHoraAtual(new Date().toLocaleTimeString('pt-BR'));
     atualizarHora();
@@ -30,7 +30,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Carregar dados
+  // ==================== CARREGAR DADOS (100% MANTIDO) ====================
   useEffect(() => {
     carregarDashboard();
     carregarDados();
@@ -84,6 +84,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     } finally { setLoading(false); }
   };
 
+  // ==================== AÇÕES (100% MANTIDAS) ====================
   const marcarSaida = async (pedidoId) => {
     if (!window.confirm('✅ Confirmar SAÍDA?')) return;
     try {
@@ -168,6 +169,7 @@ const DashboardSeguranca = ({ user, onLogout }) => {
     } finally { setEnviando(false); }
   };
 
+  // ==================== HELPERS ====================
   const formatarData = (dataStr) => {
     if (!dataStr) return '-';
     const data = new Date(dataStr);
@@ -187,362 +189,995 @@ const DashboardSeguranca = ({ user, onLogout }) => {
   const andamentoFiltrado = useMemo(() => filtrarPorNome(pedidosAndamento), [pedidosAndamento, filtroNome]);
   const finalizadosFiltrado = useMemo(() => filtrarPorNome(pedidosFinalizados), [pedidosFinalizados, filtroNome]);
 
-  // Cores hierárquicas
+  // ==================== ADOBE SPECTRUM COLOR PALETTE ====================
   const colors = {
-    primary: '#2563EB',
-    primaryDark: '#1E40AF',
-    success: '#10B981',
-    successDark: '#059669',
-    warning: '#F59E0B',
-    warningDark: '#D97706',
-    danger: '#EF4444',
-    dangerDark: '#DC2626',
-    info: '#3B82F6',
-    gray: '#6B7280',
-    lightGray: '#F3F4F6',
-    white: '#FFFFFF',
-    dark: '#1F2937'
+    // Primary - Adobe Blue
+    primary: '#1473E6',
+    primaryHover: '#0D66D0',
+    primaryActive: '#095ABA',
+    primaryLight: '#E8F1FD',
+    
+    // Neutrals - Gray Scale
+    gray50: '#FFFFFF',
+    gray75: '#FAFAFA',
+    gray100: '#F5F5F5',
+    gray200: '#EAEAEA',
+    gray300: '#D7D7D7',
+    gray400: '#B3B3B3',
+    gray500: '#909090',
+    gray600: '#6E6E6E',
+    gray700: '#4B4B4B',
+    gray800: '#2C2C2C',
+    gray900: '#1A1A1A',
+    
+    // Semantic Colors
+    success: '#2D9D78',
+    successLight: '#E8F5F1',
+    warning: '#E68619',
+    warningLight: '#FDF3E8',
+    danger: '#D7373F',
+    dangerLight: '#FCE8E9',
+    info: '#378EF0',
+    infoLight: '#E9F3FE',
   };
 
+  // ==================== RENDER ====================
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Inter', sans-serif" }}>
-      {/* CSS Global */}
+    <div style={{ 
+      display: 'flex', 
+      minHeight: '100vh', 
+      background: colors.gray75,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    }}>
+      
+      {/* ==================== GLOBAL CSS ==================== */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        .card-animate { animation: fadeInUp 0.3s ease-out; }
+        
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        
+        .card-hover {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+        
+        .btn-primary {
+          transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(20, 115, 230, 0.3);
+        }
+        
+        .btn-primary:active {
+          transform: translateY(0);
+        }
+        
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: ${colors.gray100};
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: ${colors.gray300};
+          border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: ${colors.gray400};
+        }
+        
+        /* Mobile Styles */
         @media (max-width: 768px) {
-          .sidebar-mobile { position: fixed; left: -280px; transition: left 0.3s ease; z-index: 1000; }
-          .sidebar-mobile.open { left: 0; }
-          .menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
-          .menu-overlay.active { display: block; }
+          .sidebar-mobile {
+            position: fixed;
+            left: -280px;
+            top: 0;
+            height: 100vh;
+            z-index: 1000;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          
+          .sidebar-mobile.open {
+            left: 0;
+          }
+          
+          .menu-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            backdrop-filter: blur(4px);
+          }
+          
+          .menu-overlay.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+          }
         }
       `}</style>
 
-      {/* Sidebar */}
-      <aside className={`sidebar-mobile ${mobileMenuOpen ? 'open' : ''}`} style={{
-        width: 280, background: colors.white, height: '100vh', padding: '24px',
-        display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0',
-        position: 'sticky', top: 0, transition: 'left 0.3s ease',
-        '@media (max-width: 768px)': { position: 'fixed', left: '-280px', zIndex: 1000 }
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+      {/* Mobile Menu Overlay */}
+      <div 
+        className={`menu-overlay ${mobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      {/* ==================== SIDEBAR ==================== */}
+      <aside 
+        className={`sidebar-mobile ${mobileMenuOpen ? 'open' : ''}`}
+        style={{
+          width: 280,
+          background: colors.gray50,
+          height: '100vh',
+          padding: 24,
+          display: 'flex',
+          flexDirection: 'column',
+          borderRight: `1px solid ${colors.gray200}`,
+          position: 'sticky',
+          top: 0,
+        }}
+      >
+        {/* Logo */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 12, 
+          marginBottom: 32 
+        }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 12,
-            background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: colors.white, fontSize: 18, boxShadow: '0 8px 16px -4px rgba(37,99,235,0.2)'
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: colors.primary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.gray50,
+            fontSize: 18,
+            fontWeight: 600
           }}>
             <i className="fas fa-shield-alt"></i>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: colors.dark }}>Segurança</div>
+          <div style={{ 
+            fontSize: 18, 
+            fontWeight: 700, 
+            color: colors.gray900,
+            letterSpacing: '-0.02em'
+          }}>
+            Segurança
+          </div>
         </div>
 
+        {/* User Card */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: 12,
-          background: colors.lightGray, borderRadius: 14, marginBottom: 24
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: 12,
+          background: colors.gray100,
+          borderRadius: 8,
+          marginBottom: 24,
+          border: `1px solid ${colors.gray200}`
         }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 12,
-            background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: colors.white, fontWeight: 600, fontSize: 18
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            background: colors.primary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.gray50,
+            fontWeight: 600,
+            fontSize: 16
           }}>
             {user?.nome?.charAt(0) || user?.username?.charAt(0) || 'S'}
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: colors.dark }}>{user?.nome || user?.username}</div>
-            <div style={{ fontSize: 12, color: colors.gray }}>🛡️ Segurança de Portão</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ 
+              fontSize: 14, 
+              fontWeight: 600, 
+              color: colors.gray900,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {user?.nome || user?.username}
+            </div>
+            <div style={{ 
+              fontSize: 12, 
+              color: colors.gray600,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              Portaria
+            </div>
           </div>
         </div>
 
-        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <button onClick={() => { setAbaAtiva('saida'); setMobileMenuOpen(false); }} style={{
-            padding: '12px 16px', borderRadius: 12, border: 'none', background: abaAtiva === 'saida' ? `linear-gradient(90deg, ${colors.primary}10, transparent)` : 'transparent',
-            textAlign: 'left', fontSize: 14, fontWeight: abaAtiva === 'saida' ? 600 : 500,
-            color: abaAtiva === 'saida' ? colors.primary : colors.gray,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
-            borderLeft: abaAtiva === 'saida' ? `3px solid ${colors.primary}` : '3px solid transparent'
-          }}>
-            <i className="fas fa-sign-out-alt"></i> Saída
+        {/* Navigation */}
+        <nav style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 4 
+        }}>
+          <button 
+            onClick={() => { 
+              setAbaAtiva('saida'); 
+              setMobileMenuOpen(false); 
+            }}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 6,
+              border: 'none',
+              background: abaAtiva === 'saida' ? colors.primaryLight : 'transparent',
+              textAlign: 'left',
+              fontSize: 14,
+              fontWeight: abaAtiva === 'saida' ? 600 : 500,
+              color: abaAtiva === 'saida' ? colors.primary : colors.gray700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <i className="fas fa-sign-out-alt" style={{ width: 16 }}></i>
+            <span>Saída</span>
+            {pedidosSaida.length > 0 && (
+              <span style={{
+                marginLeft: 'auto',
+                background: colors.warning,
+                color: colors.gray50,
+                padding: '2px 8px',
+                borderRadius: 12,
+                fontSize: 12,
+                fontWeight: 600
+              }}>
+                {pedidosSaida.length}
+              </span>
+            )}
           </button>
-          <button onClick={() => { setAbaAtiva('andamento'); setMobileMenuOpen(false); }} style={{
-            padding: '12px 16px', borderRadius: 12, border: 'none', background: abaAtiva === 'andamento' ? `linear-gradient(90deg, ${colors.primary}10, transparent)` : 'transparent',
-            textAlign: 'left', fontSize: 14, fontWeight: abaAtiva === 'andamento' ? 600 : 500,
-            color: abaAtiva === 'andamento' ? colors.primary : colors.gray,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
-            borderLeft: abaAtiva === 'andamento' ? `3px solid ${colors.primary}` : '3px solid transparent'
-          }}>
-            <i className="fas fa-walking"></i> Em Andamento
+
+          <button 
+            onClick={() => { 
+              setAbaAtiva('andamento'); 
+              setMobileMenuOpen(false); 
+            }}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 6,
+              border: 'none',
+              background: abaAtiva === 'andamento' ? colors.primaryLight : 'transparent',
+              textAlign: 'left',
+              fontSize: 14,
+              fontWeight: abaAtiva === 'andamento' ? 600 : 500,
+              color: abaAtiva === 'andamento' ? colors.primary : colors.gray700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <i className="fas fa-walking" style={{ width: 16 }}></i>
+            <span>Em Andamento</span>
+            {pedidosAndamento.length > 0 && (
+              <span style={{
+                marginLeft: 'auto',
+                background: colors.info,
+                color: colors.gray50,
+                padding: '2px 8px',
+                borderRadius: 12,
+                fontSize: 12,
+                fontWeight: 600
+              }}>
+                {pedidosAndamento.length}
+              </span>
+            )}
           </button>
-          <button onClick={() => { setAbaAtiva('finalizado'); setMobileMenuOpen(false); }} style={{
-            padding: '12px 16px', borderRadius: 12, border: 'none', background: abaAtiva === 'finalizado' ? `linear-gradient(90deg, ${colors.primary}10, transparent)` : 'transparent',
-            textAlign: 'left', fontSize: 14, fontWeight: abaAtiva === 'finalizado' ? 600 : 500,
-            color: abaAtiva === 'finalizado' ? colors.primary : colors.gray,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
-            borderLeft: abaAtiva === 'finalizado' ? `3px solid ${colors.primary}` : '3px solid transparent'
-          }}>
-            <i className="fas fa-check-circle"></i> Finalizados
+
+          <button 
+            onClick={() => { 
+              setAbaAtiva('finalizado'); 
+              setMobileMenuOpen(false); 
+            }}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 6,
+              border: 'none',
+              background: abaAtiva === 'finalizado' ? colors.primaryLight : 'transparent',
+              textAlign: 'left',
+              fontSize: 14,
+              fontWeight: abaAtiva === 'finalizado' ? 600 : 500,
+              color: abaAtiva === 'finalizado' ? colors.primary : colors.gray700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <i className="fas fa-check-circle" style={{ width: 16 }}></i>
+            <span>Finalizados</span>
           </button>
         </nav>
 
-        <button onClick={onLogout} style={{
-          padding: '12px 16px', background: '#FEF2F2', border: 'none', borderRadius: 12,
-          color: colors.danger, fontWeight: 500, cursor: 'pointer', display: 'flex',
-          alignItems: 'center', gap: 12, marginTop: 'auto'
-        }}>
-          <i className="fas fa-sign-out-alt"></i> Encerrar sessão
+        {/* Logout Button */}
+        <button 
+          onClick={onLogout}
+          style={{
+            padding: '10px 12px',
+            background: colors.dangerLight,
+            border: `1px solid ${colors.gray200}`,
+            borderRadius: 6,
+            color: colors.danger,
+            fontWeight: 500,
+            fontSize: 14,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginTop: 'auto',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <i className="fas fa-sign-out-alt" style={{ width: 16 }}></i>
+          Sair
         </button>
       </aside>
 
-      {/* Mobile Menu Overlay */}
-      <div className={`menu-overlay ${mobileMenuOpen ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)} />
-
-      {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: '100%' }}>
-        {/* Header */}
+      {/* ==================== MAIN CONTENT ==================== */}
+      <div style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        overflow: 'hidden',
+        width: '100%'
+      }}>
+        
+        {/* ==================== HEADER ==================== */}
         <header style={{
-          background: colors.white, borderBottom: '1px solid #E2E8F0', padding: '16px 24px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
-          '@media (max-width: 768px)': { padding: '12px 16px' }
+          background: colors.gray50,
+          borderBottom: `1px solid ${colors.gray200}`,
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{
-              display: 'none', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer',
-              '@media (max-width: 768px)': { display: 'block' }
-            }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Mobile Menu Button */}
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{
+                display: 'none',
+                background: 'none',
+                border: 'none',
+                fontSize: 20,
+                color: colors.gray700,
+                cursor: 'pointer',
+                padding: 8
+              }}
+              className="mobile-menu-btn"
+            >
               <i className="fas fa-bars"></i>
             </button>
+            
             <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.dark, margin: 0 }}>🛡️ Controle de Portão</h1>
-              <p style={{ fontSize: 13, color: colors.gray, margin: '4px 0 0' }}>{user?.nome || user?.username} • {horaAtual}</p>
+              <h1 style={{ 
+                fontSize: 20, 
+                fontWeight: 700, 
+                color: colors.gray900,
+                margin: 0,
+                letterSpacing: '-0.02em'
+              }}>
+                Controle de Portão
+              </h1>
+              <p style={{ 
+                fontSize: 13, 
+                color: colors.gray600,
+                margin: '4px 0 0'
+              }}>
+                {horaAtual}
+              </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: colors.lightGray, padding: '8px 12px', borderRadius: 12 }}>
-              <i className="fas fa-calendar" style={{ color: colors.gray, fontSize: 13 }}></i>
-              <input type="date" value={dataSelecionada} onChange={(e) => setDataSelecionada(e.target.value)} style={{
-                border: 'none', background: 'transparent', fontSize: 13, outline: 'none', fontWeight: 500
-              }} />
-            </div>
-            <button onClick={() => setShowNotificacoes(!showNotificacoes)} style={{
-              position: 'relative', padding: 8, background: colors.lightGray, border: 'none', borderRadius: 10, cursor: 'pointer'
+
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 12 
+          }}>
+            {/* Date Picker */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: colors.gray100,
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: `1px solid ${colors.gray200}`
             }}>
+              <i 
+                className="fas fa-calendar" 
+                style={{ 
+                  color: colors.gray600, 
+                  fontSize: 14 
+                }}
+              ></i>
+              <input 
+                type="date" 
+                value={dataSelecionada}
+                onChange={(e) => setDataSelecionada(e.target.value)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 13,
+                  outline: 'none',
+                  fontWeight: 500,
+                  color: colors.gray900,
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+
+            {/* Notifications */}
+            <button 
+              onClick={() => setShowNotificacoes(!showNotificacoes)}
+              style={{
+                position: 'relative',
+                padding: 10,
+                background: colors.gray100,
+                border: `1px solid ${colors.gray200}`,
+                borderRadius: 6,
+                cursor: 'pointer',
+                color: colors.gray700,
+                fontSize: 16,
+                transition: 'all 0.2s ease'
+              }}
+            >
               <i className="fas fa-bell"></i>
-              {notificacoesNaoLidas > 0 && <span style={{
-                position: 'absolute', top: -4, right: -4, width: 10, height: 10,
-                background: colors.danger, borderRadius: '50%', border: `2px solid ${colors.white}`
-              }} />}
+              {notificacoesNaoLidas > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  width: 8,
+                  height: 8,
+                  background: colors.danger,
+                  borderRadius: '50%',
+                  border: `2px solid ${colors.gray50}`
+                }} />
+              )}
             </button>
           </div>
         </header>
 
-        {/* Stats Cards - Cards Profissionais com Sombra */}
+        {/* Mobile Menu Button Responsive CSS */}
+        <style>{`
+          @media (max-width: 768px) {
+            .mobile-menu-btn {
+              display: block !important;
+            }
+          }
+        `}</style>
+
+        {/* ==================== STATS CARDS ==================== */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, padding: '24px',
-          '@media (max-width: 768px)': { gap: 12, padding: '16px' }
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 16,
+          padding: 24
         }}>
           {/* Card Aguardando */}
-          <div style={{
-            background: colors.white, borderRadius: 20, padding: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-            border: '1px solid rgba(0,0,0,0.03)', transition: 'transform 0.2s, box-shadow 0.2s',
-            cursor: 'pointer', position: 'relative', overflow: 'hidden'
-          }}>
-            <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, opacity: 0.08, borderRadius: '50%', background: colors.warning, transform: 'translate(30%, -30%)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div 
+            className="card-hover"
+            style={{
+              background: colors.gray50,
+              borderRadius: 8,
+              padding: 20,
+              border: `1px solid ${colors.gray200}`,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 16
+            }}>
               <div style={{
-                width: 48, height: 48, borderRadius: 16, background: `${colors.warning}15`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: colors.warningLight,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: colors.warning,
+                fontSize: 18
               }}>
-                <i className="fas fa-clock" style={{ fontSize: 22, color: colors.warning }}></i>
+                <i className="fas fa-clock"></i>
               </div>
-              <span style={{ fontSize: 28, fontWeight: 800, color: colors.warning }}>{pedidosSaida.length}</span>
+              <span style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: colors.warning,
+                lineHeight: 1
+              }}>
+                {pedidosSaida.length}
+              </span>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: colors.dark, marginBottom: 4 }}>Aguardando Saída</div>
-            <div style={{ fontSize: 12, color: colors.gray }}>Estudantes na portaria</div>
-            <div style={{ marginTop: 12, height: 4, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${(pedidosSaida.length / (pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length + 1)) * 100}%`, height: '100%', background: colors.warning, borderRadius: 2 }} />
+            <div style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: colors.gray900,
+              marginBottom: 4
+            }}>
+              Aguardando Saída
+            </div>
+            <div style={{
+              fontSize: 12,
+              color: colors.gray600
+            }}>
+              Estudantes na portaria
             </div>
           </div>
 
           {/* Card Em Andamento */}
-          <div style={{
-            background: colors.white, borderRadius: 20, padding: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-            border: '1px solid rgba(0,0,0,0.03)', transition: 'transform 0.2s, box-shadow 0.2s',
-            cursor: 'pointer', position: 'relative', overflow: 'hidden'
-          }}>
-            <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, opacity: 0.08, borderRadius: '50%', background: colors.info, transform: 'translate(30%, -30%)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div 
+            className="card-hover"
+            style={{
+              background: colors.gray50,
+              borderRadius: 8,
+              padding: 20,
+              border: `1px solid ${colors.gray200}`,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 16
+            }}>
               <div style={{
-                width: 48, height: 48, borderRadius: 16, background: `${colors.info}15`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: colors.infoLight,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: colors.info,
+                fontSize: 18
               }}>
-                <i className="fas fa-walking" style={{ fontSize: 22, color: colors.info }}></i>
+                <i className="fas fa-walking"></i>
               </div>
-              <span style={{ fontSize: 28, fontWeight: 800, color: colors.info }}>{pedidosAndamento.length}</span>
+              <span style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: colors.info,
+                lineHeight: 1
+              }}>
+                {pedidosAndamento.length}
+              </span>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: colors.dark, marginBottom: 4 }}>Em Andamento</div>
-            <div style={{ fontSize: 12, color: colors.gray }}>Fora da unidade</div>
-            <div style={{ marginTop: 12, height: 4, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${(pedidosAndamento.length / (pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length + 1)) * 100}%`, height: '100%', background: colors.info, borderRadius: 2 }} />
+            <div style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: colors.gray900,
+              marginBottom: 4
+            }}>
+              Em Andamento
+            </div>
+            <div style={{
+              fontSize: 12,
+              color: colors.gray600
+            }}>
+              Fora da unidade
             </div>
           </div>
 
           {/* Card Finalizados */}
-          <div style={{
-            background: colors.white, borderRadius: 20, padding: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-            border: '1px solid rgba(0,0,0,0.03)', transition: 'transform 0.2s, box-shadow 0.2s',
-            cursor: 'pointer', position: 'relative', overflow: 'hidden'
-          }}>
-            <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, opacity: 0.08, borderRadius: '50%', background: colors.success, transform: 'translate(30%, -30%)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div 
+            className="card-hover"
+            style={{
+              background: colors.gray50,
+              borderRadius: 8,
+              padding: 20,
+              border: `1px solid ${colors.gray200}`,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 16
+            }}>
               <div style={{
-                width: 48, height: 48, borderRadius: 16, background: `${colors.success}15`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                width: 40,
+                height: 40,
+                borderRadius: 8,
+                background: colors.successLight,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: colors.success,
+                fontSize: 18
               }}>
-                <i className="fas fa-check-circle" style={{ fontSize: 22, color: colors.success }}></i>
+                <i className="fas fa-check-circle"></i>
               </div>
-              <span style={{ fontSize: 28, fontWeight: 800, color: colors.success }}>{pedidosFinalizados.length}</span>
+              <span style={{
+                fontSize: 32,
+                fontWeight: 700,
+                color: colors.success,
+                lineHeight: 1
+              }}>
+                {pedidosFinalizados.length}
+              </span>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: colors.dark, marginBottom: 4 }}>Finalizados</div>
-            <div style={{ fontSize: 12, color: colors.gray }}>Retornaram à unidade</div>
-            <div style={{ marginTop: 12, height: 4, background: '#E5E7EB', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${(pedidosFinalizados.length / (pedidosSaida.length + pedidosAndamento.length + pedidosFinalizados.length + 1)) * 100}%`, height: '100%', background: colors.success, borderRadius: 2 }} />
+            <div style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: colors.gray900,
+              marginBottom: 4
+            }}>
+              Finalizados
+            </div>
+            <div style={{
+              fontSize: 12,
+              color: colors.gray600
+            }}>
+              Retornaram hoje
             </div>
           </div>
         </div>
 
-        {/* Search e Ações */}
+        {/* ==================== TOOLBAR ==================== */}
         <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px 16px',
-          gap: 16, flexWrap: 'wrap', '@media (max-width: 768px)': { padding: '0 16px 16px', flexDirection: 'column' }
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '0 24px 16px',
+          gap: 16,
+          flexWrap: 'wrap'
         }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: 320, '@media (max-width: 768px)': { maxWidth: '100%', width: '100%' } }}>
-            <i className="fas fa-search" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: colors.gray, fontSize: 14 }}></i>
-            <input type="text" placeholder="Buscar estudante..." value={filtroNome} onChange={(e) => setFiltroNome(e.target.value)} style={{
-              width: '100%', padding: '12px 16px 12px 42px', border: '1px solid #E2E8F0', borderRadius: 14,
-              fontSize: 14, outline: 'none', background: colors.white, transition: 'all 0.2s'
-            }} />
+          {/* Search */}
+          <div style={{ 
+            position: 'relative', 
+            flex: '1 1 300px',
+            maxWidth: 400
+          }}>
+            <i 
+              className="fas fa-search"
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: colors.gray500,
+                fontSize: 14
+              }}
+            ></i>
+            <input 
+              type="text"
+              placeholder="Buscar estudante..."
+              value={filtroNome}
+              onChange={(e) => setFiltroNome(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px 10px 36px',
+                border: `1px solid ${colors.gray200}`,
+                borderRadius: 6,
+                fontSize: 14,
+                outline: 'none',
+                background: colors.gray50,
+                transition: 'all 0.2s ease',
+                fontFamily: 'inherit'
+              }}
+            />
           </div>
-          <button onClick={() => setMostrarModalData(true)} style={{
-            padding: '12px 24px', background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
-            color: colors.white, border: 'none', borderRadius: 14, cursor: 'pointer', fontSize: 14,
-            fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
-          }}>
-            <i className="fas fa-file-alt"></i> Gerar Relatório
+
+          {/* Report Button */}
+          <button 
+            onClick={() => setMostrarModalData(true)}
+            className="btn-primary"
+            style={{
+              padding: '10px 20px',
+              background: colors.primary,
+              color: colors.gray50,
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontSize: 14,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <i className="fas fa-file-alt"></i>
+            <span>Gerar Relatório</span>
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, padding: '0 24px', marginBottom: 20, flexWrap: 'wrap', '@media (max-width: 768px)': { padding: '0 16px' } }}>
-          <button onClick={() => setAbaAtiva('saida')} style={{
-            flex: 1, padding: '12px 20px', border: 'none', borderRadius: 14, cursor: 'pointer',
-            fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
-            background: abaAtiva === 'saida' ? colors.dark : colors.lightGray,
-            color: abaAtiva === 'saida' ? colors.white : colors.gray,
-            boxShadow: abaAtiva === 'saida' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-          }}>
-            🟢 SAÍDA ({pedidosSaida.length})
-          </button>
-          <button onClick={() => setAbaAtiva('andamento')} style={{
-            flex: 1, padding: '12px 20px', border: 'none', borderRadius: 14, cursor: 'pointer',
-            fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
-            background: abaAtiva === 'andamento' ? colors.dark : colors.lightGray,
-            color: abaAtiva === 'andamento' ? colors.white : colors.gray,
-            boxShadow: abaAtiva === 'andamento' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-          }}>
-            🔵 ANDAMENTO ({pedidosAndamento.length})
-          </button>
-          <button onClick={() => setAbaAtiva('finalizado')} style={{
-            flex: 1, padding: '12px 20px', border: 'none', borderRadius: 14, cursor: 'pointer',
-            fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
-            background: abaAtiva === 'finalizado' ? colors.dark : colors.lightGray,
-            color: abaAtiva === 'finalizado' ? colors.white : colors.gray,
-            boxShadow: abaAtiva === 'finalizado' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
-          }}>
-            ✅ FINALIZADOS ({pedidosFinalizados.length})
-          </button>
-        </div>
-
-        {/* Data Display */}
+        {/* ==================== DATE INFO ==================== */}
         <div style={{
-          background: `${colors.primary}08`, margin: '0 24px 20px', padding: '12px 20px',
-          borderRadius: 12, fontSize: 13, color: colors.primary, textAlign: 'center',
-          border: `1px solid ${colors.primary}15`, fontWeight: 500,
-          '@media (max-width: 768px)': { margin: '0 16px 16px' }
+          background: colors.primaryLight,
+          margin: '0 24px 16px',
+          padding: '10px 16px',
+          borderRadius: 6,
+          fontSize: 13,
+          color: colors.primary,
+          textAlign: 'center',
+          border: `1px solid ${colors.primary}20`,
+          fontWeight: 500
         }}>
           📅 {formatarData(dataSelecionada)}
         </div>
 
-        {/* Cards Container */}
-        <div style={{ padding: '0 24px 24px', minHeight: 400, '@media (max-width: 768px)': { padding: '0 16px 16px' } }}>
+        {/* ==================== CONTENT AREA ==================== */}
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '0 24px 24px'
+        }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: colors.gray }}>
-              <div style={{ width: 40, height: 40, border: `3px solid ${colors.lightGray}`, borderTopColor: colors.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-              <p>Carregando...</p>
+            <div style={{
+              textAlign: 'center',
+              padding: 60,
+              color: colors.gray500
+            }}>
+              <div style={{
+                width: 40,
+                height: 40,
+                border: `3px solid ${colors.gray200}`,
+                borderTopColor: colors.primary,
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+                margin: '0 auto 16px'
+              }} />
+              <p>Carregando dados...</p>
             </div>
           ) : (
             <>
-              {/* Aba SAÍDA */}
+              {/* ==================== ABA SAÍDA ==================== */}
               {abaAtiva === 'saida' && (
                 saidaFiltrada.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: colors.gray }}>
-                    <i className="fas fa-inbox" style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}></i>
-                    <p>Nenhum estudante aguardando saída</p>
+                  <div style={{
+                    textAlign: 'center',
+                    padding: 80,
+                    color: colors.gray500
+                  }}>
+                    <i 
+                      className="fas fa-inbox"
+                      style={{
+                        fontSize: 48,
+                        marginBottom: 16,
+                        opacity: 0.3
+                      }}
+                    ></i>
+                    <p style={{ fontSize: 15 }}>
+                      Nenhum estudante aguardando saída
+                    </p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20, '@media (max-width: 768px)': { gridTemplateColumns: '1fr' } }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: 16
+                  }}>
                     {saidaFiltrada.map(p => (
-                      <div key={p.id} className="card-animate" style={{
-                        background: colors.white, borderRadius: 20, overflow: 'hidden',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #F1F5F9',
-                        transition: 'transform 0.2s, box-shadow 0.2s'
-                      }}>
+                      <div 
+                        key={p.id}
+                        className="card-hover"
+                        style={{
+                          background: colors.gray50,
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          border: `1px solid ${colors.gray200}`,
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                          animation: 'fadeIn 0.3s ease'
+                        }}
+                      >
+                        {/* Card Header */}
                         <div style={{
-                          padding: '16px 20px', background: `linear-gradient(135deg, ${colors.warning}08, transparent)`,
-                          borderBottom: `2px solid ${colors.warning}20`, display: 'flex', alignItems: 'center', gap: 12
+                          padding: '16px 20px',
+                          background: colors.warningLight,
+                          borderBottom: `1px solid ${colors.gray200}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12
                         }}>
                           <div style={{
-                            width: 44, height: 44, borderRadius: 14, background: `${colors.warning}15`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22
-                          }}>🎓</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: colors.dark }}>{p.estudante_nome}</div>
-                            <div style={{ fontSize: 12, color: colors.gray }}>{p.estudante_curso || 'Curso não informado'} • {p.estudante_classe || '-'}</div>
+                            width: 40,
+                            height: 40,
+                            borderRadius: 8,
+                            background: colors.gray50,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 20,
+                            flexShrink: 0
+                          }}>
+                            🎓
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 15,
+                              fontWeight: 600,
+                              color: colors.gray900,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.estudante_nome}
+                            </div>
+                            <div style={{
+                              fontSize: 12,
+                              color: colors.gray600,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.estudante_curso || 'Curso não informado'}
+                            </div>
                           </div>
                           <div style={{
-                            background: `${colors.warning}15`, color: colors.warning,
-                            padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600
-                          }}>Aguardando</div>
+                            background: colors.warning,
+                            color: colors.gray50,
+                            padding: '4px 10px',
+                            borderRadius: 12,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            Aguardando
+                          </div>
                         </div>
+
+                        {/* Card Body */}
                         <div style={{ padding: 20 }}>
-                          <div style={{ display: 'flex', gap: 16, justifyContent: 'space-between', marginBottom: 16 }}>
-                            <div style={{ textAlign: 'center', flex: 1, padding: 8, background: colors.lightGray, borderRadius: 12 }}>
-                              <div style={{ fontSize: 11, color: colors.gray, marginBottom: 4 }}>🚪 Saída</div>
-                              <div style={{ fontSize: 18, fontWeight: 700, color: colors.dark }}>{p.hora_saida_prevista || '-'}</div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 12,
+                            marginBottom: 16
+                          }}>
+                            <div style={{
+                              textAlign: 'center',
+                              padding: 12,
+                              background: colors.gray100,
+                              borderRadius: 6,
+                              border: `1px solid ${colors.gray200}`
+                            }}>
+                              <div style={{
+                                fontSize: 11,
+                                color: colors.gray600,
+                                marginBottom: 4,
+                                fontWeight: 500
+                              }}>
+                                🚪 Saída
+                              </div>
+                              <div style={{
+                                fontSize: 18,
+                                fontWeight: 700,
+                                color: colors.gray900
+                              }}>
+                                {p.hora_saida_prevista || '-'}
+                              </div>
                             </div>
-                            <div style={{ textAlign: 'center', flex: 1, padding: 8, background: colors.lightGray, borderRadius: 12 }}>
-                              <div style={{ fontSize: 11, color: colors.gray, marginBottom: 4 }}>🔙 Retorno</div>
-                              <div style={{ fontSize: 18, fontWeight: 700, color: colors.dark }}>{p.hora_volta_prevista || '-'}</div>
+                            <div style={{
+                              textAlign: 'center',
+                              padding: 12,
+                              background: colors.gray100,
+                              borderRadius: 6,
+                              border: `1px solid ${colors.gray200}`
+                            }}>
+                              <div style={{
+                                fontSize: 11,
+                                color: colors.gray600,
+                                marginBottom: 4,
+                                fontWeight: 500
+                              }}>
+                                🔙 Retorno
+                              </div>
+                              <div style={{
+                                fontSize: 18,
+                                fontWeight: 700,
+                                color: colors.gray900
+                              }}>
+                                {p.hora_volta_prevista || '-'}
+                              </div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 12 }}>
-                            <button onClick={() => marcarSaida(p.id)} style={{
-                              flex: 1, padding: 12, background: `linear-gradient(135deg, ${colors.success}, ${colors.successDark})`,
-                              color: colors.white, border: 'none', borderRadius: 12, cursor: 'pointer',
-                              fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                            }}>
-                              <i className="fas fa-check-circle"></i> REGISTRAR SAÍDA
+
+                          {/* Actions */}
+                          <div style={{
+                            display: 'flex',
+                            gap: 8
+                          }}>
+                            <button 
+                              onClick={() => marcarSaida(p.id)}
+                              className="btn-primary"
+                              style={{
+                                flex: 1,
+                                padding: 12,
+                                background: colors.success,
+                                color: colors.gray50,
+                                border: 'none',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                fontSize: 13,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6
+                              }}
+                            >
+                              <i className="fas fa-check-circle"></i>
+                              Registrar Saída
                             </button>
-                            <button onClick={() => marcarSaidaAjustada(p.id)} style={{
-                              padding: '12px 16px', background: colors.lightGray, border: 'none',
-                              borderRadius: 12, cursor: 'pointer', color: colors.gray, fontWeight: 500, fontSize: 13
-                            }}>
+                            <button 
+                              onClick={() => marcarSaidaAjustada(p.id)}
+                              style={{
+                                padding: '12px 14px',
+                                background: colors.gray100,
+                                border: `1px solid ${colors.gray200}`,
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                color: colors.gray700,
+                                fontWeight: 500,
+                                fontSize: 14,
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
                               <i className="fas fa-clock"></i>
                             </button>
                           </div>
@@ -553,58 +1188,198 @@ const DashboardSeguranca = ({ user, onLogout }) => {
                 )
               )}
 
-              {/* Aba ANDAMENTO */}
+              {/* ==================== ABA ANDAMENTO ==================== */}
               {abaAtiva === 'andamento' && (
                 andamentoFiltrado.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: colors.gray }}>
-                    <i className="fas fa-walking" style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}></i>
-                    <p>Nenhum estudante em andamento</p>
+                  <div style={{
+                    textAlign: 'center',
+                    padding: 80,
+                    color: colors.gray500
+                  }}>
+                    <i 
+                      className="fas fa-walking"
+                      style={{
+                        fontSize: 48,
+                        marginBottom: 16,
+                        opacity: 0.3
+                      }}
+                    ></i>
+                    <p style={{ fontSize: 15 }}>
+                      Nenhum estudante em andamento
+                    </p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20, '@media (max-width: 768px)': { gridTemplateColumns: '1fr' } }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: 16
+                  }}>
                     {andamentoFiltrado.map(p => (
-                      <div key={p.id} className="card-animate" style={{
-                        background: colors.white, borderRadius: 20, overflow: 'hidden',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #F1F5F9',
-                        borderTop: `3px solid ${colors.info}`
-                      }}>
-                        <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div 
+                        key={p.id}
+                        className="card-hover"
+                        style={{
+                          background: colors.gray50,
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          border: `1px solid ${colors.gray200}`,
+                          borderLeft: `4px solid ${colors.info}`,
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                          animation: 'fadeIn 0.3s ease'
+                        }}
+                      >
+                        {/* Card Header */}
+                        <div style={{
+                          padding: '16px 20px',
+                          borderBottom: `1px solid ${colors.gray200}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12
+                        }}>
                           <div style={{
-                            width: 44, height: 44, borderRadius: 14, background: `${colors.info}15`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22
-                          }}>🚶</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: colors.dark }}>{p.estudante_nome}</div>
-                            <div style={{ fontSize: 12, color: colors.gray }}>{p.estudante_curso || 'Curso não informado'} • {p.estudante_classe || '-'}</div>
+                            width: 40,
+                            height: 40,
+                            borderRadius: 8,
+                            background: colors.infoLight,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 20,
+                            flexShrink: 0
+                          }}>
+                            🚶
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 15,
+                              fontWeight: 600,
+                              color: colors.gray900,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.estudante_nome}
+                            </div>
+                            <div style={{
+                              fontSize: 12,
+                              color: colors.gray600,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.estudante_curso || 'Curso não informado'}
+                            </div>
                           </div>
                           <div style={{
-                            background: `${colors.info}15`, color: colors.info,
-                            padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600
-                          }}>Em andamento</div>
+                            background: colors.info,
+                            color: colors.gray50,
+                            padding: '4px 10px',
+                            borderRadius: 12,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            Em andamento
+                          </div>
                         </div>
-                        <div style={{ padding: '0 20px 20px' }}>
-                          <div style={{ display: 'flex', gap: 16, justifyContent: 'space-between', marginBottom: 16 }}>
-                            <div style={{ textAlign: 'center', flex: 1, padding: 8, background: colors.lightGray, borderRadius: 12 }}>
-                              <div style={{ fontSize: 11, color: colors.gray, marginBottom: 4 }}>✅ Saiu às</div>
-                              <div style={{ fontSize: 18, fontWeight: 700, color: colors.success }}>{p.hora_saida_real || '-'}</div>
+
+                        {/* Card Body */}
+                        <div style={{ padding: 20 }}>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 12,
+                            marginBottom: 16
+                          }}>
+                            <div style={{
+                              textAlign: 'center',
+                              padding: 12,
+                              background: colors.successLight,
+                              borderRadius: 6,
+                              border: `1px solid ${colors.success}20`
+                            }}>
+                              <div style={{
+                                fontSize: 11,
+                                color: colors.gray600,
+                                marginBottom: 4,
+                                fontWeight: 500
+                              }}>
+                                ✅ Saiu às
+                              </div>
+                              <div style={{
+                                fontSize: 18,
+                                fontWeight: 700,
+                                color: colors.success
+                              }}>
+                                {p.hora_saida_real || '-'}
+                              </div>
                             </div>
-                            <div style={{ textAlign: 'center', flex: 1, padding: 8, background: colors.lightGray, borderRadius: 12 }}>
-                              <div style={{ fontSize: 11, color: colors.gray, marginBottom: 4 }}>⏰ Prev. Retorno</div>
-                              <div style={{ fontSize: 18, fontWeight: 700, color: colors.dark }}>{p.hora_volta_prevista || '-'}</div>
+                            <div style={{
+                              textAlign: 'center',
+                              padding: 12,
+                              background: colors.gray100,
+                              borderRadius: 6,
+                              border: `1px solid ${colors.gray200}`
+                            }}>
+                              <div style={{
+                                fontSize: 11,
+                                color: colors.gray600,
+                                marginBottom: 4,
+                                fontWeight: 500
+                              }}>
+                                ⏰ Prev. Retorno
+                              </div>
+                              <div style={{
+                                fontSize: 18,
+                                fontWeight: 700,
+                                color: colors.gray900
+                              }}>
+                                {p.hora_volta_prevista || '-'}
+                              </div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 12 }}>
-                            <button onClick={() => marcarRetorno(p.id)} style={{
-                              flex: 1, padding: 12, background: `linear-gradient(135deg, ${colors.danger}, ${colors.dangerDark})`,
-                              color: colors.white, border: 'none', borderRadius: 12, cursor: 'pointer',
-                              fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                            }}>
-                              <i className="fas fa-undo-alt"></i> REGISTRAR RETORNO
+
+                          {/* Actions */}
+                          <div style={{
+                            display: 'flex',
+                            gap: 8
+                          }}>
+                            <button 
+                              onClick={() => marcarRetorno(p.id)}
+                              className="btn-primary"
+                              style={{
+                                flex: 1,
+                                padding: 12,
+                                background: colors.danger,
+                                color: colors.gray50,
+                                border: 'none',
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                fontSize: 13,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6
+                              }}
+                            >
+                              <i className="fas fa-undo-alt"></i>
+                              Registrar Retorno
                             </button>
-                            <button onClick={() => marcarRetornoAjustado(p.id)} style={{
-                              padding: '12px 16px', background: colors.lightGray, border: 'none',
-                              borderRadius: 12, cursor: 'pointer', color: colors.gray, fontWeight: 500, fontSize: 13
-                            }}>
+                            <button 
+                              onClick={() => marcarRetornoAjustado(p.id)}
+                              style={{
+                                padding: '12px 14px',
+                                background: colors.gray100,
+                                border: `1px solid ${colors.gray200}`,
+                                borderRadius: 6,
+                                cursor: 'pointer',
+                                color: colors.gray700,
+                                fontWeight: 500,
+                                fontSize: 14,
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
                               <i className="fas fa-clock"></i>
                             </button>
                           </div>
@@ -615,55 +1390,171 @@ const DashboardSeguranca = ({ user, onLogout }) => {
                 )
               )}
 
-              {/* Aba FINALIZADO */}
+              {/* ==================== ABA FINALIZADO ==================== */}
               {abaAtiva === 'finalizado' && (
                 finalizadosFiltrado.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: colors.gray }}>
-                    <i className="fas fa-check-circle" style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}></i>
-                    <p>Nenhum estudante finalizado</p>
+                  <div style={{
+                    textAlign: 'center',
+                    padding: 80,
+                    color: colors.gray500
+                  }}>
+                    <i 
+                      className="fas fa-check-circle"
+                      style={{
+                        fontSize: 48,
+                        marginBottom: 16,
+                        opacity: 0.3
+                      }}
+                    ></i>
+                    <p style={{ fontSize: 15 }}>
+                      Nenhum retorno finalizado hoje
+                    </p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20, '@media (max-width: 768px)': { gridTemplateColumns: '1fr' } }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: 16
+                  }}>
                     {finalizadosFiltrado.map(p => (
-                      <div key={p.id} className="card-animate" style={{
-                        background: colors.white, borderRadius: 20, overflow: 'hidden',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #F1F5F9',
-                        borderTop: `3px solid ${p.atrasado ? colors.danger : colors.success}`,
-                        opacity: 0.95
-                      }}>
-                        <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div 
+                        key={p.id}
+                        className="card-hover"
+                        style={{
+                          background: colors.gray50,
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          border: `1px solid ${colors.gray200}`,
+                          borderLeft: `4px solid ${p.atrasado ? colors.danger : colors.success}`,
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                          opacity: 0.95,
+                          animation: 'fadeIn 0.3s ease'
+                        }}
+                      >
+                        {/* Card Header */}
+                        <div style={{
+                          padding: '16px 20px',
+                          borderBottom: `1px solid ${colors.gray200}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12
+                        }}>
                           <div style={{
-                            width: 44, height: 44, borderRadius: 14,
-                            background: p.atrasado ? `${colors.danger}15` : `${colors.success}15`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22
-                          }}>✅</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: colors.dark }}>{p.estudante_nome}</div>
-                            <div style={{ fontSize: 12, color: colors.gray }}>{p.estudante_curso || 'Curso não informado'} • {p.estudante_classe || '-'}</div>
+                            width: 40,
+                            height: 40,
+                            borderRadius: 8,
+                            background: p.atrasado ? colors.dangerLight : colors.successLight,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 20,
+                            flexShrink: 0
+                          }}>
+                            {p.atrasado ? '⚠️' : '✅'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 15,
+                              fontWeight: 600,
+                              color: colors.gray900,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.estudante_nome}
+                            </div>
+                            <div style={{
+                              fontSize: 12,
+                              color: colors.gray600,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.estudante_curso || 'Curso não informado'}
+                            </div>
                           </div>
                           {p.atrasado && (
                             <div style={{
-                              background: `${colors.danger}15`, color: colors.danger,
-                              padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600
-                            }}>⚠️ Atraso</div>
+                              background: colors.danger,
+                              color: colors.gray50,
+                              padding: '4px 10px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              Atraso
+                            </div>
                           )}
                         </div>
-                        <div style={{ padding: '0 20px 20px' }}>
-                          <div style={{ display: 'flex', gap: 16, justifyContent: 'space-between', marginBottom: 16 }}>
-                            <div style={{ textAlign: 'center', flex: 1, padding: 8, background: colors.lightGray, borderRadius: 12 }}>
-                              <div style={{ fontSize: 11, color: colors.gray, marginBottom: 4 }}>✅ Saiu</div>
-                              <div style={{ fontSize: 16, fontWeight: 600, color: colors.dark }}>{p.hora_saida_real || '-'}</div>
+
+                        {/* Card Body */}
+                        <div style={{ padding: 20 }}>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 12,
+                            marginBottom: p.atrasado ? 12 : 0
+                          }}>
+                            <div style={{
+                              textAlign: 'center',
+                              padding: 12,
+                              background: colors.gray100,
+                              borderRadius: 6,
+                              border: `1px solid ${colors.gray200}`
+                            }}>
+                              <div style={{
+                                fontSize: 11,
+                                color: colors.gray600,
+                                marginBottom: 4,
+                                fontWeight: 500
+                              }}>
+                                ✅ Saiu
+                              </div>
+                              <div style={{
+                                fontSize: 16,
+                                fontWeight: 600,
+                                color: colors.gray900
+                              }}>
+                                {p.hora_saida_real || '-'}
+                              </div>
                             </div>
-                            <div style={{ textAlign: 'center', flex: 1, padding: 8, background: colors.lightGray, borderRadius: 12 }}>
-                              <div style={{ fontSize: 11, color: colors.gray, marginBottom: 4 }}>🔴 Retornou</div>
-                              <div style={{ fontSize: 16, fontWeight: 600, color: colors.dark }}>{p.hora_retorno_real || '-'}</div>
+                            <div style={{
+                              textAlign: 'center',
+                              padding: 12,
+                              background: colors.gray100,
+                              borderRadius: 6,
+                              border: `1px solid ${colors.gray200}`
+                            }}>
+                              <div style={{
+                                fontSize: 11,
+                                color: colors.gray600,
+                                marginBottom: 4,
+                                fontWeight: 500
+                              }}>
+                                🔴 Retornou
+                              </div>
+                              <div style={{
+                                fontSize: 16,
+                                fontWeight: 600,
+                                color: colors.gray900
+                              }}>
+                                {p.hora_retorno_real || '-'}
+                              </div>
                             </div>
                           </div>
+
                           {p.atrasado && (
                             <div style={{
-                              marginTop: 12, padding: 10, background: `${colors.danger}10`,
-                              borderRadius: 10, fontSize: 12, color: colors.danger, textAlign: 'center',
-                              border: `1px solid ${colors.danger}20`
+                              marginTop: 12,
+                              padding: 10,
+                              background: colors.dangerLight,
+                              borderRadius: 6,
+                              fontSize: 12,
+                              color: colors.danger,
+                              textAlign: 'center',
+                              border: `1px solid ${colors.danger}20`,
+                              fontWeight: 500
                             }}>
                               ⚠️ Atraso de {p.tempo_atraso} minutos
                             </div>
@@ -679,61 +1570,348 @@ const DashboardSeguranca = ({ user, onLogout }) => {
         </div>
       </div>
 
-      {/* Modais (mantidos da versão anterior) */}
-      {/* Modal Seleção Data */}
+      {/* ==================== MODAL SELEÇÃO DATA ==================== */}
       {mostrarModalData && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} onClick={() => setMostrarModalData(false)}>
-          <div style={{ background: colors.white, borderRadius: 24, width: '90%', maxWidth: 500, overflow: 'auto', animation: 'fadeInUp 0.3s ease-out' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 20, fontWeight: 700, color: colors.dark }}>📄 Gerar Relatório</h3>
-              <button onClick={() => setMostrarModalData(false)} style={{ width: 32, height: 32, border: '1px solid #E2E8F0', background: colors.white, borderRadius: 8, cursor: 'pointer' }}>✕</button>
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(4px)',
+            padding: 16
+          }}
+          onClick={() => setMostrarModalData(false)}
+        >
+          <div 
+            style={{
+              background: colors.gray50,
+              borderRadius: 8,
+              width: '100%',
+              maxWidth: 480,
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: 20,
+              borderBottom: `1px solid ${colors.gray200}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: colors.gray900,
+                margin: 0
+              }}>
+                📄 Gerar Relatório
+              </h3>
+              <button 
+                onClick={() => setMostrarModalData(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: `1px solid ${colors.gray200}`,
+                  background: colors.gray100,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  color: colors.gray700,
+                  fontSize: 16,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                ✕
+              </button>
             </div>
+
+            {/* Modal Body */}
             <div style={{ padding: 24 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: colors.gray, marginBottom: 8 }}>Data do Relatório</label>
-              <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ width: '100%', padding: 12, border: '1px solid #E2E8F0', borderRadius: 12, fontSize: 14, outline: 'none' }} />
-              <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                <button onClick={() => setMostrarModalData(false)} style={{ flex: 1, padding: 12, background: colors.lightGray, border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
-                <button onClick={gerarRelatorioCompleto} style={{ flex: 1, padding: 12, background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`, color: colors.white, border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 600 }}>Gerar</button>
+              <label style={{
+                display: 'block',
+                fontSize: 13,
+                fontWeight: 600,
+                color: colors.gray700,
+                marginBottom: 8
+              }}>
+                Data do Relatório
+              </label>
+              <input 
+                type="date"
+                value={dataRelatorio}
+                onChange={(e) => setDataRelatorio(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 12,
+                  border: `1px solid ${colors.gray200}`,
+                  borderRadius: 6,
+                  fontSize: 14,
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  background: colors.gray50
+                }}
+              />
+
+              <div style={{
+                display: 'flex',
+                gap: 12,
+                marginTop: 24
+              }}>
+                <button 
+                  onClick={() => setMostrarModalData(false)}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    background: colors.gray100,
+                    border: `1px solid ${colors.gray200}`,
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    color: colors.gray700,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={gerarRelatorioCompleto}
+                  className="btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    background: colors.primary,
+                    color: colors.gray50,
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14
+                  }}
+                >
+                  Gerar Relatório
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Relatório Gerado */}
+      {/* ==================== MODAL RELATÓRIO GERADO ==================== */}
       {relatorio && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} onClick={() => setRelatorio(null)}>
-          <div style={{ background: colors.white, borderRadius: 24, width: '90%', maxWidth: 700, maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 20, fontWeight: 700, color: colors.dark }}>📄 Relatório - {relatorio.data}</h3>
-              <button onClick={() => setRelatorio(null)} style={{ width: 32, height: 32, border: '1px solid #E2E8F0', background: colors.white, borderRadius: 8, cursor: 'pointer' }}>✕</button>
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(4px)',
+            padding: 16
+          }}
+          onClick={() => setRelatorio(null)}
+        >
+          <div 
+            style={{
+              background: colors.gray50,
+              borderRadius: 8,
+              width: '100%',
+              maxWidth: 800,
+              maxHeight: '90vh',
+              overflow: 'auto',
+              animation: 'fadeIn 0.2s ease',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: 20,
+              borderBottom: `1px solid ${colors.gray200}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              position: 'sticky',
+              top: 0,
+              background: colors.gray50,
+              zIndex: 1
+            }}>
+              <h3 style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: colors.gray900,
+                margin: 0
+              }}>
+                📄 Relatório - {relatorio.data}
+              </h3>
+              <button 
+                onClick={() => setRelatorio(null)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: `1px solid ${colors.gray200}`,
+                  background: colors.gray100,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  color: colors.gray700,
+                  fontSize: 16,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                ✕
+              </button>
             </div>
+
+            {/* Modal Body */}
             <div style={{ padding: 24 }}>
-              <div style={{ background: colors.lightGray, padding: 20, borderRadius: 16, marginBottom: 24 }}>
-                <h4 style={{ marginBottom: 16, fontSize: 14, fontWeight: 600, color: colors.dark }}>📊 RESUMO DO DIA</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, fontSize: 13 }}>
-                  <p>👥 Total Autorizados: <strong>{relatorio.total_autorizados}</strong></p>
-                  <p>✅ Saídas Registradas: <strong>{relatorio.saidas_registradas}</strong> ({relatorio.taxa_saida}%)</p>
-                  <p>🔴 Retornos Registrados: <strong>{relatorio.retornos_registrados}</strong> ({relatorio.taxa_retorno}%)</p>
-                  <p>⚠️ Atrasos: <strong>{relatorio.atrasos}</strong> ({relatorio.taxa_atraso}%)</p>
+              {/* Summary Cards */}
+              <div style={{
+                background: colors.gray100,
+                padding: 20,
+                borderRadius: 8,
+                marginBottom: 24,
+                border: `1px solid ${colors.gray200}`
+              }}>
+                <h4 style={{
+                  marginBottom: 16,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: colors.gray900
+                }}>
+                  📊 RESUMO DO DIA
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: 12,
+                  fontSize: 13,
+                  color: colors.gray700
+                }}>
+                  <p style={{ margin: 0 }}>
+                    👥 Total: <strong>{relatorio.total_autorizados}</strong>
+                  </p>
+                  <p style={{ margin: 0 }}>
+                    ✅ Saídas: <strong>{relatorio.saidas_registradas}</strong> ({relatorio.taxa_saida}%)
+                  </p>
+                  <p style={{ margin: 0 }}>
+                    🔴 Retornos: <strong>{relatorio.retornos_registrados}</strong> ({relatorio.taxa_retorno}%)
+                  </p>
+                  <p style={{ margin: 0 }}>
+                    ⚠️ Atrasos: <strong>{relatorio.atrasos}</strong> ({relatorio.taxa_atraso}%)
+                  </p>
                 </div>
               </div>
-              <h4 style={{ marginBottom: 16, fontSize: 14, fontWeight: 600, color: colors.dark }}>👨‍🎓 LISTA COMPLETA</h4>
-              <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'auto', maxHeight: 300 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+
+              {/* Table */}
+              <h4 style={{
+                marginBottom: 16,
+                fontSize: 14,
+                fontWeight: 600,
+                color: colors.gray900
+              }}>
+                👨‍🎓 LISTA COMPLETA
+              </h4>
+              <div style={{
+                border: `1px solid ${colors.gray200}`,
+                borderRadius: 8,
+                overflow: 'auto',
+                maxHeight: 400
+              }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: 13
+                }}>
                   <thead>
-                    <tr style={{ background: colors.lightGray, borderBottom: '1px solid #E2E8F0' }}>
-                      <th style={{ padding: 12, textAlign: 'left' }}>Estudante</th><th style={{ padding: 12, textAlign: 'left' }}>Saída</th><th style={{ padding: 12, textAlign: 'left' }}>Retorno</th><th style={{ padding: 12, textAlign: 'left' }}>Status</th>
+                    <tr style={{
+                      background: colors.gray100,
+                      borderBottom: `1px solid ${colors.gray200}`,
+                      position: 'sticky',
+                      top: 0
+                    }}>
+                      <th style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        color: colors.gray900
+                      }}>
+                        Estudante
+                      </th>
+                      <th style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        color: colors.gray900
+                      }}>
+                        Saída
+                      </th>
+                      <th style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        color: colors.gray900
+                      }}>
+                        Retorno
+                      </th>
+                      <th style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        color: colors.gray900
+                      }}>
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {relatorio.lista_completa?.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: item.atrasado ? '#FEF2F2' : 'transparent' }}>
-                        <td style={{ padding: 12 }}>{item.estudante}</td>
-                        <td style={{ padding: 12 }}>{item.hora_saida_real || '⏳ Não saiu'}</td>
-                        <td style={{ padding: 12 }}>{item.hora_retorno_real || (item.hora_saida_real ? '⏳ Aguardando' : '-')}</td>
-                        <td style={{ padding: 12 }}>
-                          {item.atrasado ? '⚠️ Atrasado' : item.hora_retorno_real ? '✅ Completo' : item.hora_saida_real ? '🚶 Em andamento' : '⏳ Aguardando'}
+                      <tr 
+                        key={idx}
+                        style={{
+                          borderBottom: `1px solid ${colors.gray200}`,
+                          background: item.atrasado ? colors.dangerLight : colors.gray50
+                        }}
+                      >
+                        <td style={{ 
+                          padding: 12,
+                          color: colors.gray900
+                        }}>
+                          {item.estudante}
+                        </td>
+                        <td style={{ 
+                          padding: 12,
+                          color: colors.gray700
+                        }}>
+                          {item.hora_saida_real || '⏳ Não saiu'}
+                        </td>
+                        <td style={{ 
+                          padding: 12,
+                          color: colors.gray700
+                        }}>
+                          {item.hora_retorno_real || (item.hora_saida_real ? '⏳ Aguardando' : '-')}
+                        </td>
+                        <td style={{ 
+                          padding: 12,
+                          fontWeight: 500
+                        }}>
+                          {item.atrasado ? (
+                            <span style={{ color: colors.danger }}>⚠️ Atrasado</span>
+                          ) : item.hora_retorno_real ? (
+                            <span style={{ color: colors.success }}>✅ Completo</span>
+                          ) : item.hora_saida_real ? (
+                            <span style={{ color: colors.info }}>🚶 Em andamento</span>
+                          ) : (
+                            <span style={{ color: colors.gray500 }}>⏳ Aguardando</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -741,32 +1919,184 @@ const DashboardSeguranca = ({ user, onLogout }) => {
                 </table>
               </div>
             </div>
-            <div style={{ padding: 20, borderTop: '1px solid #E2E8F0', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button onClick={() => window.open(`data:text/plain;charset=utf-8,${encodeURIComponent(relatorio.texto_relatorio)}`, '_blank')} style={{ padding: '10px 20px', background: colors.lightGray, border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}>📄 Visualizar Texto</button>
-              <button onClick={enviarRelatorio} disabled={enviando} style={{ padding: '10px 20px', background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`, color: colors.white, border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}>{enviando ? 'Enviando...' : '📧 Enviar para DITE'}</button>
-              <button onClick={() => setRelatorio(null)} style={{ padding: '10px 20px', background: colors.lightGray, border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}>Fechar</button>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: 20,
+              borderTop: `1px solid ${colors.gray200}`,
+              display: 'flex',
+              gap: 12,
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap',
+              position: 'sticky',
+              bottom: 0,
+              background: colors.gray50
+            }}>
+              <button 
+                onClick={() => window.open(`data:text/plain;charset=utf-8,${encodeURIComponent(relatorio.texto_relatorio)}`, '_blank')}
+                style={{
+                  padding: '10px 20px',
+                  background: colors.gray100,
+                  border: `1px solid ${colors.gray200}`,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: colors.gray700,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                📄 Ver Texto
+              </button>
+              <button 
+                onClick={enviarRelatorio}
+                disabled={enviando}
+                className="btn-primary"
+                style={{
+                  padding: '10px 20px',
+                  background: enviando ? colors.gray300 : colors.primary,
+                  color: colors.gray50,
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: enviando ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  opacity: enviando ? 0.6 : 1
+                }}
+              >
+                {enviando ? 'Enviando...' : '📧 Enviar DITE'}
+              </button>
+              <button 
+                onClick={() => setRelatorio(null)}
+                style={{
+                  padding: '10px 20px',
+                  background: colors.gray100,
+                  border: `1px solid ${colors.gray200}`,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: colors.gray700,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Notificações Panel */}
+      {/* ==================== NOTIFICAÇÕES PANEL ==================== */}
       {showNotificacoes && (
         <>
-          <div onClick={() => setShowNotificacoes(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 199 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, width: 360, height: '100vh', background: colors.white, boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', zIndex: 200, overflow: 'auto', '@media (max-width: 768px)': { width: '100%' } }}>
-            <div style={{ padding: 20, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: colors.dark }}>🔔 Notificações</h3>
-              <button onClick={() => setShowNotificacoes(false)} style={{ width: 32, height: 32, background: colors.lightGray, border: 'none', borderRadius: 8, cursor: 'pointer' }}>✕</button>
+          <div 
+            onClick={() => setShowNotificacoes(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.3)',
+              zIndex: 199,
+              backdropFilter: 'blur(4px)'
+            }}
+          />
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              width: 360,
+              height: '100vh',
+              background: colors.gray50,
+              boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.15)',
+              zIndex: 200,
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'slideInRight 0.3s ease'
+            }}
+          >
+            {/* Panel Header */}
+            <div style={{
+              padding: 20,
+              borderBottom: `1px solid ${colors.gray200}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: colors.gray900,
+                margin: 0
+              }}>
+                🔔 Notificações
+              </h3>
+              <button 
+                onClick={() => setShowNotificacoes(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: colors.gray100,
+                  border: `1px solid ${colors.gray200}`,
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  color: colors.gray700,
+                  fontSize: 16,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                ✕
+              </button>
             </div>
-            <div style={{ overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
+
+            {/* Notifications List */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto'
+            }}>
               {notificacoes.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: colors.gray }}>Nenhuma notificação</div>
+                <div style={{
+                  textAlign: 'center',
+                  padding: 60,
+                  color: colors.gray500
+                }}>
+                  <i 
+                    className="fas fa-bell-slash"
+                    style={{
+                      fontSize: 48,
+                      marginBottom: 16,
+                      opacity: 0.3
+                    }}
+                  ></i>
+                  <p>Nenhuma notificação</p>
+                </div>
               ) : (
                 notificacoes.map(n => (
-                  <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{ padding: 16, borderBottom: '1px solid #F1F5F9', cursor: 'pointer', background: n.lida ? colors.white : '#FEFCE8' }}>
-                    <div style={{ fontSize: 13, marginBottom: 4 }}>{n.mensagem}</div>
-                    <div style={{ fontSize: 11, color: colors.gray }}>{n.data}</div>
+                  <div 
+                    key={n.id}
+                    onClick={() => marcarNotificacaoLida(n.id)}
+                    style={{
+                      padding: 16,
+                      borderBottom: `1px solid ${colors.gray200}`,
+                      cursor: 'pointer',
+                      background: n.lida ? colors.gray50 : colors.infoLight,
+                      transition: 'background 0.2s ease'
+                    }}
+                  >
+                    <div style={{
+                      fontSize: 13,
+                      marginBottom: 4,
+                      color: colors.gray900,
+                      lineHeight: 1.5
+                    }}>
+                      {n.mensagem}
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      color: colors.gray600
+                    }}>
+                      {n.data}
+                    </div>
                   </div>
                 ))
               )}
@@ -774,6 +2104,15 @@ const DashboardSeguranca = ({ user, onLogout }) => {
           </div>
         </>
       )}
+
+      {/* Mobile Responsive Adjustments */}
+      <style>{`
+        @media (max-width: 768px) {
+          .stats-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
