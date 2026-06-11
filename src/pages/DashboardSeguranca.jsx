@@ -1,152 +1,83 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+// src/pages/DashboardSeguranca.jsx - VERSÃO CORRIGIDA
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
-// ============================================================
-// DASHBOARD ADMINISTRACAO — Enterprise Edition (Mobile Optimized)
-// Design Premium: Gold Accents, Black Typography, Red/Black Gradients
-// Fully Responsive, Dark Mode Detection, Auto-Refresh
-// ============================================================
-const DashboardAdministracao = ({ user, onLogout }) => {
-  // ==================== STATE MANAGEMENT ====================
-  const [pedidos, setPedidos] = useState([]);
+const DashboardSeguranca = ({ user, onLogout }) => {
+  // ==================== STATE ====================
+  const [saidasHoje, setSaidasHoje] = useState([]);
   const [stats, setStats] = useState({});
-  const [coletivas, setColetivas] = useState([]);
-  const [relatorios, setRelatorios] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Filters & Navigation
-  const [filtroEstado, setFiltroEstado] = useState('PENDENTE_DIRECAO');
-  const [filtroData, setFiltroData] = useState(() => new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [abaAtiva, setAbaAtiva] = useState('pedidos');
-  
-  // UI States
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [hoveredRow, setHoveredRow] = useState(null);
+  const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [horaAtual, setHoraAtual] = useState('');
-  const [lastSync, setLastSync] = useState('');
-  
-  // Modals & Overlays
-  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [modalAprovacao, setModalAprovacao] = useState(null);
-  const [modalRelatorio, setModalRelatorio] = useState(false);
-  const [modalDetalhes, setModalDetalhes] = useState(null);
-  const [modalColetiva, setModalColetiva] = useState(false);
-  
-  // Form Data
-  const [dadosAprovacao, setDadosAprovacao] = useState({ data_saida: '', hora_saida: '07:00', data_volta: '', hora_volta: '19:00' });
-  const [dadosRelatorio, setDadosRelatorio] = useState({ data_inicio: '', data_fim: '' });
-  const [dadosColetiva, setDadosColetiva] = useState({ titulo: '', descricao: '', data_saida: '', data_volta: '', prazo_horas: '24' });
-  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
-  const [criandoColetiva, setCriandoColetiva] = useState(false);
-  
-  // Notifications
+  const [dataSelecionada, setDataSelecionada] = useState(() => new Date().toISOString().split('T')[0]);
+  const [modalRegistro, setModalRegistro] = useState(null);
+  const [horaManual, setHoraManual] = useState('');
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
-
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [modalRelatorio, setModalRelatorio] = useState(null);
+  
   const navigate = useNavigate();
-  const notifRef = useRef(null);
 
-  // ==================== THEME ENGINE (Persistent + System Detect) ====================
+  // ==================== THEME ====================
   const getInitialTheme = () => {
     if (typeof window === 'undefined') return 'light';
-    const saved = localStorage.getItem('admin-enterprise-theme');
+    const saved = localStorage.getItem('security-theme');
     if (saved) return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   };
-
   const [themeMode, setThemeMode] = useState(getInitialTheme);
   const isDark = themeMode === 'dark';
 
-  const toggleTheme = useCallback((mode) => {
-    setThemeMode(mode);
-    localStorage.setItem('admin-enterprise-theme', mode);
-  }, []);
-
-  // ==================== DESIGN TOKENS (Premium Palette) ====================
-  const T = useMemo(() => {
-    const gold = '#C5A028';
-    const goldLight = '#E6C86E';
-    const goldDark = '#8F7010';
-    const red = '#8B0000';
-    const black = '#0A0A0A';
-    const white = '#FFFFFF';
-    
-    const bgMain = isDark ? '#050505' : '#F4F4F0';
-    const bgSurface = isDark ? '#121212' : '#FFFFFF';
-    const textPrimary = isDark ? '#EAEAEA' : '#000000';
-    const textSecondary = isDark ? '#A0A0A0' : '#555555';
-    const border = isDark ? '#333333' : '#E0E0E0';
-    
-    const gradientGold = `linear-gradient(135deg, ${gold}, ${goldDark})`;
-    const gradientRedBlack = `linear-gradient(135deg, ${red}, #000000)`;
-    const shadowSoft = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.05)';
-    const shadowHover = isDark ? '0 8px 30px rgba(0,0,0,0.7)' : '0 8px 30px rgba(0,0,0,0.1)';
-    const glowGold = isDark ? `0 0 15px rgba(197, 160, 40, 0.15)` : `0 0 10px rgba(197, 160, 40, 0.1)`;
-
-    return {
-      gold, goldLight, goldDark, red, black, white,
-      bgMain, bgSurface,
-      bgAlt: isDark ? '#1A1A1A' : '#FAFAFA',
-      textPrimary, textSecondary,
-      border, borderStrong: isDark ? '#444' : '#CCC',
-      gradientGold, gradientRedBlack,
-      shadowSoft, shadowHover, glowGold,
-      success: '#2E7D32',
-      warning: '#F9A825',
-      danger: '#C62828',
-      glass: isDark ? 'rgba(18,18,18,0.85)' : 'rgba(255,255,255,0.9)',
-    };
-  }, [isDark]);
-
-  // ==================== EFFECTS & DATA LOADING ====================
-  
   useEffect(() => {
-    const timer = setInterval(() => setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })), 1000);
+    localStorage.setItem('security-theme', themeMode);
+  }, [themeMode]);
+
+  // ==================== CORES ====================
+  const colors = {
+    primary: '#2563EB',
+    primaryDark: '#1D4ED8',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    info: '#3B82F6',
+    bg: isDark ? '#0F172A' : '#F8FAFC',
+    surface: isDark ? '#1E293B' : '#FFFFFF',
+    surfaceAlt: isDark ? '#334155' : '#F1F5F9',
+    border: isDark ? '#334155' : '#E2E8F0',
+    text: isDark ? '#F1F5F9' : '#0F172A',
+    textMuted: isDark ? '#94A3B8' : '#64748B',
+  };
+
+  // ==================== RELÓGIO ====================
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHoraAtual(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await Promise.all([carregarDados(), carregarNotificacoes()]);
-        setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-      } catch (e) { console.error(e); }
-    };
-
-    fetchData();
-    
-    const interval = setInterval(fetchData, 30000);
-    const handleVis = () => !document.hidden && fetchData();
-    
-    document.addEventListener('visibilitychange', handleVis);
-    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVis); };
-  }, [filtroEstado, filtroData]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notifRef.current && !notifRef.current.contains(event.target)) setShowNotifDropdown(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+  // ==================== CARREGAR DADOS ====================
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
-      let url = '/pedidos/';
-      const params = new URLSearchParams();
-      if (filtroEstado !== 'todos') params.append('estado', filtroEstado);
-      if (filtroData) params.append('data_saida', filtroData);
-      if (params.toString()) url += `?${params.toString()}`;
+      // Usar a data selecionada para buscar saídas
+      const [dashboardRes, saidasRes] = await Promise.all([
+        api.get('/seguranca/dashboard/'),
+        api.get(`/seguranca/saidas-data/?data=${dataSelecionada}`)
+      ]);
       
-      const [pedRes, statsRes] = await Promise.all([api.get(url), api.get('/dashboard/')]);
-      setPedidos(pedRes.data.pedidos || []);
-      setStats(statsRes.data);
-    } catch (err) { console.error('Error loading data:', err); }
-    finally { setLoading(false); }
-  }, [filtroEstado, filtroData]);
+      setStats(dashboardRes.data);
+      setSaidasHoje(saidasRes.data.saidas || []);
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [dataSelecionada]);
 
   const carregarNotificacoes = useCallback(async () => {
     try {
@@ -156,695 +87,458 @@ const DashboardAdministracao = ({ user, onLogout }) => {
     } catch (err) {}
   }, []);
 
-  const carregarColetivas = useCallback(async () => {
-    try { const res = await api.get('/coletivas/listar/'); setColetivas(res.data.coletivas || []); } catch (err) {}
-  }, []);
-
-  const carregarRelatorios = useCallback(async () => {
-    try { const res = await api.get('/relatorios/'); setRelatorios(res.data.relatorios || []); } catch (err) {}
-  }, []);
-
   useEffect(() => {
-    carregarColetivas();
-    carregarRelatorios();
-  }, []);
+    carregarDados();
+    carregarNotificacoes();
+  }, [carregarDados]);
 
-  // Actions
+  // Auto-refresh a cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      carregarDados();
+      carregarNotificacoes();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [carregarDados]);
+
+  // ==================== AÇÕES ====================
   const marcarNotificacaoLida = async (id) => {
-    try { await api.post(`/notificacoes/${id}/ler/`); carregarNotificacoes(); } catch (err) {}
-  };
-
-  const abrirModalAprovacao = (pedidoId) => {
-    const hoje = new Date().toISOString().split('T')[0];
-    setDadosAprovacao({ data_saida: hoje, hora_saida: '07:00', data_volta: hoje, hora_volta: '19:00' });
-    setModalAprovacao(pedidoId);
-  };
-
-  const confirmarAprovacao = async () => {
     try {
-      await api.post(`/pedidos/${modalAprovacao}/aprovar/`, dadosAprovacao);
-      alert('✅ Pedido aprovado com sucesso.');
-      setModalAprovacao(null);
+      await api.post(`/notificacoes/${id}/ler/`);
+      carregarNotificacoes();
+    } catch (err) {}
+  };
+
+  const registrarSaida = async (pedidoId) => {
+    if (!confirm('✅ Confirmar SAÍDA do estudante?')) return;
+    try {
+      const data = horaManual ? { hora_saida: horaManual } : {};
+      const res = await api.post(`/pedidos/${pedidoId}/marcar-saida/`, data);
+      alert(`✅ Saída registrada às ${res.data.hora}`);
+      setModalRegistro(null);
+      setHoraManual('');
       carregarDados();
-    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Falha na aprovação')); }
-  };
-
-  const rejeitarPedido = async (id) => {
-    const motivo = prompt('📝 Motivo da rejeição:');
-    if (!motivo) return;
-    try {
-      await api.post(`/pedidos/${id}/rejeitar/`, { comentario: motivo });
-      alert('✅ Pedido rejeitado.');
-      carregarDados();
-    } catch (err) { alert('❌ Erro: ' + (err.response?.data?.error || 'Falha na rejeição')); }
-  };
-
-  const encaminharPedido = async (id) => {
-    if (!confirm('📤 Encaminhar para Direção?')) return;
-    try {
-      await api.post(`/pedidos/${id}/passar/`);
-      alert('✅ Pedido encaminhado para Direção.');
-      carregarDados();
-    } catch (err) { alert('❌ Erro ao encaminhar'); }
-  };
-
-  const criarColetiva = async () => {
-    if (!dadosColetiva.titulo || !dadosColetiva.data_saida || !dadosColetiva.data_volta) {
-      alert('⚠️ Preencha todos os campos obrigatórios');
-      return;
-    }
-    setCriandoColetiva(true);
-    try {
-      await api.post('/coletivas/criar/', dadosColetiva);
-      alert('✅ Saída coletiva criada com sucesso!');
-      setModalColetiva(false);
-      setDadosColetiva({ titulo: '', descricao: '', data_saida: '', data_volta: '', prazo_horas: '24' });
-      carregarColetivas();
+      carregarNotificacoes();
     } catch (err) {
-      alert('❌ Erro ao criar saída coletiva: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setCriandoColetiva(false);
+      alert('❌ Erro: ' + (err.response?.data?.error || err.message));
     }
   };
 
-  const gerarRelatorio = async () => {
-    if (!dadosRelatorio.data_inicio || !dadosRelatorio.data_fim) return alert('Preencha as datas');
-    setGerandoRelatorio(true);
+  const registrarRetorno = async (pedidoId) => {
+    if (!confirm('✅ Confirmar RETORNO do estudante?')) return;
     try {
-      await api.post('/relatorios/criar/', {
-        titulo: `Relatório Admin - ${new Date().toLocaleDateString()}`,
-        tipo: 'PERSONALIZADO', descricao: 'Gerado via Painel Admin',
-        data_inicio: dadosRelatorio.data_inicio, data_fim: dadosRelatorio.data_fim
-      });
-      alert('✅ Relatório gerado com sucesso.');
-      carregarRelatorios();
-      setModalRelatorio(false);
-      setDadosRelatorio({ data_inicio: '', data_fim: '' });
-    } catch (err) { alert('❌ Erro ao gerar relatório'); }
-    finally { setGerandoRelatorio(false); }
+      const data = horaManual ? { hora_retorno: horaManual } : {};
+      const res = await api.post(`/pedidos/${pedidoId}/marcar-retorno/`, data);
+      let msg = `✅ Retorno registrado às ${res.data.hora}`;
+      if (res.data.atrasado) msg += ` ⚠️ ATRASO de ${res.data.tempo_atraso} minutos!`;
+      alert(msg);
+      setModalRegistro(null);
+      setHoraManual('');
+      carregarDados();
+      carregarNotificacoes();
+    } catch (err) {
+      alert('❌ Erro: ' + (err.response?.data?.error || err.message));
+    }
   };
 
-  const baixarRelatorio = async (id) => {
+  const enviarRelatorio = async () => {
+    if (!confirm('📊 Enviar relatório do dia para a DITE?')) return;
+    setModalRelatorio('enviando');
     try {
-      const res = await api.get(`/relatorios/download/${id}/`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url; a.download = `relatorio_${id}.csv`;
-      document.body.appendChild(a); a.click(); a.remove();
+      await api.post('/seguranca/enviar-relatorio/', { data: dataSelecionada });
+      alert('✅ Relatório enviado para a DITE com sucesso!');
+    } catch (err) {
+      alert('❌ Erro ao enviar relatório: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setModalRelatorio(null);
+    }
+  };
+
+  const gerarRelatorioCompleto = async () => {
+    setModalRelatorio('gerando');
+    try {
+      const res = await api.get(`/seguranca/relatorio-completo/?data=${dataSelecionada}`);
+      
+      // Criar e baixar arquivo TXT
+      const blob = new Blob([res.data.texto_relatorio], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio_seguranca_${dataSelecionada}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (err) { alert('❌ Erro no download'); }
+      
+      alert('✅ Relatório gerado e baixado com sucesso!');
+    } catch (err) {
+      alert('❌ Erro ao gerar relatório: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setModalRelatorio(null);
+    }
   };
 
-  const formatarData = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '-';
-  
-  const pedidosFiltrados = useMemo(() => pedidos.filter(p => 
-    p.estudante_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.id.toString().includes(searchTerm)
-  ), [pedidos, searchTerm]);
+  // ==================== FILTROS ====================
+  const saidasFiltradas = saidasHoje.filter(s => {
+    if (filtroStatus !== 'todos' && s.estado !== filtroStatus) return false;
+    if (searchTerm && !s.estudante_nome?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return true;
+  });
 
-  const StatusBadge = ({ status }) => {
-    let color = T.textSecondary;
-    let bg = T.bgAlt;
-    
-    if (status.includes('APROVADO')) { color = T.success; bg = `${T.success}15`; }
-    else if (status.includes('REJEITADO')) { color = T.danger; bg = `${T.danger}15`; }
-    else if (status.includes('PENDENTE')) { color = T.gold; bg = `${T.gold}15`; }
-    else if (status.includes('ANDAMENTO')) { color = '#1976D2'; bg = '#1976D215'; }
-
-    return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-        borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-        backgroundColor: bg, color: color, border: `1px solid ${color}30`,
-        textTransform: 'uppercase'
-      }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
-        {status.replace(/_/g, ' ')}
-      </span>
-    );
+  const getStatusInfo = (estado) => {
+    const statusMap = {
+      'APROVADO': { label: 'Aguardando Saída', color: colors.warning, icon: '⏳' },
+      'EM_ANDAMENTO': { label: 'Em Andamento', color: colors.info, icon: '🚶' },
+      'FINALIZADO': { label: 'Finalizado', color: colors.success, icon: '✅' }
+    };
+    return statusMap[estado] || { label: estado, color: colors.textMuted, icon: '📋' };
   };
 
-  const StatCard = ({ title, value, sub, icon, isGold }) => (
-    <div style={{
-      background: isGold ? T.gradientGold : T.bgSurface,
-      borderRadius: 2,
-      padding: 24,
-      boxShadow: T.shadowSoft,
-      border: isGold ? 'none' : `1px solid ${T.border}`,
-      position: 'relative', overflow: 'hidden',
-      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      minHeight: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-    }}
-    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = T.shadowHover; }}
-    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = T.shadowSoft; }}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: isGold ? 'rgba(255,255,255,0.3)' : T.gradientRedBlack }} />
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h3 style={{ fontSize: 11, fontWeight: 700, color: isGold ? 'rgba(0,0,0,0.6)' : T.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>{title}</h3>
-          <div style={{ fontSize: 36, fontWeight: 300, color: isGold ? '#000' : T.textPrimary, lineHeight: 1 }}>{value}</div>
-        </div>
-        <div style={{ fontSize: 24, color: isGold ? 'rgba(0,0,0,0.2)' : T.gold, opacity: 0.8 }}>{icon}</div>
-      </div>
-      
-      <div style={{ fontSize: 11, color: isGold ? 'rgba(0,0,0,0.5)' : T.textSecondary, marginTop: 12, borderTop: `1px solid ${isGold ? 'rgba(0,0,0,0.1)' : T.border}`, paddingTop: 12 }}>
-        {sub}
-      </div>
-    </div>
-  );
-
+  // ==================== RENDER ====================
   return (
-    <div style={{ 
-      display: 'flex', minHeight: '100vh', fontFamily: "'Inter', sans-serif", 
-      backgroundColor: T.bgMain, color: T.textPrimary, transition: 'background 0.3s ease' 
-    }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: colors.bg, color: colors.text, fontFamily: "'Inter', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        * { box-sizing: border-box; outline: none; }
-        body { margin: 0; background: ${T.bgMain}; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: ${T.gold}; }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        
-        /* Mobile Fixes */
-        @media (max-width: 1024px) { 
-          .grid-stats { grid-template-columns: repeat(2, 1fr) !important; } 
-        }
+        ::-webkit-scrollbar-thumb { background: ${colors.border}; border-radius: 3px; }
         @media (max-width: 768px) {
-          .sidebar { 
-            position: fixed !important; 
-            left: -100% !important; 
-            width: 85% !important;
-            max-width: 300px !important;
-            z-index: 1000 !important; 
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; 
-            box-shadow: 10px 0 30px rgba(0,0,0,0.5) !important;
-          }
+          .sidebar { position: fixed !important; left: -280px !important; z-index: 1000 !important; transition: left 0.3s ease !important; }
           .sidebar.open { left: 0 !important; }
-          
-          .overlay { 
-            display: none; 
-            position: fixed; 
-            inset: 0; 
-            background: rgba(0,0,0,0.7); 
-            z-index: 999; 
-            backdrop-filter: blur(2px); 
-          }
+          .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); }
           .overlay.show { display: block; }
-          
-          .toggle-btn { display: flex !important; }
           .main-content { margin-left: 0 !important; width: 100% !important; }
-          
-          .table-wrap { 
-            overflow-x: auto; 
-            -webkit-overflow-scrolling: touch;
-            border-radius: 0;
-            margin: 0 -16px;
-            width: calc(100% + 32px);
-          }
-          table { min-width: 600px; }
-          
-          .header-title { font-size: 16px !important; }
-          .content-padding { padding: 16px !important; }
-          .stats-card-mobile { margin-bottom: 12px; }
-        }
-        @media (max-width: 480px) {
-          .grid-stats { grid-template-columns: 1fr !important; }
-          .header-actions { gap: 8px !important; }
+          .table-responsive { overflow-x: auto; }
+          table { min-width: 550px; }
         }
       `}</style>
 
-      <div className={`overlay ${mobileMenuOpen ? 'show' : ''}`} onClick={() => setMobileMenuOpen(false)} />
+      {/* Overlay Mobile */}
+      <div className={`overlay ${sidebarOpen ? 'show' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-      {/* Sidebar */}
-      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{
-        width: 260, background: T.bgSurface, borderRight: `1px solid ${T.border}`,
-        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0, zIndex: 10
+      {/* ==================== SIDEBAR ==================== */}
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{
+        width: 260, background: colors.surface, borderRight: `1px solid ${colors.border}`,
+        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0
       }}>
-        <div style={{ padding: 30, borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ padding: '24px 20px', borderBottom: `1px solid ${colors.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ 
-              width: 40, height: 40, background: T.gradientRedBlack, borderRadius: 2, 
-              display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 800, fontSize: 18,
-              boxShadow: '0 4px 10px rgba(139,0,0,0.3)'
-            }}>A</div>
+            <div style={{
+              width: 40, height: 40, background: colors.primary, borderRadius: 10,
+              display: 'grid', placeItems: 'center', color: '#FFF', fontSize: 18
+            }}>🔒</div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary }}>ADMINISTRAÇÃO</div>
-              <div style={{ fontSize: 10, color: T.gold, fontWeight: 600, letterSpacing: 1 }}>ENTERPRISE PORTAL</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>SEGURANÇA</div>
+              <div style={{ fontSize: 10, color: colors.primary }}>PORTARIA</div>
             </div>
           </div>
         </div>
 
-        <div style={{ padding: 20, background: T.bgAlt }}>
+        <div style={{ padding: '16px', margin: '8px', background: colors.surfaceAlt, borderRadius: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ 
-              width: 36, height: 36, borderRadius: '50%', background: T.textPrimary, color: T.bgSurface,
-              display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14 
-            }}>{user?.nome?.[0] || 'U'}</div>
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nome || 'Usuário'}</div>
-              <div style={{ fontSize: 10, color: T.gold }}>Gestor Senior</div>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, background: colors.primary,
+              display: 'grid', placeItems: 'center', color: '#FFF', fontWeight: 600, fontSize: 16
+            }}>{user?.nome?.charAt(0) || user?.username?.charAt(0) || 'S'}</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.nome || user?.username || 'Segurança'}</div>
+              <div style={{ fontSize: 11, color: colors.primary }}>Portaria</div>
             </div>
           </div>
         </div>
 
-        <nav style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>GESTÃO DE PEDIDOS</div>
-          
-          {[
-            { id: 'PENDENTE_DIRECAO', label: 'Pendentes', icon: '◷' },
-            { id: 'APROVADO', label: 'Aprovados', icon: '✓' },
-            { id: 'REJEITADO', label: 'Rejeitados', icon: '✕' },
-            { id: 'EM_ANDAMENTO', label: 'Em Andamento', icon: '→' },
-            { id: 'FINALIZADO', label: 'Finalizados', icon: '▣' },
-          ].map(item => {
-            const active = abaAtiva === 'pedidos' && filtroEstado === item.id;
-            return (
-              <button key={item.id} onClick={() => { setAbaAtiva('pedidos'); setFiltroEstado(item.id); setMobileMenuOpen(false); }} style={{
-                width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
-                background: active ? `${T.gold}15` : 'transparent',
-                color: active ? T.gold : T.textSecondary,
-                fontWeight: active ? 600 : 500, fontSize: 13, textAlign: 'left',
-                display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.2s',
-                borderLeft: active ? `3px solid ${T.gold}` : '3px solid transparent'
-              }}>
-                <span style={{ width: 20, textAlign: 'center' }}>{item.icon}</span>
-                {item.label}
-              </button>
-            );
-          })}
-
-          <div style={{ height: 1, background: T.border, margin: '20px 0' }} />
-          
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, marginBottom: 10, paddingLeft: 10, letterSpacing: 1 }}>MÓDULOS</div>
-          
-          <button onClick={() => { setAbaAtiva('coletivas'); setMobileMenuOpen(false); }} style={{
-            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
-            background: abaAtiva === 'coletivas' ? `${T.gold}15` : 'transparent',
-            color: abaAtiva === 'coletivas' ? T.gold : T.textSecondary,
-            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12
+        <nav style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <button onClick={() => setFiltroStatus('todos')} style={{
+            width: '100%', padding: '10px 14px', border: 'none', borderRadius: 8,
+            background: filtroStatus === 'todos' ? colors.primary + '15' : 'transparent',
+            color: filtroStatus === 'todos' ? colors.primary : colors.textMuted,
+            fontWeight: filtroStatus === 'todos' ? 600 : 500, fontSize: 13, textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer'
           }}>
-            <span style={{ width: 20, textAlign: 'center' }}>👥</span> Coletivas
+            <span>📋</span> Todos
           </button>
-          
-          <button onClick={() => { setAbaAtiva('relatorios'); setMobileMenuOpen(false); }} style={{
-            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
-            background: abaAtiva === 'relatorios' ? `${T.gold}15` : 'transparent',
-            color: abaAtiva === 'relatorios' ? T.gold : T.textSecondary,
-            fontWeight: 600, fontSize: 13, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12
+          <button onClick={() => setFiltroStatus('APROVADO')} style={{
+            width: '100%', padding: '10px 14px', border: 'none', borderRadius: 8,
+            background: filtroStatus === 'APROVADO' ? colors.primary + '15' : 'transparent',
+            color: filtroStatus === 'APROVADO' ? colors.primary : colors.textMuted,
+            fontWeight: filtroStatus === 'APROVADO' ? 600 : 500, fontSize: 13, textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer'
           }}>
-            <span style={{ width: 20, textAlign: 'center' }}>📊</span> Relatórios
+            <span>⏳</span> Aguardando Saída
           </button>
-
-          {/* Botão Nova Coletiva */}
-          <div style={{ height: 1, background: T.border, margin: '20px 0' }} />
-          
-          <button onClick={() => { setModalColetiva(true); setMobileMenuOpen(false); }} style={{
-            width: '100%', padding: '12px 16px', border: 'none', borderRadius: 2, cursor: 'pointer',
-            background: T.gradientGold, color: '#000', fontWeight: 700, fontSize: 13,
-            textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, marginTop: 10
+          <button onClick={() => setFiltroStatus('EM_ANDAMENTO')} style={{
+            width: '100%', padding: '10px 14px', border: 'none', borderRadius: 8,
+            background: filtroStatus === 'EM_ANDAMENTO' ? colors.primary + '15' : 'transparent',
+            color: filtroStatus === 'EM_ANDAMENTO' ? colors.primary : colors.textMuted,
+            fontWeight: filtroStatus === 'EM_ANDAMENTO' ? 600 : 500, fontSize: 13, textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer'
           }}>
-            <span style={{ width: 20, textAlign: 'center' }}>➕</span> Nova Coletiva
+            <span>🚶</span> Em Andamento
+          </button>
+          <button onClick={() => setFiltroStatus('FINALIZADO')} style={{
+            width: '100%', padding: '10px 14px', border: 'none', borderRadius: 8,
+            background: filtroStatus === 'FINALIZADO' ? colors.primary + '15' : 'transparent',
+            color: filtroStatus === 'FINALIZADO' ? colors.primary : colors.textMuted,
+            fontWeight: filtroStatus === 'FINALIZADO' ? 600 : 500, fontSize: 13, textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer'
+          }}>
+            <span>✅</span> Finalizados
           </button>
         </nav>
 
-        <div style={{ padding: 20, borderTop: `1px solid ${T.border}` }}>
-          <button onClick={() => toggleTheme(isDark ? 'light' : 'dark')} style={{
-            width: '100%', padding: 10, background: 'transparent', border: `1px solid ${T.border}`,
-            borderRadius: 2, color: T.textSecondary, cursor: 'pointer', fontSize: 12, marginBottom: 10,
+        <div style={{ padding: '16px', borderTop: `1px solid ${colors.border}` }}>
+          <button onClick={() => setThemeMode(isDark ? 'light' : 'dark')} style={{
+            width: '100%', padding: '10px', background: colors.surfaceAlt, border: `1px solid ${colors.border}`,
+            borderRadius: 8, color: colors.text, cursor: 'pointer', fontSize: 12, marginBottom: 8,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
-            <span>{isDark ? 'Modo Claro' : 'Modo Escuro'}</span>
-            <span style={{ fontSize: 16 }}>{isDark ? '☀' : '☾'}</span>
+            <span>{isDark ? '☀ Claro' : '🌙 Escuro'}</span>
+            <span>{isDark ? '🌞' : '🌛'}</span>
           </button>
           <button onClick={onLogout} style={{
-            width: '100%', padding: 10, background: T.danger, color: '#FFF', border: 'none',
-            borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12
-          }}>ENCERRAR SESSÃO</button>
+            width: '100%', padding: '10px', background: colors.danger + '15', color: colors.danger,
+            border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600
+          }}>
+            🚪 Sair
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ==================== MAIN CONTENT ==================== */}
       <main className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
+        {/* Header */}
         <header style={{
-          height: 70, background: T.glass, borderBottom: `1px solid ${T.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px',
-          backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 5
+          background: colors.surface, borderBottom: `1px solid ${colors.border}`,
+          padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, zIndex: 10
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <button className="toggle-btn" onClick={() => setMobileMenuOpen(true)} style={{
-              display: 'none', background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: T.textPrimary
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <button onClick={() => setSidebarOpen(true)} style={{
+              display: 'none', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: colors.text,
+              '@media (max-width: 768px)': { display: 'block' }
             }}>☰</button>
             <div>
-              <h1 className="header-title" style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: -0.5 }}>
-                {abaAtiva === 'pedidos' ? 'CONTROLE DE PEDIDOS' : abaAtiva === 'coletivas' ? 'SAÍDAS COLETIVAS' : 'RELATÓRIOS'}
-              </h1>
-              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
-                {horaAtual} <span style={{margin:'0 5px'}}>•</span> {lastSync && `Sync: ${lastSync}`}
-              </div>
+              <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Controle de Portaria</h1>
+              <p style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{horaAtual}</p>
             </div>
           </div>
-
-          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={{
-              padding: '8px 12px', borderRadius: 2, border: `1px solid ${T.border}`,
-              background: T.bgSurface, color: T.textPrimary, fontSize: 12, fontFamily: 'inherit'
-            }} />
-            
-            <div ref={notifRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} style={{
-                width: 36, height: 36, borderRadius: '50%', border: `1px solid ${T.border}`,
-                background: T.bgSurface, cursor: 'pointer', position: 'relative', color: T.textPrimary
-              }}>
-                🔔
-                {notificacoesNaoLidas > 0 && (
-                  <span style={{
-                    position: 'absolute', top: -2, right: -2, width: 16, height: 16,
-                    background: T.red, color: '#FFF', borderRadius: '50%', fontSize: 9,
-                    display: 'grid', placeItems: 'center', border: `2px solid ${T.bgSurface}`
-                  }}>{notificacoesNaoLidas}</span>
-                )}
-              </button>
-              
-              {showNotifDropdown && (
-                <div className="fade-in" style={{
-                  position: 'absolute', right: 0, top: 45, width: 320, background: T.bgSurface,
-                  border: `1px solid ${T.border}`, boxShadow: T.shadowHover, borderRadius: 4, zIndex: 50,
-                  maxWidth: '90vw'
-                }}>
-                  <div style={{ padding: 12, borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 12 }}>NOTIFICAÇÕES</div>
-                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                    {notificacoes.length === 0 ? <div style={{padding:20, textAlign:'center', color:T.textSecondary}}>Vazio</div> :
-                      notificacoes.map(n => (
-                        <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
-                          padding: 12, borderBottom: `1px solid ${T.border}`, cursor: 'pointer',
-                          background: n.lida ? 'transparent' : `${T.gold}08`
-                        }}>
-                          <div style={{fontSize:12, fontWeight:600}}>{n.mensagem}</div>
-                        </div>
-                      ))
-                    }
-                  </div>
-                </div>
-              )}
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: colors.surfaceAlt, padding: '6px 12px', borderRadius: 8 }}>
+              <span>📅</span>
+              <input type="date" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} style={{
+                border: 'none', background: 'transparent', fontSize: 13, color: colors.text, outline: 'none'
+              }} />
             </div>
+            <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} style={{
+              position: 'relative', width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`,
+              background: colors.surface, cursor: 'pointer', display: 'grid', placeItems: 'center'
+            }}>
+              🔔
+              {notificacoesNaoLidas > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -4, width: 16, height: 16, background: colors.danger,
+                  color: '#FFF', borderRadius: '50%', fontSize: 9, display: 'grid', placeItems: 'center'
+                }}>{notificacoesNaoLidas}</span>
+              )}
+            </button>
           </div>
         </header>
 
-        <div className="content-padding" style={{ flex: 1, overflowY: 'auto', padding: 30 }}>
-          
-          {/* PEDIDOS VIEW */}
-          {abaAtiva === 'pedidos' && (
-            <div className="fade-in">
-              <div className="grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 30 }}>
-                <StatCard title="Pendentes" value={stats.meus_pedidos_pendentes || 0} sub="Aguardando Ação" icon="◷" />
-                <StatCard title="Aprovados" value={stats.pedidos_aprovados || 0} sub="Autorizados Hoje" icon="✓" />
-                <StatCard title="Rejeitados" value={stats.pedidos_rejeitados || 0} sub="Negados" icon="✕" />
-                <StatCard title="Total Geral" value={stats.total_pedidos || 0} sub="Volume Acumulado" icon="◈" isGold />
-              </div>
-
-              <div style={{ 
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, 
-                flexWrap: 'wrap', gap: 15, background: T.bgSurface, padding: 15, borderRadius: 2, border: `1px solid ${T.border}`
-              }}>
-                <div style={{ display: 'flex', gap: 10, flex: 1, width: '100%' }}>
-                  <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-                    <input placeholder="Buscar por nome ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
-                      width: '100%', padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
-                      background: T.bgAlt, color: T.textPrimary, fontSize: 13
-                    }} />
-                  </div>
-                  <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} style={{
-                    padding: '10px 15px', borderRadius: 2, border: `1px solid ${T.border}`,
-                    background: T.bgAlt, color: T.textPrimary, fontSize: 13, cursor: 'pointer'
-                  }}>
-                    <option value="todos">Todos os Status</option>
-                    <option value="PENDENTE_DIRECAO">Pendentes</option>
-                    <option value="APROVADO">Aprovados</option>
-                    <option value="REJEITADO">Rejeitados</option>
-                  </select>
-                </div>
-                <button onClick={() => setModalRelatorio(true)} style={{
-                  padding: '10px 20px', background: T.gradientRedBlack, color: '#FFF', border: 'none',
-                  borderRadius: 2, cursor: 'pointer', fontWeight: 600, fontSize: 12, letterSpacing: 0.5,
-                  boxShadow: '0 4px 10px rgba(139,0,0,0.2)', whiteSpace: 'nowrap'
-                }}>GERAR RELATÓRIO</button>
-              </div>
-
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: 50, color: T.textSecondary }}>Carregando dados...</div>
-              ) : (
-                <div className="table-wrap" style={{ background: T.bgSurface, borderRadius: 2, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: T.bgAlt, borderBottom: `2px solid ${T.border}` }}>
-                        {['ID', 'ESTUDANTE', 'CURSO', 'DATA SAÍDA', 'STATUS', 'AÇÕES'].map(h => (
-                          <th key={h} style={{ padding: '15px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: T.textSecondary, letterSpacing: 1 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedidosFiltrados.map((p, i) => (
-                        <tr key={p.id} style={{ 
-                          borderBottom: `1px solid ${T.border}`, 
-                          background: hoveredRow === p.id ? `${T.gold}08` : (i % 2 === 0 ? 'transparent' : `${T.bgAlt}50`),
-                          transition: 'background 0.1s'
-                        }}
-                        onMouseEnter={() => setHoveredRow(p.id)}
-                        onMouseLeave={() => setHoveredRow(null)}
-                        >
-                          <td style={{ padding: '15px 20px', fontWeight: 700, color: T.gold }}>#{p.id}</td>
-                          <td style={{ padding: '15px 20px' }}>
-                            <div style={{ fontWeight: 600, color: T.textPrimary }}>{p.estudante_nome}</div>
-                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.estudante_email}</div>
-                          </td>
-                          <td style={{ padding: '15px 20px', color: T.textSecondary }}>{p.estudante_curso || '-'}</td>
-                          <td style={{ padding: '15px 20px' }}>
-                            <div style={{ fontWeight: 500 }}>{formatarData(p.data_saida)}</div>
-                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.hora_saida}</div>
-                          </td>
-                          <td style={{ padding: '15px 20px' }}><StatusBadge status={p.estado} /></td>
-                          <td style={{ padding: '15px 20px' }}>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button onClick={() => setModalDetalhes(p)} style={{
-                                width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', color: T.textSecondary
-                              }}>👁</button>
-                              
-                              {p.acoes_disponiveis?.includes('aprovar') && (
-                                <button onClick={() => abrirModalAprovacao(p.id)} style={{
-                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.success, color: '#FFF', cursor: 'pointer', fontWeight: 700
-                                }}>✓</button>
-                              )}
-                              
-                              {p.acoes_disponiveis?.includes('rejeitar') && (
-                                <button onClick={() => rejeitarPedido(p.id)} style={{
-                                  width: 28, height: 28, borderRadius: 2, border: 'none', background: T.danger, color: '#FFF', cursor: 'pointer', fontWeight: 700
-                                }}>✕</button>
-                              )}
-
-                              {p.estado === 'PENDENTE_DIRECAO' && (
-                                <button onClick={() => encaminharPedido(p.id)} style={{
-                                  width: 28, height: 28, borderRadius: 2, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer'
-                                }}>➜</button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {pedidosFiltrados.length === 0 && (
-                        <tr><td colSpan="6" style={{ padding: 40, textAlign: 'center', color: T.textSecondary }}>Nenhum registro encontrado.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* COLETIVAS VIEW */}
-          {abaAtiva === 'coletivas' && (
-            <div className="fade-in">
-              <div style={{ 
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                marginBottom: 20, flexWrap: 'wrap', gap: 15
-              }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>Saídas Coletivas</h2>
-                <button onClick={() => setModalColetiva(true)} style={{
-                  padding: '10px 20px', background: T.gradientGold, color: '#000', border: 'none',
-                  borderRadius: 2, cursor: 'pointer', fontWeight: 700, fontSize: 12,
-                  display: 'flex', alignItems: 'center', gap: 8
+        {/* Notificações Dropdown */}
+        {showNotifDropdown && (
+          <div style={{
+            position: 'absolute', top: 70, right: 24, width: 320, background: colors.surface,
+            border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            zIndex: 100, maxHeight: 400, overflow: 'auto'
+          }}>
+            <div style={{ padding: 12, borderBottom: `1px solid ${colors.border}`, fontWeight: 600 }}>Notificações</div>
+            {notificacoes.length === 0 ? (
+              <div style={{ padding: 20, textAlign: 'center', color: colors.textMuted }}>Nenhuma notificação</div>
+            ) : (
+              notificacoes.map(n => (
+                <div key={n.id} onClick={() => marcarNotificacaoLida(n.id)} style={{
+                  padding: 12, borderBottom: `1px solid ${colors.border}`, cursor: 'pointer',
+                  background: n.lida ? 'transparent' : colors.primary + '10'
                 }}>
-                  <span>➕</span> NOVA COLETIVA
-                </button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
-                {coletivas.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>
-                    Nenhuma saída coletiva criada
-                  </div>
-                ) : (
-                  coletivas.map(c => (
-                    <div key={c.id} style={{ background: T.bgSurface, border: `1px solid ${T.border}`, padding: 20, borderRadius: 2, transition: 'all 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.transform = 'translateY(0)'; }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>{c.titulo}</h3>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: c.encerrada ? T.textSecondary : T.success }}>
-                          {c.encerrada ? 'ENCERRADA' : 'ATIVA'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 15 }}>
-                        📅 {c.data_saida?.split('T')[0]} até {c.data_volta?.split('T')[0]}
-                      </div>
-                      <div style={{ marginBottom: 15 }}>
-                        <div style={{ height: 4, background: T.bgAlt, borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{ width: `${((c.total_aceitos || 0) / (c.total_convidados || 1)) * 100}%`, height: '100%', background: T.gold }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: T.textSecondary }}>
-                          <span><strong style={{ color: T.textPrimary }}>{c.total_convidados || 0}</strong> Convidados</span>
-                          <span><strong style={{ color: T.success }}>{c.total_aceitos || 0}</strong> Aceitaram</span>
-                          <span><strong style={{ color: T.danger }}>{c.total_recusados || 0}</strong> Recusaram</span>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 11, color: T.textSecondary, borderTop: `1px solid ${T.border}`, paddingTop: 12, marginTop: 5 }}>
-                        Criado por: {c.criador_nome || c.criador}
-                      </div>
-                    </div>
-                  ))
-                )}
+                  <div style={{ fontSize: 12 }}>{n.mensagem}</div>
+                  <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>{n.data}</div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          
+          {/* Stats Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div style={{ background: colors.surface, borderRadius: 12, padding: 16, border: `1px solid ${colors.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <span style={{ fontSize: 24 }}>📋</span>
+                <div><div style={{ fontSize: 24, fontWeight: 700 }}>{stats.total_saidas || 0}</div><div style={{ fontSize: 11, color: colors.textMuted }}>Autorizados Hoje</div></div>
               </div>
             </div>
-          )}
+            <div style={{ background: colors.surface, borderRadius: 12, padding: 16, border: `1px solid ${colors.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <span style={{ fontSize: 24 }}>🚶</span>
+                <div><div style={{ fontSize: 24, fontWeight: 700 }}>{stats.em_andamento || 0}</div><div style={{ fontSize: 11, color: colors.textMuted }}>Em Andamento</div></div>
+              </div>
+            </div>
+            <div style={{ background: colors.surface, borderRadius: 12, padding: 16, border: `1px solid ${colors.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <span style={{ fontSize: 24 }}>✅</span>
+                <div><div style={{ fontSize: 24, fontWeight: 700 }}>{stats.finalizados || 0}</div><div style={{ fontSize: 11, color: colors.textMuted }}>Finalizados</div></div>
+              </div>
+            </div>
+            <div style={{ background: colors.surface, borderRadius: 12, padding: 16, border: `1px solid ${colors.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <span style={{ fontSize: 24 }}>⚠️</span>
+                <div><div style={{ fontSize: 24, fontWeight: 700, color: colors.danger }}>{stats.atrasados || 0}</div><div style={{ fontSize: 11, color: colors.textMuted }}>Atrasos</div></div>
+              </div>
+            </div>
+          </div>
 
-          {/* RELATORIOS VIEW */}
-          {abaAtiva === 'relatorios' && (
-            <div className="fade-in">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>Histórico de Relatórios</h2>
-                <button onClick={() => setModalRelatorio(true)} style={{ padding: '8px 16px', background: T.gold, border: 'none', borderRadius: 2, cursor: 'pointer', fontWeight: 600 }}>NOVO RELATÓRIO</button>
-              </div>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {relatorios.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 60, color: T.textSecondary, background: T.bgSurface, borderRadius: 2 }}>
-                    Nenhum relatório gerado
-                  </div>
-                ) : (
-                  relatorios.map(r => (
-                    <div key={r.id} onClick={() => baixarRelatorio(r.id)} style={{
-                      background: T.bgSurface, border: `1px solid ${T.border}`, padding: 15, borderRadius: 2,
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.gold; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: T.textPrimary }}>{r.titulo}</div>
-                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 4 }}>{r.created_at}</div>
-                      </div>
-                      <div style={{ fontSize: 12, color: T.gold, fontWeight: 600 }}>BAIXAR CSV ↓</div>
-                    </div>
-                  ))
-                )}
-              </div>
+          {/* Barra de Busca */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ position: 'relative', flex: 1, maxWidth: 300 }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }}>🔍</span>
+              <input type="text" placeholder="Buscar estudante..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
+                width: '100%', padding: '10px 12px 10px 36px', border: `1px solid ${colors.border}`, borderRadius: 8,
+                background: colors.surface, color: colors.text, outline: 'none'
+              }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={enviarRelatorio} disabled={modalRelatorio === 'enviando'} style={{
+                padding: '10px 16px', background: colors.primary, color: '#FFF', border: 'none', borderRadius: 8,
+                cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6
+              }}>📧 Enviar Relatório</button>
+              <button onClick={gerarRelatorioCompleto} disabled={modalRelatorio === 'gerando'} style={{
+                padding: '10px 16px', background: colors.success, color: '#FFF', border: 'none', borderRadius: 8,
+                cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6
+              }}>📄 Gerar Relatório</button>
+            </div>
+          </div>
+
+          {/* Tabela de Saídas */}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 60 }}>
+              <div style={{ width: 40, height: 40, border: `3px solid ${colors.border}`, borderTopColor: colors.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+              <p>Carregando...</p>
+            </div>
+          ) : saidasFiltradas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, background: colors.surface, borderRadius: 12, border: `1px solid ${colors.border}` }}>
+              <span style={{ fontSize: 48, opacity: 0.5 }}>📭</span>
+              <p style={{ marginTop: 12, color: colors.textMuted }}>Nenhuma saída encontrada para esta data</p>
+            </div>
+          ) : (
+            <div className="table-responsive" style={{ background: colors.surface, borderRadius: 12, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: colors.surfaceAlt, borderBottom: `1px solid ${colors.border}` }}>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ESTUDANTE</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>CURSO/CLASSE</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>SAÍDA PREVISTA</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>RETORNO PREVISTO</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>STATUS</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: 11, fontWeight: 600 }}>AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {saidasFiltradas.map(s => {
+                    const statusInfo = getStatusInfo(s.estado);
+                    const podeRegistrarSaida = s.estado === 'APROVADO';
+                    const podeRegistrarRetorno = s.estado === 'EM_ANDAMENTO';
+                    
+                    return (
+                      <tr key={s.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ fontWeight: 600 }}>{s.estudante_nome}</div>
+                          <div style={{ fontSize: 11, color: colors.textMuted }}>ID: #{s.id}</div>
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div>{s.estudante_curso || '-'}</div>
+                          <div style={{ fontSize: 11, color: colors.textMuted }}>{s.estudante_classe || '-'}</div>
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>{s.data_saida_prevista || '-'}</td>
+                        <td style={{ padding: '14px 16px' }}>{s.data_volta_prevista || '-'}</td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                            borderRadius: 20, fontSize: 11, fontWeight: 600, background: statusInfo.color + '15',
+                            color: statusInfo.color
+                          }}>
+                            {statusInfo.icon} {statusInfo.label}
+                          </span>
+                          {s.atrasado && <span style={{ marginLeft: 8, color: colors.danger, fontSize: 11 }}>⚠️ Atraso: {s.tempo_atraso}min</span>}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {podeRegistrarSaida && (
+                              <button onClick={() => setModalRegistro({ type: 'saida', pedidoId: s.id })} style={{
+                                padding: '6px 12px', background: colors.success, color: '#FFF', border: 'none',
+                                borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600
+                              }}>✅ Registrar Saída</button>
+                            )}
+                            {podeRegistrarRetorno && (
+                              <button onClick={() => setModalRegistro({ type: 'retorno', pedidoId: s.id })} style={{
+                                padding: '6px 12px', background: colors.info, color: '#FFF', border: 'none',
+                                borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600
+                              }}>🔙 Registrar Retorno</button>
+                            )}
+                            {!podeRegistrarSaida && !podeRegistrarRetorno && s.estado === 'FINALIZADO' && (
+                              <span style={{ fontSize: 11, color: colors.textMuted }}>✓ Concluído</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       </main>
 
-      {/* Modal Aprovação */}
-      {modalAprovacao && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalAprovacao(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 450, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>APROVAR PEDIDO #{modalAprovacao}</h2>
-            
-            <div style={{ display: 'grid', gap: 15 }}>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA</label>
-                <input type="date" value={dadosAprovacao.data_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA SAÍDA</label>
-                <input type="time" value={dadosAprovacao.hora_saida} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA</label>
-                  <input type="date" value={dadosAprovacao.data_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>HORA VOLTA</label>
-                  <input type="time" value={dadosAprovacao.hora_volta} onChange={e => setDadosAprovacao({...dadosAprovacao, hora_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                </div>
-              </div>
+      {/* Modal de Registro de Horário */}
+      {modalRegistro && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }} onClick={() => { setModalRegistro(null); setHoraManual(''); }}>
+          <div style={{ background: colors.surface, borderRadius: 16, width: '90%', maxWidth: 400, padding: 24 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: 16 }}>
+              {modalRegistro.type === 'saida' ? '✅ Registrar Saída' : '🔙 Registrar Retorno'}
+            </h3>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>Horário (opcional - deixe em branco para usar atual):</label>
+              <input type="time" value={horaManual} onChange={e => setHoraManual(e.target.value)} style={{
+                width: '100%', padding: 10, border: `1px solid ${colors.border}`, borderRadius: 8,
+                background: colors.surfaceAlt, color: colors.text
+              }} />
+              <small style={{ fontSize: 11, color: colors.textMuted, marginTop: 4, display: 'block' }}>Formato HH:MM</small>
             </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 25 }}>
-              <button onClick={() => setModalAprovacao(null)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, cursor: 'pointer', fontWeight: 600 }}>CANCELAR</button>
-              <button onClick={confirmarAprovacao} style={{ flex: 1, padding: 12, background: T.success, color: '#FFF', border: 'none', cursor: 'pointer', fontWeight: 600 }}>CONFIRMAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Relatório */}
-      {modalRelatorio && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalRelatorio(null)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 400, padding: 30, borderRadius: 2, border: `1px solid ${T.border}` }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>GERAR RELATÓRIO</h2>
-            <div style={{ display: 'grid', gap: 15 }}>
-              <input type="date" value={dadosRelatorio.data_inicio} onChange={e => setDadosRelatorio({...dadosRelatorio, data_inicio: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-              <input type="date" value={dadosRelatorio.data_fim} onChange={e => setDadosRelatorio({...dadosRelatorio, data_fim: e.target.value})} style={{ padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setModalRelatorio(null)} style={{ flex: 1, padding: 10, border: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer' }}>FECHAR</button>
-              <button onClick={gerarRelatorio} disabled={gerandoRelatorio} style={{ flex: 1, padding: 10, background: T.gold, border: 'none', cursor: 'pointer', fontWeight: 600 }}>{gerandoRelatorio ? 'GERANDO...' : 'GERAR'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Nova Coletiva */}
-      {modalColetiva && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setModalColetiva(false)}>
-          <div className="fade-in" onClick={e => e.stopPropagation()} style={{ background: T.bgSurface, width: '100%', maxWidth: 480, padding: 30, borderRadius: 2, border: `1px solid ${T.border}`, boxShadow: T.shadowHover }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, borderBottom: `2px solid ${T.gold}`, paddingBottom: 10, display: 'inline-block' }}>NOVA SAÍDA COLETIVA</h2>
-            
-            <div style={{ display: 'grid', gap: 15 }}>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>TÍTULO *</label>
-                <input type="text" placeholder="Ex: Visita ao Museu" value={dadosColetiva.titulo} onChange={e => setDadosColetiva({...dadosColetiva, titulo: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DESCRIÇÃO</label>
-                <textarea placeholder="Detalhes da saída..." rows={3} value={dadosColetiva.descricao} onChange={e => setDadosColetiva({...dadosColetiva, descricao: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary, resize: 'vertical', fontFamily: 'inherit' }} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA SAÍDA *</label>
-                  <input type="datetime-local" value={dadosColetiva.data_saida} onChange={e => setDadosColetiva({...dadosColetiva, data_saida: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>DATA VOLTA *</label>
-                  <input type="datetime-local" value={dadosColetiva.data_volta} onChange={e => setDadosColetiva({...dadosColetiva, data_volta: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: T.textSecondary, display: 'block', marginBottom: 5 }}>PRAZO PARA RESPOSTA (horas)</label>
-                <input type="number" min="1" max="72" value={dadosColetiva.prazo_horas} onChange={e => setDadosColetiva({...dadosColetiva, prazo_horas: e.target.value})} style={{ width: '100%', padding: 10, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textPrimary }} />
-                <small style={{ fontSize: 10, color: T.textSecondary }}>Padrão: 24 horas</small>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 25 }}>
-              <button onClick={() => setModalColetiva(false)} style={{ flex: 1, padding: 12, background: 'transparent', border: `1px solid ${T.border}`, cursor: 'pointer', fontWeight: 600 }}>CANCELAR</button>
-              <button onClick={criarColetiva} disabled={criandoColetiva} style={{ flex: 1, padding: 12, background: T.gradientGold, color: '#000', border: 'none', cursor: 'pointer', fontWeight: 600 }}>{criandoColetiva ? 'CRIANDO...' : 'CRIAR COLETIVA'}</button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => { setModalRegistro(null); setHoraManual(''); }} style={{
+                flex: 1, padding: 12, background: colors.surfaceAlt, border: 'none', borderRadius: 8, cursor: 'pointer'
+              }}>Cancelar</button>
+              <button onClick={() => {
+                if (modalRegistro.type === 'saida') registrarSaida(modalRegistro.pedidoId);
+                else registrarRetorno(modalRegistro.pedidoId);
+              }} style={{
+                flex: 1, padding: 12, background: modalRegistro.type === 'saida' ? colors.success : colors.info,
+                color: '#FFF', border: 'none', borderRadius: 8, cursor: 'pointer'
+              }}>
+                {modalRegistro.type === 'saida' ? '✅ Registrar' : '🔙 Registrar'}
+              </button>
             </div>
           </div>
         </div>
@@ -853,4 +547,4 @@ const DashboardAdministracao = ({ user, onLogout }) => {
   );
 };
 
-export default DashboardAdministracao;
+export default DashboardSeguranca;
