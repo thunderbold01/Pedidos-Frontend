@@ -1,92 +1,190 @@
-// src/App.jsx - VERSÃO SIMPLIFICADA E CORRIGIDA
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { getUser, clearAuth, isAuth } from './api';
+// src/api.js - VERSÃO CORRIGIDA (sem import circular)
+import axios from 'axios';
 
-// Importações diretas (sem caminho index)
-import Login from './pages/Login';
-import Register from './pages/Register';
-import TwoFactor from './pages/TwoFactor';
-import DashboardEstudante from './pages/DashboardEstudante';
-import DashboardDITE from './pages/DashboardDITE';
-import DashboardDirecao from './pages/DashboardDirecao';
-import DashboardAdministracao from './pages/DashboardAdministracao';
-import DashboardAdmin from './pages/DashboardAdmin';
-import DashboardSeguranca from './pages/DashboardSeguranca';
-import CriarPedido from './pages/CriarPedido';
-import DetalhePedido from './pages/DetalhePedido';
-import Notificacoes from './pages/Notificacoes';
-import Coletivas from './pages/Coletivas';
-import Relatorios from './pages/Relatorios';
+// ==================== CONFIGURAÇÃO ====================
+const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
+const LOCAL_API_URL = 'http://localhost:8000/api';
+const PROD_API_URL = 'https://pedidos-backend-eljk.onrender.com/api'; // USE A URL CORRETA
+const API_URL = isDevelopment ? LOCAL_API_URL : PROD_API_URL;
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+console.log(`🔧 API: ${API_URL} (${isDevelopment ? 'dev' : 'prod'})`);
 
-  useEffect(() => {
-    const init = async () => {
-      if (!isAuth()) {
-        setLoading(false);
-        return;
-      }
-      const result = await getUser();
-      if (result.success) setUser(result.user);
-      else clearAuth();
-      setLoading(false);
-    };
-    init();
-  }, []);
+// ==================== INSTÂNCIA AXIOS ====================
+const api = axios.create({
+    baseURL: API_URL,
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    timeout: 30000,
+});
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a' }}>
-        <div style={{ textAlign: 'center', color: 'white' }}>
-          <div style={{ width: 50, height: 50, border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#dc2626', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 20px' }} />
-          <h2>Sistema de Pedidos</h2>
-          <p>Carregando...</p>
-        </div>
-      </div>
-    );
-  }
+// ==================== INTERCEPTORES ====================
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+});
 
-  const handleLogin = (userData) => setUser(userData);
-  const handleLogout = () => { clearAuth(); setUser(null); };
-
-  const getDashboard = () => {
-    if (!user) return <Navigate to="/login" />;
-    switch (user.role) {
-      case 'ESTUDANTE': return <DashboardEstudante user={user} onLogout={handleLogout} />;
-      case 'DITE': return <DashboardDITE user={user} onLogout={handleLogout} />;
-      case 'DIRECAO': return <DashboardDirecao user={user} onLogout={handleLogout} />;
-      case 'ADMINISTRACAO': return <DashboardAdministracao user={user} onLogout={handleLogout} />;
-      case 'ADMIN': return <DashboardAdmin user={user} onLogout={handleLogout} />;
-      case 'SEGURANCA': return <DashboardSeguranca user={user} onLogout={handleLogout} />;
-      default: handleLogout(); return <Navigate to="/login" />;
+api.interceptors.response.use(
+    (res) => res,
+    async (error) => {
+        const original = error.config;
+        if (error.response?.status === 401 && !original._retry) {
+            original._retry = true;
+            const refresh = localStorage.getItem('refresh_token');
+            if (refresh) {
+                try {
+                    const res = await axios.post(`${API_URL}/auth/refresh/`, { refresh });
+                    localStorage.setItem('access_token', res.data.access);
+                    original.headers.Authorization = `Bearer ${res.data.access}`;
+                    return api(original);
+                } catch (e) {
+                    localStorage.clear();
+                    window.location.href = '/login';
+                }
+            }
+        }
+        return Promise.reject(error);
     }
-  };
+);
 
-  // Adicionar animação global
-  const style = document.createElement('style');
-  style.textContent = `@keyframes spin{to{transform:rotate(360deg)}}`;
-  document.head.appendChild(style);
+// ==================== FUNÇÕES AUXILIARES ====================
+export const clearAuth = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_data');
+};
 
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} />
-        <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
-        <Route path="/2fa" element={<TwoFactor onLogin={handleLogin} />} />
-        <Route path="/dashboard" element={getDashboard()} />
-        <Route path="/criar-pedido" element={user?.role === 'ESTUDANTE' ? <CriarPedido user={user} /> : <Navigate to="/dashboard" />} />
-        <Route path="/pedido/:id" element={user ? <DetalhePedido user={user} /> : <Navigate to="/login" />} />
-        <Route path="/notificacoes" element={user ? <Notificacoes user={user} /> : <Navigate to="/login" />} />
-        <Route path="/coletivas" element={user ? <Coletivas user={user} /> : <Navigate to="/login" />} />
-        <Route path="/relatorios" element={user && ['ADMIN','DITE','DIRECAO','ADMINISTRACAO'].includes(user.role) ? <Relatorios user={user} /> : <Navigate to="/dashboard" />} />
-        <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
-        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+export const isAuth = () => !!localStorage.getItem('access_token');
 
-export default App;
+// ==================== AUTENTICAÇÃO ====================
+export const login = async (email, password) => {
+    try {
+        const res = await api.post('/auth/login/', { email, password });
+        const { access, refresh, user } = res.data;
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        if (user) localStorage.setItem('user_data', JSON.stringify(user));
+        return { success: true, user };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || 'Erro ao fazer login' };
+    }
+};
+
+export const logout = async () => {
+    try {
+        const refresh = localStorage.getItem('refresh_token');
+        if (refresh) await api.post('/auth/logout/', { refresh });
+    } catch (e) {}
+    finally { clearAuth(); }
+};
+
+export const getUser = async () => {
+    try {
+        const res = await api.get('/user/me/');
+        localStorage.setItem('user_data', JSON.stringify(res.data));
+        return { success: true, user: res.data };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// ==================== PEDIDOS ====================
+export const getPedidos = async (filters = {}) => {
+    try {
+        const params = new URLSearchParams();
+        if (filters.estado) params.append('estado', filters.estado);
+        if (filters.tipo) params.append('tipo', filters.tipo);
+        if (filters.busca) params.append('busca', filters.busca);
+        const url = `/pedidos/${params.toString() ? `?${params}` : ''}`;
+        const res = await api.get(url);
+        return { success: true, pedidos: res.data.pedidos || [], total: res.data.total || 0 };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const criarPedido = async (dados) => {
+    try {
+        const res = await api.post('/pedidos/criar/', dados);
+        return { success: true, pedido_id: res.data.pedido_id };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || error.message };
+    }
+};
+
+export const aprovarPedido = async (id, dados = {}) => {
+    try {
+        const res = await api.post(`/pedidos/${id}/aprovar/`, dados);
+        return { success: true, message: res.data.message };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || error.message };
+    }
+};
+
+export const rejeitarPedido = async (id, comentario) => {
+    try {
+        const res = await api.post(`/pedidos/${id}/rejeitar/`, { comentario });
+        return { success: true, message: res.data.message };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || error.message };
+    }
+};
+
+// ==================== DASHBOARD ====================
+export const getDashboard = async () => {
+    try {
+        const res = await api.get('/dashboard/');
+        return { success: true, stats: res.data };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// ==================== NOTIFICAÇÕES ====================
+export const getNotificacoes = async () => {
+    try {
+        const res = await api.get('/notificacoes/');
+        return { success: true, notificacoes: res.data.notificacoes || [], nao_lidas: res.data.nao_lidas || 0 };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const marcarLida = async (id) => {
+    try {
+        await api.post(`/notificacoes/${id}/ler/`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// ==================== COLETIVAS ====================
+export const getMinhasColetivas = async () => {
+    try {
+        const res = await api.get('/coletivas/minhas/');
+        return { success: true, coletivas: res.data.coletivas || [] };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+export const aceitarColetiva = async (id) => {
+    try {
+        const res = await api.post(`/coletivas/${id}/aceitar/`);
+        return { success: true, message: res.data.message };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || error.message };
+    }
+};
+
+export const recusarColetiva = async (id) => {
+    try {
+        const res = await api.post(`/coletivas/${id}/recusar/`);
+        return { success: true, message: res.data.message };
+    } catch (error) {
+        return { success: false, error: error.response?.data?.error || error.message };
+    }
+};
+
+// ==================== EXPORTAÇÃO PADRÃO ====================
+export default api;
