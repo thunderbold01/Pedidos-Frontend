@@ -4,7 +4,7 @@ import axios from 'axios';
 // ==================== CONFIGURAÇÃO ====================
 const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
 const LOCAL_API_URL = 'http://localhost:8000/api';
-const PROD_API_URL = 'https://pedidos-backend-eljk.onrender.com/api'; // USE A URL CORRETA
+const PROD_API_URL = 'https://pedidos-backend-fium.onrender.com/api'; // USE A URL CORRETA
 const API_URL = isDevelopment ? LOCAL_API_URL : PROD_API_URL;
 
 console.log(`🔧 API: ${API_URL} (${isDevelopment ? 'dev' : 'prod'})`);
